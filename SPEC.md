@@ -279,11 +279,11 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - suivi pré-rempli avec des candidatures fictives ;
   - lecture seule côté serveur : aucun appel au LLM déclenché par un visiteur (le scoring de la persona est calculé par le cron), les clics marchent dans la session sans être enregistrés, ajout par URL et import désactivés avec une explication ;
   - bandeau discret : « Démo avec un profil fictif · Données d'offres réelles ».
-- **La démo raconte le projet, elle ne se contente pas de montrer des écrans.** Un visiteur doit comprendre en une minute le problème, ce que Scout fait de différent, et pourquoi ce n'est pas « un WTTJ refait » :
-  - le problème : des offres éparpillées sur des dizaines de sites, des entreprises qu'on ne connaît pas, des journées à fouiller, des plateformes oppressantes ;
-  - le parcours d'une offre, montré pas à pas : collectée sur la page carrière d'une entreprise → passée par les portes (zone, contrat, séniorité, expérience) → lue par l'IA, qui juge le poste réel et explique son choix → classée Coup de cœur, Solide ou Tremplin, ou écartée avec sa raison ;
-  - les différences avec une plateforme d'offres : Scout part du profil de la personne et non d'une recherche par mots-clés, dit pourquoi chaque offre est proposée ou écartée, centralise aussi les offres trouvées ailleurs, et vise le calme plutôt que l'engagement ;
-  - quelques chiffres réels et agrégés (offres lues, entreprises surveillées, offres écartées par les portes), sans aucune donnée personnelle.
+- **Pas de page d'explication dans le site** : le projet est expliqué dans le portfolio de l'auteur. C'est l'UX elle-même qui doit rendre évident, pour un utilisateur comme pour un recruteur, comment Scout fonctionne et ce qu'il permet de faire qu'on ne peut pas faire ailleurs :
+  - chaque offre montre d'où elle vient, pourquoi elle est proposée et à quel niveau ;
+  - les offres écartées restent consultables avec la règle qui les a écartées ;
+  - le profil compris par Scout est visible et modifiable ;
+  - le suivi rassemble aussi les offres trouvées ailleurs.
 - Métriques affichables : offres collectées, sources couvertes, entreprises surveillées, taux de rappel mesuré via l'outil « offre ratée ».
 
 ## Ordre de réalisation
