@@ -4,7 +4,8 @@ import type { Contract } from "@/lib/domain/criteria";
 import type { NormalizedOffer } from "@/lib/domain/offer";
 
 // Official France Travail API (Offres d'emploi v2). Optional: skipped without credentials.
-const TOKEN_URL = "https://francetravail.io/connexion/oauth2/access_token?realm=%2Fpartenaire";
+// The token is issued by entreprise.francetravail.fr; francetravail.io only serves the portal.
+const TOKEN_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire";
 const SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search";
 const PAGE = 150; // API maximum per request
 const MAX_PER_QUERY = 450;
