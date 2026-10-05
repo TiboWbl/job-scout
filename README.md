@@ -1,64 +1,86 @@
-# Job Scout
+# Scout
 
-Une plateforme de recherche d'emploi personnalisée : les offres qui correspondent à tes critères, agrégées depuis des sources réelles et légales, classées par pertinence.
+Toute sa recherche d'emploi dans un seul onglet : les offres qui correspondent vraiment, expliquées, et le suivi des candidatures. Calme, transparent, multi-utilisateurs.
 
-## Stack
+La spécification complète est dans [SPEC.md](SPEC.md). Les maquettes de la direction visuelle retenue sont dans [design/mockups](design/mockups/index.html).
 
-Next.js (App Router) + TypeScript + Tailwind CSS v4.
+## Ce que fait la version actuelle
 
-## Sources de données
+- **Connexion Google** et profil privé (row-level security Postgres).
+- **Onboarding en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables en puces (métier, variantes d'intitulés FR/EN, passerelles, secteurs, zone, contrats, expérience).
+- **Collecte légale** : API publiques des pages carrière (Greenhouse, Lever, Ashby), France Travail et Adzuna en option. Pas de filtre sur l'intitulé à la collecte, dédoublonnage entre sources, archivage des offres retirées.
+- **Tri en deux temps** :
+  1. des **portes** déterministes : zone, contrat, séniorité relative à l'expérience, écart d'expérience. Une offre qui en viole une est écartée ou mise à part, jamais compensée par le reste ;
+  2. un **LLM** qui lit la description complète, d'abord le profil recherché, et juge le poste réel. Il attribue un niveau (Coup de cœur, Solide, Tremplin, Écartée), un « pourquoi », des points forts et d'attention.
+- **Fil d'offres** avec panneau de détail, raisons « Pas pour moi », vue des offres écartées avec leur raison, et le flux Postuler → « Tu as postulé ? » → **Suivi** (kanban).
 
-Seules des sources **officielles et légales** sont utilisées : aucun scraping de LinkedIn, Welcome to the Jungle, Indeed ou Apec (contraire à leurs conditions d'utilisation).
+## Architecture
 
-- **Pages carrière d'entreprises** (`src/lib/sources/company-boards.ts`) — active par défaut, sans clé. Beaucoup d'entreprises publient leurs offres via Greenhouse, Lever ou Ashby, qui exposent une API JSON publique (celle que leur propre widget "carrière" appelle). Une vingtaine d'entreprises sont suivies par défaut ; la liste s'étend facilement en ajoutant leur token.
-- **[France Travail](https://francetravail.io)** — l'API officielle du service public de l'emploi, optionnelle.
-- **[Adzuna](https://developer.adzuna.com)** — agrégateur légal avec API publique, optionnelle.
-
-Sans les clés France Travail/Adzuna, l'app affiche déjà de vraies offres (via les pages carrière). Pour étendre la couverture :
-
-### 1. France Travail (5 min, gratuit)
-
-1. Crée un compte sur [francetravail.io](https://francetravail.io)
-2. Dans ton espace, crée une nouvelle application (ex. "Job Scout")
-3. Abonne l'application à l'API **"Offres d'emploi v2"** depuis le catalogue
-4. Récupère l'**Identifiant client** et la **Clé secrète** affichés sur la page de l'application
-
-### 2. Adzuna (2 min, gratuit)
-
-1. Inscris-toi sur [developer.adzuna.com](https://developer.adzuna.com)
-2. Ton **App ID** et ta **App Key** s'affichent directement sur le tableau de bord
-
-### 3. Configurer l'app
-
-```bash
-cp .env.local.example .env.local
-# puis colle tes 4 clés dans .env.local
+```
+GitHub Actions / bouton admin ──► collecte (TypeScript) ──► Supabase Postgres ◄── Next.js sur Vercel
+   Greenhouse · Lever · Ashby          normalisation              offres, entreprises (partagées)
+   France Travail · Adzuna             dédoublonnage              profils, scores, suivi (privés, RLS)
+                                       couleur des logos
+                                                     scoring à la demande (portes → Mistral par lots)
 ```
 
-Redémarre `npm run dev` — les offres apparaissent au prochain chargement de `/`.
+| Dossier | Rôle |
+|---|---|
+| `src/lib/collect` | Connecteurs, normalisation, dédoublonnage, orchestration de la collecte |
+| `src/lib/domain` | Modèle : critères (zod), géographie, signaux (contrat, expérience, séniorité) |
+| `src/lib/scoring` | Portes du préfiltre, pré-tri lexical, jugement LLM, moteur par budget de temps |
+| `src/lib/llm` | Abstraction du fournisseur (Mistral ou repli déterministe), file à 1 requête/s |
+| `src/lib/privacy` | Retrait des données personnelles du CV avant tout appel au LLM |
+| `src/lib/design` | Couleur d'accent des entreprises et contrôle de contraste WCAG AA |
+| `supabase/migrations` | Schéma et politiques row-level security |
 
-## Offres retirées
+Choix notables :
+- **Gratuit à 100 %** : Vercel Hobby, Supabase Free, Mistral (plan gratuit), logo.dev (plan gratuit).
+- **Scoring en tranches de 45 s** : chaque appel tient dans la limite d'une fonction Vercel Hobby, et l'interface relance jusqu'à ce que tout soit évalué.
+- **Une seule couleur stockée** par entreprise (le code hex extrait du logo), jamais une copie du logo.
+- **Logs de collecte agrégés par source**, sans aucune donnée d'utilisateur (le repo et ses logs CI sont publics).
 
-Les offres enregistrées sont revérifiées périodiquement (toutes les 6h au chargement de `/enregistrees`). Pour les offres France Travail, l'API permet de savoir si une offre a été dépubliée — elle apparaît alors grisée avec la mention "Offre retirée". Adzuna n'expose pas d'équivalent dans son API publique, donc ce suivi ne s'applique qu'aux offres France Travail pour l'instant.
-
-## État actuel
-
-Tout est stocké en local (`localStorage`), propre à chaque navigateur — pas encore de compte ni de backend partagé entre utilisateurs. Le texte de CV collé/importé dans l'outil d'analyse ne quitte jamais le navigateur non plus (aucun appel serveur).
-
-## Pages
-
-- **Nouvelles offres** (`/`) — le flux principal, trié par score de correspondance avec les critères.
-- **Offres enregistrées** (`/enregistrees`) — les offres mises de côté, avec statut "retirée" si applicable.
-- **Suivi** (`/suivi`) — tableau par étape (intéressé → candidature envoyée → entretien → offre/refus) pour noter où en est chaque candidature, avec notes libres. Alimenté depuis le détail d'une offre ou ajouté manuellement (utile pour une offre trouvée sur LinkedIn, WTTJ, etc.).
-- **Analyse CV** (`/cv`) — colle ton CV ou importe un PDF, obtiens un score façon ATS avec des retours concrets (sections, mots-clés alignés avec tes critères, réalisations chiffrées…). 100% local, aucune IA externe, aucun envoi réseau.
-- **Critères de recherche** (`/criteres`) — poste, missions recherchées, domaine, localisation, contrat, salaire, taille d'entreprise, sources à suivre, mots-clés à exclure, et priorités.
-- **Paramètres** (`/parametres`) — apparence (clair/sombre/système) et réinitialisation des données locales.
-
-## Démarrer
+## Installation
 
 ```bash
 npm install
+cp .env.local.example .env.local   # puis remplir, voir ci-dessous
+npm run db:migrate                 # crée le schéma dans Supabase
 npm run dev
 ```
 
-Ouvrir [http://localhost:3000](http://localhost:3000).
+**Supabase**
+- Crée un projet (région Paris).
+- Récupère l'URL, la clé publique et la clé secrète dans *Project Settings → API Keys*.
+- Récupère l'URI du *Session pooler* pour `SUPABASE_DB_URL`. Elle sert uniquement en local, pour les migrations.
+- Dans *Authentication → URL Configuration*, ajoute `http://localhost:3000/**` et l'URL Vercel aux Redirect URLs.
+
+**Google OAuth**
+- Dans Google Cloud Console, crée un client « Web application ».
+- Origine : `http://localhost:3000`, plus l'URL Vercel.
+- Redirect URI : `https://<ref-projet>.supabase.co/auth/v1/callback`.
+- Colle l'ID et le secret dans Supabase, sous *Authentication → Providers → Google*.
+
+**Mistral**
+- Clé API du plan gratuit.
+- Désactive « Anonymous improvement data » dans *Admin → Privacy*.
+- Sans clé, `LLM_PROVIDER=mock` donne une évaluation automatique simplifiée.
+
+**Admin**
+- `ADMIN_EMAIL` = ton adresse Google.
+- Elle donne accès à la page Admin : collecte manuelle et santé des sources.
+
+## Scripts
+
+| Commande | Effet |
+|---|---|
+| `npm run collect` | Une passe de collecte complète (comptes agrégés en sortie) |
+| `npm run dry-run` | Collecte réelle + portes du préfiltre en mémoire, sans base, pour contrôler la qualité |
+| `npm test` | Tests unitaires et portes des 11 cas de non-régression |
+| `npm run test:llm` | Les 11 cas complets, prompt inclus (nécessite `MISTRAL_API_KEY`) |
+
+## Confidentialité
+
+- **Le CV n'est pas conservé.** Avant toute analyse, son texte est débarrassé du nom, de l'email, du téléphone, des liens et de l'adresse. Seules les compétences et l'expérience extraites sont stockées.
+- **Les données privées sont isolées par la base elle-même** (row-level security) : profil, scores, actions et suivi.
+- **Les clés** sont uniquement en variables d'environnement. L'historique git est vérifié avec gitleaks.

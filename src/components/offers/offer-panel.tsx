@@ -48,14 +48,18 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    createClient()
-      .from("offers")
-      .select("description")
-      .eq("id", offer.id)
-      .single()
-      .then(({ data }) => {
-        if (!cancelled) setDescription(data?.description ?? "");
-      });
+    const done = (text: string) => !cancelled && setDescription(text);
+    try {
+      createClient()
+        .from("offers")
+        .select("description")
+        .eq("id", offer.id)
+        .single()
+        .then(({ data }) => done(data?.description ?? ""), () => done(""));
+    } catch {
+      // Falls back to the link to the original posting.
+      queueMicrotask(() => done(""));
+    }
     return () => {
       cancelled = true;
     };
@@ -72,7 +76,7 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
   const facts = [
     ["Lieu", placeLabel(offer.places, offer.location_raw)],
     ["Télétravail", REMOTE_LABELS[offer.remote]],
-    ["Contrat", CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé"],
+    ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
     ["Expérience", offer.experience_min_years === null ? "Non précisée" : offer.experience_min_years === 0 ? "Débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`],
     ["Publiée", freshness(seenAt)],
   ];

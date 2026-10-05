@@ -28,7 +28,10 @@ function phraseScore(phrase: string, titleTokens: Set<string>, text: string): { 
   const ptoks = distinctive.length > 0 ? distinctive : all;
   const inTitle = ptoks.filter((t) => titleTokens.has(t)).length / ptoks.length;
   const body = text.includes(all.join(" ")) ? 1 : 0;
-  return { title: inTitle >= 0.99 ? 1 : inTitle >= 0.5 ? 0.5 : 0, body };
+  // "Product" alone in "FP&A Business Partner – Tech & Product" is weaker than the full "Product Manager".
+  const genericMissing = all.some((t) => GENERIC.has(t) && !titleTokens.has(t));
+  const full = genericMissing ? 0.75 : 1;
+  return { title: inTitle >= 0.99 ? full : inTitle >= 0.5 ? 0.5 : 0, body };
 }
 
 export function relevance(title: string, description: string, criteria: Criteria): number {
