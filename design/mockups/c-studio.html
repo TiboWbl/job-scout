@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scout · Direction C · Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCF7; --ink: #17151F; --muted: #5F5B6B; --soft: #8F8A9C; --line: #EEE8DD;
+    --lilac: #ECE6FF; --lilac-ink: #4B3BB5;
+    --mint: #DDF3E7; --mint-ink: #1F6B47;
+    --peach: #FFE5D6; --peach-ink: #A2471A;
+    --sun: #FFF1C2; --sun-ink: #7A5A00;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #EFE9DF; font-family: "Manrope", sans-serif; color: var(--ink); padding: 40px 0 80px; }
+  .frame-label { width: 1280px; margin: 0 auto 12px; font-size: 13px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .frame { width: 1280px; margin: 0 auto 56px; background: var(--bg); border-radius: 18px; overflow: hidden; display: grid; grid-template-columns: 220px minmax(0, 1fr); padding: 16px; gap: 16px; box-shadow: 0 30px 80px -40px rgba(23,21,31,.35); }
+
+  .rail { background: var(--ink); color: #fff; border-radius: 24px; padding: 22px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .brand { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 26px; padding: 0 10px 20px; letter-spacing: -.02em; }
+  .brand span { color: #B9A8FF; }
+  .rail a { font-size: 15px; font-weight: 600; padding: 10px 14px; border-radius: 14px; color: #CFCBD9; }
+  .rail a.on { background: #fff; color: var(--ink); }
+  .rail .k { margin-top: auto; font-size: 13px; color: #8F8A9C; padding: 10px 14px; border: 1px dashed #3A3646; border-radius: 14px; }
+
+  .main { padding: 18px 20px 28px; }
+  .hello { display: flex; align-items: flex-end; justify-content: space-between; }
+  h1 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 58px; letter-spacing: -.035em; line-height: .95; }
+  .date { font-size: 15px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .stickers { display: flex; gap: 10px; margin-top: 18px; }
+  .sticker { font-weight: 700; font-size: 15px; padding: 10px 16px; border-radius: 16px; }
+  .sticker.l { background: var(--lilac); color: var(--lilac-ink); transform: rotate(-1.5deg); }
+  .sticker.m { background: var(--mint); color: var(--mint-ink); transform: rotate(1deg); }
+  .sticker.p { background: var(--peach); color: var(--peach-ink); transform: rotate(-.5deg); }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; margin-top: 28px; }
+  h2 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -.02em; margin-bottom: 14px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { border-radius: 26px; padding: 14px; display: flex; flex-direction: column; }
+  .card .visual { height: 160px; border-radius: 18px; position: relative; }
+  .card .badge { position: absolute; top: 12px; left: 12px; }
+  .badge { font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: 10px; background: #fff; display: inline-flex; gap: 6px; align-items: center; }
+  .badge.coeur { color: var(--peach-ink); } .badge.solide { color: var(--lilac-ink); } .badge.tremplin { color: var(--mint-ink); }
+  .card .body { padding: 14px 6px 4px; }
+  .co { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
+  .logo { width: 34px; height: 34px; border-radius: 10px; background: #fff; object-fit: contain; padding: 4px; }
+  .logo-fallback { display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 800; padding: 0; }
+  .card h3 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -.02em; line-height: 1.1; margin-top: 10px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tags span { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.75); color: var(--muted); }
+  .why { font-size: 14px; line-height: 1.5; margin-top: 12px; color: var(--ink); }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+  .btn { font: 700 13px "Manrope"; padding: 9px 14px; border-radius: 12px; border: 0; background: rgba(255,255,255,.8); color: var(--ink); white-space: nowrap; }
+  .btn.go { background: var(--ink); color: #fff; }
+  .acts .fresh { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+
+  .block { border-radius: 24px; padding: 18px; margin-bottom: 14px; }
+  .block h3 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 12px; }
+  .block.l { background: var(--lilac); } .block.m { background: var(--mint); } .block.p { background: var(--peach); }
+  .fu { display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,.7); border-radius: 16px; padding: 10px; margin-top: 8px; }
+  .fu b { font-size: 14px; display: block; } .fu small { font-size: 12px; color: var(--muted); }
+  .fu .btn { margin-left: auto; background: var(--lilac-ink); color: #fff; }
+  .big { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 36px; letter-spacing: -.03em; color: var(--mint-ink); line-height: 1; }
+  .block.m p { font-size: 14px; color: var(--mint-ink); margin-top: 6px; font-weight: 600; }
+  .nums { display: flex; gap: 16px; }
+  .nums b { font-family: "Bricolage Grotesque", sans-serif; font-size: 34px; font-weight: 800; color: var(--peach-ink); display: block; line-height: 1; }
+  .nums span { font-size: 13px; font-weight: 600; color: var(--peach-ink); }
+  .block.p p { font-size: 13px; margin-top: 12px; color: var(--peach-ink); }
+
+  .bar { display: flex; gap: 8px; margin: 18px 0 22px; flex-wrap: wrap; }
+  .f { font-weight: 700; font-size: 14px; padding: 9px 15px; border-radius: 14px; background: #F4EFE6; color: var(--muted); }
+  .f.on { background: var(--ink); color: #fff; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .footnote { text-align: center; font-size: 12px; color: var(--muted); margin-top: -32px; }
+</style>
+</head>
+<body>
+
+<p class="frame-label">Direction C · Studio · Écran « Aujourd'hui »</p>
+<div class="frame" id="today"></div>
+
+<p class="frame-label">Direction C · Studio · Écran « Offres »</p>
+<div class="frame" id="offers"></div>
+
+<p class="footnote">Maquette statique. Entreprises réelles, offres fictives.</p>
+
+<script src="data.js"></script>
+<script>
+  const rail = (active) => `
+    <aside class="rail">
+      <div class="brand">Scout<span>.</span></div>
+      ${NAV.map((n) => `<a class="${n === active ? "on" : ""}">${n}</a>`).join("")}
+      <div class="k">⌘K pour tout chercher</div>
+    </aside>`;
+
+  const card = (o) => `
+    <article class="card" style="background:${o.color}1c">
+      <div class="visual" style="${visualStyle(o)}"><span class="badge ${o.level}">${LEVELS[o.level].label}</span></div>
+      <div class="body">
+        <div class="co">${logoImg(o, "logo")}${o.company}</div>
+        <h3>${o.title}</h3>
+        <div class="tags"><span>${o.location}</span><span>${o.remote}</span><span>${o.contract}</span></div>
+        <p class="why">${o.why}</p>
+        <div class="acts"><button class="btn go">Postuler</button><button class="btn">Sauvegarder</button><button class="btn">Pas pour moi</button><span class="fresh">${o.freshness}</span></div>
+      </div>
+    </article>`;
+
+  document.getElementById("today").innerHTML = `
+    ${rail("Aujourd'hui")}
+    <main class="main">
+      <p class="date">${TODAY.date}</p>
+      <h1>Salut ${TODAY.firstName} !</h1>
+      <div class="stickers">
+        <span class="sticker l">4 offres pour toi</span>
+        <span class="sticker m">1 entretien jeudi</span>
+        <span class="sticker p">2 relances</span>
+      </div>
+      <div class="layout">
+        <div>
+          <h2>Ta sélection du jour</h2>
+          <div class="cards">${OFFERS.slice(0, 4).map(card).join("")}</div>
+        </div>
+        <aside>
+          <div class="block l">
+            <h3>Relances à faire</h3>
+            ${TODAY.followUps.map((f) => `<div class="fu">${logoImg(f, "logo")}<div><b>${f.company}</b><small>${f.since.replace("Candidature envoyée ", "")}</small></div><button class="btn">Relancer</button></div>`).join("")}
+          </div>
+          <div class="block m">
+            <h3>Prochain entretien</h3>
+            <div class="big">${TODAY.interviews[0].when}</div>
+            <p>${TODAY.interviews[0].time} · ${TODAY.interviews[0].company} · ${TODAY.interviews[0].title}</p>
+          </div>
+          <div class="block p">
+            <h3>Ta semaine</h3>
+            <div class="nums"><div><b>${TODAY.week.applied}</b><span>envoyées</span></div><div><b>${TODAY.week.interviews}</b><span>entretien</span></div><div><b>${TODAY.week.saved}</b><span>gardées</span></div></div>
+            <p>Tu avances bien. Continue à ce rythme.</p>
+          </div>
+        </aside>
+      </div>
+    </main>`;
+
+  document.getElementById("offers").innerHTML = `
+    ${rail("Offres")}
+    <main class="main">
+      <h1>Offres</h1>
+      <div class="bar">
+        <span class="f on">Toutes</span><span class="f">Coups de cœur</span><span class="f">Solides</span><span class="f">Tremplins</span><span class="f">Moins de 48 h</span><span class="f">CDI</span><span class="f">Hybride</span>
+      </div>
+      <div class="grid3">${OFFERS.slice(0, 6).map(card).join("")}</div>
+    </main>`;
+</script>
+</body>
+</html>

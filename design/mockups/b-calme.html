@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scout · Direction B · Calme</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F5F7; --card: #FFFFFF; --ink: #1D1D1F; --muted: #6E6E73; --soft: #8E8E93;
+    --line: #E8E8ED; --accent: #0071E3;
+    --coeur: #F08A24; --solide: #0071E3; --tremplin: #14A39A;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #DADADF; font-family: "Inter Tight", -apple-system, sans-serif; color: var(--ink); padding: 40px 0 80px; -webkit-font-smoothing: antialiased; }
+  .frame-label { width: 1280px; margin: 0 auto 12px; font-size: 13px; color: #55555b; letter-spacing: .04em; text-transform: uppercase; }
+  .frame { width: 1280px; height: 860px; margin: 0 auto 56px; background: var(--bg); border-radius: 18px; overflow: hidden; display: grid; grid-template-columns: 232px 1fr; box-shadow: 0 30px 80px -40px rgba(0,0,0,.4); }
+  .frame.with-panel { grid-template-columns: 232px 1fr 420px; }
+
+  .sidebar { background: rgba(255,255,255,.7); border-right: 1px solid var(--line); padding: 22px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 22px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; }
+  .brand i { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #0071E3, #5AC8FA); display: block; }
+  .search { margin: 0 6px 16px; border-radius: 10px; background: #EDEDF0; padding: 9px 12px; font-size: 14px; color: var(--soft); display: flex; justify-content: space-between; }
+  .sidebar a { font-size: 15px; padding: 9px 12px; border-radius: 10px; color: var(--ink); font-weight: 500; }
+  .sidebar a.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.06); color: var(--accent); }
+  .sidebar .foot { margin-top: auto; padding: 12px; display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .sidebar .foot b { width: 30px; height: 30px; border-radius: 50%; background: #1D1D1F; color: #fff; display: grid; place-items: center; font-size: 13px; }
+
+  .main { padding: 36px 44px; overflow: hidden; }
+  .date { font-size: 14px; color: var(--soft); font-weight: 500; }
+  h1 { font-size: 46px; font-weight: 700; letter-spacing: -.035em; margin-top: 4px; }
+  .lede { font-size: 18px; color: var(--muted); margin-top: 8px; letter-spacing: -.01em; }
+
+  .widgets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+  .widget { background: var(--card); border-radius: 22px; padding: 20px 22px; }
+  .widget small { font-size: 13px; color: var(--soft); font-weight: 500; }
+  .widget .big { font-size: 34px; font-weight: 700; letter-spacing: -.03em; margin-top: 6px; }
+  .widget p { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .widget.dark { background: #1D1D1F; color: #fff; }
+  .widget.dark p, .widget.dark small { color: #A1A1A6; }
+
+  h2 { font-size: 24px; font-weight: 700; letter-spacing: -.025em; margin: 34px 0 16px; display: flex; justify-content: space-between; align-items: baseline; }
+  h2 a { font-size: 15px; font-weight: 500; color: var(--accent); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .tile { height: 300px; border-radius: 22px; position: relative; overflow: hidden; color: #fff; }
+  .tile .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.78) 100%); }
+  .tile .content { position: absolute; left: 18px; right: 18px; bottom: 18px; }
+  .tile .logo { width: 36px; height: 36px; border-radius: 10px; background: #fff; object-fit: contain; padding: 4px; }
+  .logo-fallback { display: grid; place-items: center; background: #fff; color: #1D1D1F; font-weight: 700; padding: 0; }
+  .tile h3 { font-size: 18px; font-weight: 600; letter-spacing: -.015em; line-height: 1.2; margin-top: 10px; }
+  .tile small { font-size: 13px; opacity: .85; }
+  .tile .lvl { position: absolute; top: 14px; left: 14px; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.88); color: var(--ink); backdrop-filter: blur(10px); display: flex; gap: 6px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot.coeur { background: var(--coeur); } .dot.solide { background: var(--solide); } .dot.tremplin { background: var(--tremplin); }
+
+  .todo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .todo-row { background: var(--card); border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .todo-row .logo { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); object-fit: contain; padding: 4px; background: #fff; }
+  .todo-row b { font-size: 15px; display: block; } .todo-row small { font-size: 13px; color: var(--soft); }
+  .pill { margin-left: auto; font: 600 13px "Inter Tight"; padding: 8px 14px; border-radius: 999px; background: #EDEDF0; color: var(--ink); border: 0; }
+  .pill.blue { background: var(--accent); color: #fff; }
+
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 22px; }
+  .seg span, .chip { white-space: nowrap; }
+  .seg { display: inline-flex; background: #E8E8ED; border-radius: 10px; padding: 3px; }
+  .seg span { font-size: 14px; padding: 6px 14px; border-radius: 8px; color: var(--muted); font-weight: 500; }
+  .seg span.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .chip { font-size: 14px; padding: 7px 13px; border-radius: 999px; background: #fff; color: var(--muted); font-weight: 500; }
+  .list { margin-top: 20px; background: var(--card); border-radius: 22px; overflow: hidden; }
+  .rowi { display: grid; grid-template-columns: 112px 1fr auto; gap: 18px; align-items: center; padding: 16px 18px; border-top: 1px solid var(--line); }
+  .rowi:first-child { border-top: 0; }
+  .rowi.sel { background: #F2F7FD; }
+  .thumb { width: 112px; height: 80px; border-radius: 14px; }
+  .rowi .co { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--soft); font-weight: 500; }
+  .rowi .co .logo { width: 20px; height: 20px; border-radius: 5px; object-fit: contain; }
+  .rowi .co .logo-fallback { background: #1D1D1F; color: #fff; font-size: 11px; }
+  .rowi h3 { font-size: 17px; font-weight: 600; letter-spacing: -.015em; margin-top: 3px; }
+  .rowi p { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .rowi .right { text-align: right; font-size: 13px; color: var(--soft); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .lv { display: flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 600; color: var(--ink); }
+
+  .panel { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+  .panel .hero { height: 190px; position: relative; }
+  .panel .hero .logo { position: absolute; left: 24px; bottom: -26px; width: 56px; height: 56px; border-radius: 14px; background: #fff; border: 1px solid var(--line); object-fit: contain; padding: 6px; }
+  .panel .inner { padding: 40px 24px 0; flex: 1; overflow: hidden; }
+  .panel h3 { font-size: 24px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; margin-top: 6px; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .facts div { background: var(--bg); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 500; }
+  .facts small { display: block; font-size: 11px; color: var(--soft); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .reason { margin-top: 18px; border-radius: 14px; background: #FFF6EC; padding: 14px; font-size: 14px; line-height: 1.5; }
+  .reason b { display: block; font-size: 13px; color: #B35F0E; margin-bottom: 4px; }
+  .panel h4 { font-size: 15px; margin-top: 20px; }
+  .panel ul { margin-top: 8px; padding-left: 18px; font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .panel .bar { display: flex; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--line); }
+  .panel .bar .pill { margin: 0; }
+  .panel .bar .pill.blue { flex: 1; text-align: center; }
+  .footnote { text-align: center; font-size: 12px; color: #55555b; margin-top: -32px; }
+</style>
+</head>
+<body>
+
+<p class="frame-label">Direction B · Calme · Écran « Aujourd'hui »</p>
+<div class="frame" id="today"></div>
+
+<p class="frame-label">Direction B · Calme · Écran « Offres » avec le panneau latéral ouvert</p>
+<div class="frame with-panel" id="offers"></div>
+
+<p class="footnote">Maquette statique. Entreprises réelles, offres fictives.</p>
+
+<script src="data.js"></script>
+<script>
+  const sidebar = (active) => `
+    <aside class="sidebar">
+      <div class="brand"><i></i>Scout</div>
+      <div class="search"><span>Rechercher</span><span>⌘K</span></div>
+      ${NAV.map((n) => `<a class="${n === active ? "on" : ""}">${n}</a>`).join("")}
+      <div class="foot"><b>C</b>Camille</div>
+    </aside>`;
+
+  const level = (o) => `<span class="lv"><span class="dot ${o.level}"></span>${LEVELS[o.level].label}</span>`;
+
+  document.getElementById("today").innerHTML = `
+    ${sidebar("Aujourd'hui")}
+    <main class="main">
+      <p class="date">${TODAY.date}</p>
+      <h1>Bonjour ${TODAY.firstName}.</h1>
+      <p class="lede">Voici ce qui compte aujourd'hui, rien de plus.</p>
+
+      <div class="widgets">
+        <div class="widget"><small>Sélection du jour</small><div class="big">4 offres</div><p>dont 2 publiées depuis moins de 48 h</p></div>
+        <div class="widget"><small>À faire</small><div class="big">2 relances</div><p>Doctolib et Lydia, sans réponse depuis une semaine</p></div>
+        <div class="widget dark"><small>Prochain entretien</small><div class="big">${TODAY.interviews[0].when}</div><p>${TODAY.interviews[0].time} · ${TODAY.interviews[0].company} · ${TODAY.interviews[0].title}</p></div>
+      </div>
+
+      <h2>Ta sélection du jour <a>Tout voir</a></h2>
+      <div class="tiles">
+        ${OFFERS.slice(0, 4).map((o) => `
+          <article class="tile" style="${visualStyle(o)}">
+            <div class="shade"></div>
+            <span class="lvl"><span class="dot ${o.level}"></span>${LEVELS[o.level].label}</span>
+            <div class="content">
+              ${logoImg(o, "logo")}
+              <h3>${o.title}</h3>
+              <small>${o.company} · ${o.location} · ${o.remote}</small>
+            </div>
+          </article>`).join("")}
+      </div>
+
+      <h2>Relances</h2>
+      <div class="todo">
+        ${TODAY.followUps.map((f) => `
+          <div class="todo-row">${logoImg(f, "logo")}<div><b>${f.company} · ${f.title}</b><small>${f.since}</small></div><button class="pill">Relancer</button></div>`).join("")}
+      </div>
+    </main>`;
+
+  const sel = OFFERS[1];
+  document.getElementById("offers").innerHTML = `
+    ${sidebar("Offres")}
+    <main class="main">
+      <h1>Offres</h1>
+      <p class="lede">8 offres pour toi cette semaine, classées par niveau.</p>
+      <div class="filters">
+        <div class="seg"><span class="on">Toutes</span><span>Coups de cœur</span><span>Solides</span><span>Tremplins</span></div>
+        <span class="chip">Moins de 48 h</span><span class="chip">CDI</span><span class="chip">Hybride</span>
+      </div>
+      <div class="list">
+        ${OFFERS.slice(0, 6).map((o) => `
+          <div class="rowi ${o === sel ? "sel" : ""}">
+            <div class="thumb" style="${visualStyle(o)}"></div>
+            <div>
+              <div class="co">${logoImg(o, "logo")}${o.company} · ${o.location} · ${o.remote} · ${o.contract}</div>
+              <h3>${o.title}</h3>
+              <p>${o.why}</p>
+            </div>
+            <div class="right">${level(o)}<span>${o.freshness}</span></div>
+          </div>`).join("")}
+      </div>
+    </main>
+    <aside class="panel">
+      <div class="hero" style="${visualStyle(sel)}">${logoImg(sel, "logo")}</div>
+      <div class="inner">
+        ${level(sel)}
+        <h3>${sel.title}</h3>
+        <p style="color:var(--muted);font-size:15px;margin-top:4px">${sel.company}</p>
+        <div class="facts">
+          <div><small>Lieu</small>${sel.location}</div>
+          <div><small>Télétravail</small>${sel.remote}</div>
+          <div><small>Contrat</small>${sel.contract}</div>
+          <div><small>Expérience</small>0 à 2 ans</div>
+        </div>
+        <div class="reason"><b>Pourquoi cette offre</b>${sel.why} Ton alternance en product coche la plupart des points du profil recherché.</div>
+        <h4>Profil recherché</h4>
+        <ul><li>Première expérience produit (stage ou alternance)</li><li>À l'aise avec la data et les interviews utilisateurs</li><li>Anglais courant</li></ul>
+      </div>
+      <div class="bar"><button class="pill">Sauvegarder</button><button class="pill">Pas pour moi</button><button class="pill blue">Postuler</button></div>
+    </aside>`;
+</script>
+</body>
+</html>

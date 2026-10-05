@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scout · Direction C · Pleine densité</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #E9E6E1; font-family: "Inter", sans-serif; padding: 40px 0 80px; color: #17151F; }
+  .label { width: 1440px; margin: 0 auto 12px; font-size: 13px; color: #5C5768; letter-spacing: .04em; text-transform: uppercase; }
+
+  .frame {
+    --page: #FBFAF8; --rail: #17151F; --rail-ink: #CFCBD9; --ink: #17151F; --muted: #544F60;
+    --pill: rgba(255,255,255,.75); --line: rgba(23,21,31,.08); --button: #17151F; --button-ink: #FFFFFF; --surface: #FFFFFF;
+    width: 1440px; margin: 0 auto 56px; background: var(--page); color: var(--ink);
+    border-radius: 18px; overflow: hidden; display: grid; grid-template-columns: 220px minmax(0, 1fr);
+    padding: 16px; gap: 16px; box-shadow: 0 30px 80px -40px rgba(23,21,31,.35);
+  }
+  .frame.dark {
+    --page: #100F14; --rail: #1B1922; --rail-ink: #A9A4B6; --ink: #F4F2F7; --muted: #B9B4C6;
+    --pill: rgba(255,255,255,.07); --line: rgba(255,255,255,.08); --button: #F4F2F7; --button-ink: #17151F; --surface: #17161D;
+  }
+  .frame.with-panel { grid-template-columns: 220px minmax(0, 1fr) 480px; align-items: start; }
+
+  .rail { background: var(--rail); border-radius: 24px; padding: 22px 14px; display: flex; flex-direction: column; gap: 4px; align-self: stretch; }
+  .brand { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 26px; padding: 0 10px 20px; color: #fff; letter-spacing: -.02em; }
+  .brand span { color: #B9A8FF; }
+  .rail a { font-size: 15px; font-weight: 500; padding: 10px 14px; border-radius: 14px; color: var(--rail-ink); }
+  .rail a.on { background: #fff; color: #17151F; font-weight: 600; }
+  .rail .k { margin-top: auto; font-size: 13px; color: #8F8A9C; padding: 10px 14px; border: 1px dashed #3A3646; border-radius: 14px; }
+
+  .main { padding: 18px 8px 24px; }
+  h1 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 48px; letter-spacing: -.035em; line-height: 1; }
+  .sub { color: var(--muted); font-size: 15px; margin-top: 8px; }
+  .bar { display: flex; gap: 8px; margin: 18px 0 22px; flex-wrap: wrap; }
+  .f { font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: 12px; background: var(--pill); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+  .f.on { background: var(--button); color: var(--button-ink); border-color: transparent; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .with-panel .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .card { border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px; background: var(--bg-l); border: 1px solid var(--line); }
+  .dark .card { background: var(--bg-d); }
+  .card.selected { outline: 2px solid var(--accent-l); outline-offset: 2px; }
+  .ch { display: flex; align-items: center; gap: 12px; }
+  .halo { width: 40px; height: 40px; border-radius: 12px; background: #fff; display: grid; place-items: center; box-shadow: 0 0 0 4px var(--halo-l); flex-shrink: 0; overflow: hidden; }
+  .dark .halo { box-shadow: 0 0 0 4px var(--halo-d); }
+  .halo img { width: 30px; height: 30px; object-fit: contain; }
+  .halo .fb { font-weight: 600; font-size: 16px; color: #17151F; }
+  .co { min-width: 0; }
+  .co b { display: block; font-size: 14px; font-weight: 600; }
+  .co small { font-size: 12.5px; color: var(--muted); }
+  .co small.new { color: var(--accent-l); font-weight: 600; }
+  .dark .co small.new { color: var(--accent-d); }
+  .level { margin-left: auto; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; color: var(--accent-l); border: 1px solid var(--halo-l); background: var(--bg-l); white-space: nowrap; }
+  .dark .level { color: var(--accent-d); border-color: var(--halo-d); background: var(--bg-d); }
+  .title { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -.015em; line-height: 1.15; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pills span { font-size: 12.5px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: var(--pill); color: var(--muted); }
+  .why { font-size: 14px; line-height: 1.5; color: var(--ink); }
+  .acts { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
+  .go { font: 600 13.5px "Inter"; padding: 9px 16px; border-radius: 12px; border: 0; background: var(--button); color: var(--button-ink); }
+  .icon { width: 36px; height: 36px; border-radius: 12px; border: 1px solid var(--line); background: var(--pill); color: var(--muted); display: grid; place-items: center; }
+  .icon svg { width: 17px; height: 17px; }
+
+  .panel { background: var(--surface); border-radius: 24px; overflow: hidden; border: 1px solid var(--line); position: sticky; top: 16px; }
+  .panel .band { height: 92px; background: var(--band-l); position: relative; }
+  .panel .band .halo { position: absolute; left: 24px; bottom: -26px; width: 60px; height: 60px; border-radius: 16px; box-shadow: 0 0 0 6px var(--halo-l); }
+  .panel .band .halo img { width: 44px; height: 44px; }
+  .panel .inner { padding: 40px 26px 8px; }
+  .panel .top { display: flex; justify-content: space-between; align-items: center; }
+  .panel h2 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -.025em; line-height: 1.1; margin-top: 12px; }
+  .panel .who { color: var(--muted); font-size: 15px; margin-top: 6px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
+  .facts div { background: var(--bg-l); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 500; }
+  .facts small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 500; margin-bottom: 2px; }
+  .reason { margin-top: 18px; background: var(--bg-l); border: 1px solid var(--halo-l); border-radius: 16px; padding: 16px; }
+  .reason h3, .panel h4 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; letter-spacing: -.01em; }
+  .reason h3 { font-size: 16px; color: var(--accent-l); }
+  .reason p { font-size: 14.5px; line-height: 1.6; margin-top: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+  .two h5 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .two ul, .desc ul { padding-left: 18px; font-size: 14.5px; line-height: 1.6; }
+  .levers { margin-top: 14px; font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .levers b { color: var(--ink); font-weight: 600; }
+  .desc { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 22px; display: flex; flex-direction: column; gap: 22px; }
+  .panel h4 { font-size: 18px; margin-bottom: 8px; }
+  .desc p { font-size: 15px; line-height: 1.65; max-width: 62ch; }
+  .desc p + p { margin-top: 10px; }
+  .desc li { font-size: 15px; line-height: 1.65; }
+  .desc li + li { margin-top: 4px; }
+  .foot { display: flex; gap: 8px; padding: 16px 26px 20px; border-top: 1px solid var(--line); margin-top: 22px; }
+  .foot .go { flex: 1; text-align: center; padding: 12px; font-size: 14px; }
+  .foot .icon { width: 44px; height: 44px; }
+
+  .checks { width: 1440px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 28px 32px; font-size: 14px; }
+  .checks h2 { font-family: "Bricolage Grotesque", sans-serif; font-size: 24px; letter-spacing: -.02em; }
+  .checks p { color: #544F60; margin: 6px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 10px; border-top: 1px solid #EEECF1; font-variant-numeric: tabular-nums; }
+  th { font-size: 12px; color: #544F60; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; border-top: 0; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 8px; border: 1px solid rgba(0,0,0,.1); }
+  .ok { color: #1F6B47; font-weight: 600; } .ko { color: #A2271A; font-weight: 600; }
+  .footnote { text-align: center; font-size: 12px; color: #5C5768; margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<p class="label">Direction C · Fil d'offres à pleine densité · Mode clair</p>
+<div class="frame" id="light"></div>
+
+<p class="label">Direction C · Fil d'offres à pleine densité · Mode sombre</p>
+<div class="frame dark" id="dark"></div>
+
+<p class="label">Direction C · Fiche offre longue dans le panneau latéral · Mode clair</p>
+<div class="frame with-panel" id="panel"></div>
+
+<div class="checks" id="checks"><h2>Contrôle de contraste WCAG AA</h2><p>Calcul en cours…</p></div>
+<p class="footnote">Maquette statique. Entreprises réelles, offres et persona fictives. Couleurs extraites automatiquement des logos.</p>
+
+<script src="data.js"></script>
+<script src="color.js"></script>
+<script src="density-data.js"></script>
+<script>
+  const ICON_SAVE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  const ICON_NOPE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>';
+
+  const rail = (active) => `
+    <aside class="rail">
+      <div class="brand">Scout<span>.</span></div>
+      ${NAV.map((n) => `<a class="${n === active ? "on" : ""}">${n}</a>`).join("")}
+      <div class="k">⌘K pour tout chercher</div>
+    </aside>`;
+
+  const logo = (o) => `<img src="${logoUrl(o.domain)}" alt="${o.company}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'fb',textContent:'${o.company[0]}'}))">`;
+
+  const card = (o, i, selected) => `
+    <article class="card ${selected ? "selected" : ""}" data-i="${i}">
+      <div class="ch">
+        <span class="halo">${logo(o)}</span>
+        <div class="co"><b>${o.company}</b><small class="${o.isNew ? "new" : ""}">${o.isNew ? "Nouvelle · " : ""}${o.freshness}</small></div>
+        <span class="level">${LEVELS[o.level].label}</span>
+      </div>
+      <h3 class="title">${o.title}</h3>
+      <div class="pills"><span>${o.location}</span><span>${o.remote}</span><span>${o.contract}</span></div>
+      <p class="why">${o.why}</p>
+      <div class="acts">
+        <button class="go">Postuler</button>
+        <button class="icon" aria-label="Sauvegarder" title="Sauvegarder">${ICON_SAVE}</button>
+        <button class="icon" aria-label="Pas pour moi" title="Pas pour moi">${ICON_NOPE}</button>
+      </div>
+    </article>`;
+
+  const header = `
+    <h1>Offres</h1>
+    <p class="sub">15 offres pour toi cette semaine, classées par niveau puis par pertinence.</p>
+    <div class="bar">
+      <span class="f on">Toutes</span><span class="f">Coups de cœur</span><span class="f">Solides</span><span class="f">Tremplins</span>
+      <span class="f">Moins de 48 h</span><span class="f">CDI</span><span class="f">Hybride</span><span class="f">Écartées</span>
+    </div>`;
+
+  const feed = (selectedIndex) => `<div class="grid">${DENSE_OFFERS.map((o, i) => card(o, i, i === selectedIndex)).join("")}</div>`;
+
+  document.getElementById("light").innerHTML = `${rail("Offres")}<main class="main">${header}${feed(-1)}</main>`;
+  document.getElementById("dark").innerHTML = `${rail("Offres")}<main class="main">${header}${feed(-1)}</main>`;
+
+  const d = DENSE_OFFERS[DETAIL.index];
+  document.getElementById("panel").innerHTML = `
+    ${rail("Offres")}
+    <main class="main">${header}${feed(DETAIL.index)}</main>
+    <aside class="panel" data-i="${DETAIL.index}">
+      <div class="band"><span class="halo">${logo(d)}</span></div>
+      <div class="inner">
+        <div class="top"><span></span><span class="level">${LEVELS[d.level].label}</span></div>
+        <h2>${d.title}</h2>
+        <p class="who">${d.company} · ${d.freshness}</p>
+        <div class="facts">
+          <div><small>Lieu</small>${d.location}</div>
+          <div><small>Télétravail</small>${d.remote}</div>
+          <div><small>Contrat</small>${d.contract}</div>
+          <div><small>Expérience</small>${DETAIL.experience}</div>
+          <div><small>Salaire</small>${DETAIL.salary}</div>
+          <div><small>Publiée</small>${d.freshness}</div>
+        </div>
+        <div class="reason"><h3>Pourquoi cette offre</h3><p>${DETAIL.why}</p></div>
+        <div class="two">
+          <div><h5>Points forts</h5><ul>${DETAIL.strengths.map((s) => `<li>${s}</li>`).join("")}</ul></div>
+          <div><h5>Points d'attention</h5><ul>${DETAIL.watch.map((s) => `<li>${s}</li>`).join("")}</ul></div>
+        </div>
+        <p class="levers"><b>Leviers CV :</b> ${DETAIL.cvLevers.join(" · ")}</p>
+        <div class="desc">
+          ${DETAIL.sections.map((s) => `
+            <section>
+              <h4>${s.title}</h4>
+              ${s.paragraphs ? s.paragraphs.map((p) => `<p>${p}</p>`).join("") : ""}
+              ${s.bullets ? `<ul>${s.bullets.map((b) => `<li>${b}</li>`).join("")}</ul>` : ""}
+            </section>`).join("")}
+        </div>
+      </div>
+      <div class="foot">
+        <button class="icon" aria-label="Sauvegarder">${ICON_SAVE}</button>
+        <button class="icon" aria-label="Pas pour moi">${ICON_NOPE}</button>
+        <button class="go">Postuler sur le site de ${d.company}</button>
+      </div>
+    </aside>`;
+
+  (async () => {
+    const results = await Promise.all(DENSE_OFFERS.map((o) => extractColor(logoUrl(o.domain))));
+    const rows = results.map((color, i) => {
+      const light = tokens(color, "light");
+      const dark = tokens(color, "dark");
+      document.querySelectorAll(`[data-i="${i}"]`).forEach((el) => applyTokens(el, light, dark));
+      return { o: DENSE_OFFERS[i], color, light, dark };
+    });
+
+    const fmt = (t) => `${t.checks.titre.toFixed(1)} · ${t.checks.texte.toFixed(1)} · ${t.checks.accent.toFixed(1)} · ${t.checks.bouton.toFixed(1)}`;
+    const allPass = rows.every((r) => r.light.pass && r.dark.pass);
+    document.getElementById("checks").innerHTML = `
+      <h2>Contrôle de contraste WCAG AA</h2>
+      <p>Pour chaque carte : titre · texte · accent · bouton, face au fond de la carte. Seuils : 4,5 pour le texte, 3 pour le bouton.
+      ${allPass ? "<span class='ok'>Les 15 cartes passent en clair et en sombre.</span>" : "<span class='ko'>Au moins une carte échoue.</span>"}</p>
+      <table>
+        <tr><th>Entreprise</th><th>Couleur</th><th>Mode clair</th><th>Mode sombre</th><th>Résultat</th></tr>
+        ${rows.map((r) => `
+          <tr>
+            <td>${r.o.company}</td>
+            <td><span class="sw" style="background:${r.light.accent}"></span>${r.color ? "extraite du logo" : "neutre (repli)"}</td>
+            <td>${fmt(r.light)}</td>
+            <td>${fmt(r.dark)}</td>
+            <td class="${r.light.pass && r.dark.pass ? "ok" : "ko"}">${r.light.pass && r.dark.pass ? "AA ✓" : "Échec"}</td>
+          </tr>`).join("")}
+      </table>`;
+    window.__ready = true;
+  })();
+</script>
+</body>
+</html>
