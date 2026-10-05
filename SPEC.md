@@ -107,7 +107,12 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - **Agrégateurs officiels** (facultatifs : sans clés, la source est ignorée) :
   - API France Travail (Offres d'emploi v2) : le connecteur est prêt, mais au 5 octobre 2026 l'API n'apparaît plus dans le catalogue en libre-service de francetravail.io (seule « Dépôt d'offres d'emploi en alternance » existe, en accès conditionné). Une application sans API rattachée est refusée à l'authentification ;
   - API Adzuna : inscription bloquée par le reCAPTCHA du formulaire le 5 octobre 2026, à retenter.
-  - Tant que ces deux sources manquent, la couverture repose sur les pages carrière (annuaire, entreprises suivies, découverte de pages carrière).
+  - Moteurs d'offres avec API gratuite et légale, à brancher : **Jooble** (clé gratuite sur demande) et **Careerjet** (API d'affichage gratuite). Ils ne renvoient qu'un extrait de description : l'offre est scorée sur cet extrait et le lien mène à l'annonce complète.
+- **La couverture est le levier n°1 de l'utilité de Scout.** Au 5 octobre 2026, seules 22 entreprises sont lues (environ 1 300 offres). Priorités, intégrées à la phase 2 :
+  1. connecteurs supplémentaires pour les ATS à API publique les plus répandus en France (SmartRecruiters, Workable, Recruitee, Personio, Teamtailor) ;
+  2. découverte massive des pages carrière via l'index public de Common Crawl (adresses `boards.greenhouse.io/…`, `jobs.lever.co/…`, `jobs.ashbyhq.com/…`, etc.), en ne gardant que les entreprises qui publient des offres en France : objectif plusieurs milliers d'entreprises ;
+  3. Jooble et Careerjet ;
+  4. Adzuna à retenter depuis un autre réseau.
   - Requêtes générées à partir de toutes les variantes d'intitulés de tous les profils, avec pagination complète.
 - Pas de LinkedIn, Indeed, Glassdoor, Google Jobs ni Welcome to the Jungle : aucun accès légal et gratuit.
 - **Annuaire d'entreprises partagé et auto-enrichi** :
@@ -282,13 +287,13 @@ Découpage en phases : à la fin de chacune, tests verts, commit + push, site te
 
 0. **Mise en ligne sur Vercel**, avec l'accès sur invitation en place avant que l'URL soit publique.
 1. **Onboarding fiable avec Mistral** : extraction des critères (négations, doublons), écran « Ce que j'ai compris », état de chargement, cas de non-régression au vert.
-2. **Pertinence des offres** : scoring Mistral réel avec progression, portes dans l'ordre, fraîcheur, vue « Écartées » avec la règle, France Travail et Adzuna en pagination complète.
+2. **Couverture et pertinence** : nouveaux connecteurs ATS, découverte massive des pages carrière, Jooble et Careerjet ; scoring Mistral réel avec progression, portes dans l'ordre, fraîcheur, vue « Écartées » avec la règle.
 3. **Aujourd'hui, Suivi, personnalisation, logo** : écran Aujourd'hui, suivi enrichi (notes, contact, relance J+7), ajout d'offre par URL avec diagnostic, entreprises suivies, logo et icônes.
 4. **Automatisation et conformité** : cron GitHub Actions (collecte puis scoring des nouvelles offres), page Confidentialité, suppression du compte, archivage et purge.
 5. **Mode démo et page d'accueil publique.**
 
 Ensuite (backlog) :
-- Découverte massive des pages carrière via Common Crawl, auto-enrichissement de l'annuaire depuis France Travail et Adzuna.
+- Auto-enrichissement de l'annuaire depuis les entreprises vues dans les offres des moteurs (Jooble, Careerjet).
 - Page Stats : entonnoir trouvées → sauvegardées → postulées → entretiens → offres, activité par semaine, taux et délai de réponse, répartition par niveau et par source. Graphes lisibles, actions mises en avant, refus affichés sobrement, pas de rouge.
 - Taux de couverture : la part des offres ajoutées par URL que Scout avait déjà trouvées.
 - Réinjection des « Pas pour moi » dans le scoring.
