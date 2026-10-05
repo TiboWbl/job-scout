@@ -5,6 +5,13 @@ Dernière mise à jour : 5 octobre 2026.
 ## Vision
 
 - **Un seul onglet ouvert pour gérer toute sa recherche d'emploi de A à Z.** Trouver les offres, les comprendre, postuler (redirection vers le site de l'offre), suivre ses candidatures, améliorer son CV. Tout part de Scout.
+- **Scout complète WTTJ et LinkedIn**, qui restent les canaux principaux. Il doit :
+  - faire remonter des offres qu'on n'aurait pas vues, surtout d'entreprises qu'on ne connaît pas ;
+  - les trier selon le profil de chaque utilisateur, pour que personne n'ait à fouiller partout chaque jour ;
+  - centraliser le suivi de toute la recherche, y compris les offres trouvées ailleurs (ajout par URL) ;
+  - être agréable à utiliser au quotidien ;
+  - être utilisable par des amis, chacun avec sa propre recherche ;
+  - être visible sans compte par un recruteur venu du portfolio (mode démo), et présentable en entretien.
 - Objectif : **décrocher un job**, pas uniquement le job de rêve. Faire remonter toutes les offres pertinentes, y compris celles qu'on n'aurait jamais vues seul : trop de sites, trop de pages carrière, entreprises inconnues.
 - **Une plateforme où l'on a envie de revenir.** Les sites de recrutement sont souvent oppressants. Scout doit être calme, beau et rassurant.
 - **Multi-utilisateurs dès le départ.** L'auteur est l'utilisateur 0, mais n'importe quel ami doit pouvoir créer un compte via un lien d'invitation et paramétrer sa propre recherche, sur un métier complètement différent. Rien de spécifique à un utilisateur ou à un métier n'est codé en dur.
@@ -19,6 +26,9 @@ Dernière mise à jour : 5 octobre 2026.
 - **Calme.** Pas de mécanique anxiogène (voir « Design et ambiance »).
 - **Design = exigence fonctionnelle, pas finition.** C'est la raison n°1 d'utiliser Scout chaque jour. Le design system est défini avant l'interface.
 - **Données personnelles protégées.** Nom, email, téléphone et adresse ne sont jamais envoyés au LLM.
+- **Aucun profil par défaut.** Aucune donnée propre à un utilisateur dans le code ; l'admin est désigné par la variable `ADMIN_EMAIL`.
+- **Mock réservé aux tests.** Le mode mock du LLM sert uniquement aux tests automatisés, jamais à un vrai utilisateur. Si Mistral est indisponible : message clair et nouvel essai, jamais de résultat approximatif.
+- **Les contraintes sont des portes**, jamais une moyenne de critères (voir « Préfiltre et scoring »).
 
 ## Infrastructure (gratuite)
 
@@ -38,15 +48,26 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Application monopage avec une navigation persistante : **Aujourd'hui**, **Offres**, **Entreprises**, **Suivi**, **Mon CV**, **Ma recherche**.
 - Les détails (offre, entreprise, candidature) s'ouvrent dans un panneau latéral, sans quitter la page.
 - Recherche universelle et actions rapides via ⌘K (offres, entreprises, candidatures, ajout d'une offre par URL).
-- **Aujourd'hui** (écran d'accueil) : sélection du jour, relances à faire, entretiens à venir, progression de la semaine. En 30 secondes on sait quoi faire aujourd'hui.
+- **Aujourd'hui** (page d'accueil une fois connecté) : la sélection du jour, finie (pas de scroll infini), les relances à faire, les entretiens à venir, la progression de la semaine. En 30 secondes on sait quoi faire aujourd'hui.
 
 ## Comptes et onboarding
 
-- Connexion **Google uniquement** (gratuit, aucun email à envoyer). Accès sur invitation (lien d'invitation) pour maîtriser les quotas.
+- Connexion **Google uniquement** (gratuit, aucun email à envoyer).
+- **Accès sur invitation**, en place avant la mise en ligne : le site et le repo sont publics, le quota gratuit de Mistral doit être protégé.
+  - Liste d'emails autorisés : variable `INVITED_EMAILS` (séparés par des virgules) et gestion dans la page Admin (table `invitations`). L'admin est toujours autorisé.
+  - Un visiteur connecté mais non invité voit un message propre (« Scout est en accès sur invitation ») et ne peut appeler aucune route API.
+  - Tant que l'application Google est en mode Test, l'adresse doit aussi figurer parmi les utilisateurs test de Google Cloud (100 maximum).
 - Onboarding en moins de 5 minutes :
-  - Upload du CV en PDF (recommandé, pas obligatoire). Les coordonnées sont retirées côté serveur avant tout envoi au LLM, qui en extrait l'expérience, les compétences, la séniorité réelle et les langues. **L'onboarding le dit clairement.**
+  - Upload du CV en PDF (recommandé, pas obligatoire). Les coordonnées sont retirées côté serveur avant tout envoi au LLM, qui en extrait l'expérience, les compétences, la séniorité réelle et les langues. **L'onboarding le dit clairement**, avec ce texte : « Ton nom et tes coordonnées ne sont jamais envoyés à l'IA. »
   - « Décris ce que tu cherches en quelques phrases » : texte libre.
-  - Le LLM transforme le tout en critères structurés, affichés sous forme de puces modifiables.
+  - Pendant l'analyse : un état de chargement explicite (« Scout lit ta recherche… »), jamais un écran figé.
+  - Le LLM transforme le tout en critères structurés. Les négations sont respectées (« Pas de stage ni d'alternance » exclut ces contrats).
+  - Écran **« Ce que j'ai compris »** :
+    - tout ce qui a été extrait est visible d'un coup d'œil (y compris langues, entreprises exclues, disponibilité), rien derrière « Plus de précisions » ;
+    - pas de doublon entre le métier et les intitulés équivalents ;
+    - une ligne « Depuis ton CV : … » (formation, expériences, compétences clés), qui prouve que le CV a été lu ;
+    - le curseur d'ouverture est positionné d'après le texte quand il y a un indice, sinon au milieu ;
+    - toutes les puces sont modifiables.
   - Première sélection affichée immédiatement à partir du stock d'offres déjà collectées.
 - Pas d'option « coller des offres aimées » : la personnalisation passe par le bouton « Pas pour moi » et sa raison.
 - Le profil de chaque utilisateur alimente la collecte : ses intitulés et secteurs deviennent de nouvelles requêtes. Plus il y a d'utilisateurs, plus la couverture s'élargit.
@@ -60,13 +81,18 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - lieu et télétravail (zone géographique explicite : une offre à New York n'apparaît pas pour une recherche à Paris) ;
   - contrats ;
   - expérience réelle ;
-  - langues ;
+  - langues et disponibilité ;
   - entreprises à éviter ou à suivre ;
   - deal-breakers en texte libre.
+- Zone : villes, régions ou pays, plus le télétravail accepté. Une offre « Remote US only » est hors zone. Réglage « Offres hors de ma zone » : **Jamais** (par défaut, écartées), **Seulement si exceptionnelles** (section séparée « Hors de ta zone », uniquement si tout le reste est excellent), **Oui**.
 - Les mêmes critères restent modifiables directement par filtres, sans passer par le texte.
 - Curseur d'ouverture : « job de rêve uniquement » ↔ « je veux surtout commencer quelque part ».
 - Aperçu en direct de l'effet des critères (« ≈ X offres par semaine avec ces réglages »).
-- Toute modification déclenche le re-scoring des offres actives (profil versionné).
+- Toute modification déclenche le re-scoring automatique des offres actives (profil versionné). « Ma recherche » utilise le même écran que l'onboarding.
+- **Entreprises suivies** :
+  - ajout en collant une entreprise par ligne (le format le plus simple), par URL de page carrière, ou par import CSV à deux colonnes `entreprise,site` (site facultatif), avec un modèle téléchargeable ;
+  - statut affiché par entreprise : « page carrière trouvée (ATS) » ou « introuvable » ;
+  - ces entreprises sont surveillées à chaque collecte, leurs offres portent un badge « Suivie » et elles rejoignent l'annuaire partagé. Elles ne restreignent jamais la recherche.
 
 ## Sources et découverte
 
@@ -100,11 +126,15 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Préfiltre et scoring
 
-- Préfiltre par utilisateur limité aux exclusions sûres :
-  - zone hors périmètre ;
-  - contrat exclu ;
-  - intitulé clairement trop senior (Senior, Lead, Head, Staff, Principal, Director, VP) ;
-  - entreprise évitée.
+- **Portes** par utilisateur, déterministes, appliquées dans cet ordre de lecture. Une offre qui en viole une est écartée (ou mise à part pour la zone), jamais compensée par le reste :
+  1. **Zone**, avec la section « Hors de ta zone » selon le réglage.
+  2. **Contrat.**
+  3. **Séniorité**, relative à l'expérience de l'utilisateur (Senior, Lead, Head, Staff, Principal, Director, VP).
+  4. **Écart d'expérience** entre l'expérience demandée et celle de l'utilisateur :
+     - ≤ 2 ans : offre gardée, score Chances réduit en proportion ;
+     - 3 ans : offre gardée, score Chances bas ;
+     - ≥ 4 ans : offre écartée.
+  5. **Secteurs et entreprises à éviter.**
 - Pas d'exigence de mot-clé exact dans le titre.
 - Pas d'embeddings au départ (aucun fournisseur gratuit retenu) : le préfiltre et une file d'attente plafonnée suffisent. À réévaluer si le volume l'exige.
 - Le LLM lit la description complète et juge le **poste réel**, pas l'intitulé. Il lit **en priorité « Profil recherché » / « Qualifications »** pour estimer les chances. Il détecte les pièges : intitulé trompeur, poste commercial déguisé, missions sans rapport avec le titre.
@@ -120,10 +150,11 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - **Solide** : le métier visé, autre secteur, bonne entreprise.
   - **Tremplin** : métier passerelle avec un chemin crédible.
   - **Écartée** : avec raison, consultable.
-- XP demandée supérieure à l'XP réelle : baisser le score Chances, ne pas exclure (seuil d'exclusion autour de 5 ans d'écart). Un junior peut viser des postes jusqu'à 3-5 ans d'expérience demandée.
+- XP demandée supérieure à l'XP réelle : voir la porte « Écart d'expérience » ci-dessus.
 - Le curseur d'ouverture pondère le classement entre Intérêt, Chances et Tremplin.
 - Cache par couple (offre, version du profil).
-- **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `mistral-small` pour le scoring ; un modèle plus gros pour l'analyse de CV et la conversion des critères. File d'attente à 1 requête/seconde avec retry sur 429. **Scoring par lots de 5 à 10 offres par requête** pour limiter l'attente.
+- **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `mistral-small` pour le scoring ; un modèle plus gros pour l'analyse de CV et la conversion des critères. File d'attente à 1 requête/seconde avec nouvel essai sur 429. **Scoring par lots de 8 offres par requête.**
+- Premier tri : progression visible (« 340 / 1 249 offres lues »), la sélection se remplit au fur et à mesure.
 - **Test de non-régression** automatique, rejoué à chaque modification du prompt. Offres fictives rédigées pour le test, sans nom d'entreprise réel.
   - Préfiltre et pièges :
     1. Offre « Senior Product Manager, 7+ ans » pour un profil junior : écartée par le préfiltre.
@@ -138,22 +169,28 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
     9. « Junior Product Manager » dans une marque de mode, en réalité développement de collection textile : **Écartée**.
     10. QA Analyst dans un cabinet de conseil produit, passerelle annoncée QA → PO → PM : **Tremplin**.
     11. Customer Experience Specialist chez un fabricant d'objets connectés santé : **Tremplin**, score bas.
+  - Extraction des critères :
+    12. Texte d'onboarding anonymisé d'un PM junior (ingénieur diplômé en 2024, ~1 an de stages, Paris/IDF hybride ou full remote depuis la France, étranger seulement si exceptionnel, secteurs sport/sport-santé/santé grand public, pas de paris sportifs, jeu vidéo ni produit non digital, pas de stage ni d'alternance, anglais courant, ancien employeur fictif exclu, disponible immédiatement). Le test échoue si une négation est inversée (stage ou alternance cochés, secteur évité rangé en prioritaire) ou si le métier est dupliqué dans les intitulés équivalents.
 
 ## Offres (fil)
 
 - **Sélection du jour finie et curée**, pas un scroll infini. Classement par niveau puis score.
-- Cartes : logo, photo de l'entreprise, titre, lieu, télétravail, contrat, fraîcheur, niveau, « pourquoi » en une ligne.
+- Cartes : logo, titre, lieu, télétravail, contrat, fraîcheur (« publiée il y a X jours »), niveau, « pourquoi » en une phrase. Points forts, points d'attention et leviers CV dans le panneau latéral.
 - Mise en avant douce des offres de moins de 48 h : postuler tôt compte.
+- Les offres publiées il y a plus de 60 jours sont masquées par défaut : les pages carrière gardent parfois des offres anciennes.
 - Actions sur chaque offre : **Sauvegarder**, **Pas pour moi** (+ raison en un clic, qui affine le scoring), **Postuler**.
 - Postuler ouvre le site de l'offre dans un nouvel onglet. Au retour sur Scout : « Tu as postulé ? » → un clic l'ajoute au suivi.
-- **Ajouter une offre par URL**, trouvée ailleurs : elle est analysée, scorée et ajoutée au suivi.
+- **Ajouter une offre par URL**, trouvée ailleurs (WTTJ, LinkedIn…), avec repli « coller le texte » si la page est inaccessible. Elle est extraite, scorée et ajoutée au suivi : tout le suivi vit dans Scout.
+  - Diagnostic à chaque ajout : « déjà trouvée par Scout le … », « trouvée mais écartée : règle … » ou « nouvelle pour Scout ».
+  - Entreprise inconnue : recherche de sa page carrière, détection de l'ATS, ajout à l'annuaire.
 - **Outil « offre ratée »** : si une offre ajoutée par URL n'avait pas été collectée, le système explique pourquoi (source non couverte, règle d'exclusion, score trop bas) et propose le correctif. C'est l'outil principal pour mesurer et améliorer le rappel.
-- Filtres simples (niveau, fraîcheur, contrat, télétravail) et vue « Écartées » pour auditer.
+- Filtres simples (niveau, fraîcheur) et vue « Écartées » pour auditer : chaque offre y est affichée avec la règle qui l'a écartée.
+- « Pas pour moi » : une raison en un clic, stockée, puis réinjectée dans le scoring.
 
 ## Suivi des candidatures
 
 - Kanban : À postuler → Postulé → Entretien → Offre → Refusé / Archivé.
-- Par candidature : date, version du CV utilisée, contact, notes, prochaines étapes, dates d'entretien.
+- Par candidature : date, contact, notes, prochaines étapes, dates d'entretien (version du CV utilisée plus tard).
 - Relances suggérées (J+7 par défaut), proposées sur l'écran Aujourd'hui, sans harcèlement.
 - Récap hebdomadaire positif centré sur les actions (« 4 candidatures envoyées, 1 entretien obtenu »), pas sur les refus.
 
@@ -198,6 +235,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Mode pause : suspend notifications et relances quand on a besoin de souffler.
 - Notifications sobres : un message Telegram pour un Coup de cœur, sinon un digest quotidien (désactivable). Email optionnel.
 - Responsive mobile, mais pensé d'abord pour un onglet ouvert en permanence sur ordinateur.
+- **Logo** : « Scout. » de la maquette C (texte blanc ou noir, point violet), vectorisé en SVG avec le texte converti en tracés. Déclinaison « S. » (S majuscule et point violet) pour les icônes : favicon 16 et 32, apple-touch-icon 180, icônes 192 et 512, versions claire et sombre. Aux petites tailles, le point est proportionnellement plus gros pour rester visible. Image de partage 1200 × 630 et un PNG 512 du « S. » pour le portfolio.
 
 ## Multi-utilisateurs, coûts et confidentialité
 
@@ -206,7 +244,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Privé : profil, CV, scores, feedback, suivi.
 - Plafond d'appels LLM par utilisateur et par jour, suivi de la consommation du quota gratuit.
 - Tableau de bord admin : utilisateurs, consommation, santé des sources.
-- RGPD : suppression complète du compte et des données en un clic ; CV stockés de façon sécurisée ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
+- RGPD : page « Confidentialité » (données collectées, usage de Mistral, suppression) et suppression complète du compte et des données en un clic. Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
 - Clés API en variables d'environnement (et secrets GitHub), jamais dans le code.
 
 ## Repo public
@@ -214,7 +252,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Le repo est public (minutes GitHub Actions illimitées, projet vitrine). Avant le passage en public : scan de tout l'historique git avec gitleaks ; toute clé trouvée est révoquée et régénérée avant publication.
 - Les logs GitHub Actions sont publics : ils ne contiennent ni email, ni contenu de profil ou de CV, ni score par utilisateur. Uniquement des compteurs agrégés par source.
 - Aucun fichier personnel versionné (CV, `.env`, exports). Le `.gitignore` exclut `*.pdf`, `.env*` (sauf `.env.local.example`) et `/exports/`.
-- Les maquettes et le compte de démo utilisent une persona fictive.
+- Les maquettes et le compte de démo utilisent une persona fictive. Les cas de test tirés de vrais textes sont anonymisés.
 
 ## Technique
 
@@ -223,27 +261,41 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Workers de collecte et de scoring en TypeScript, lancés par GitHub Actions 2 à 3 fois par jour, qui écrivent dans la base. Ils réutilisent la normalisation des connecteurs existants.
 - Jobs planifiés avec logs et reprise sur échec.
 - Respect des limites de débit, pauses entre requêtes, pas de contournement des protections anti-bot.
-- Tests : connecteurs (fixtures de réponses API), normalisation, dédup, scoring (6 cas de non-régression), extraction PDF de l'analyse CV.
+- Tests : connecteurs (fixtures de réponses API), normalisation, dédup, scoring et extraction des critères (12 cas de non-régression), extraction PDF de l'analyse CV.
 
 ## Vitrine (portfolio et entretiens)
 
-- README : problème, vision, captures, schéma d'architecture, choix techniques et produit.
-- Compte de démo public avec des données fictives (aucune donnée réelle d'utilisateur).
+- README : problème, vision, captures, schéma d'architecture, choix techniques et produit, lien vers la démo.
+- **Page d'accueil publique** (visiteur non connecté) : ce que fait Scout en une phrase et quelques visuels, deux boutons « Voir la démo » et « Continuer avec Google » (sur invitation).
+- **Mode démo sans connexion**, lien direct `/demo` :
+  - persona fictive (Camille, PM junior à Paris) scorée comme un vrai utilisateur sur les **vraies offres** en base : la démo montre le produit réel, pas des captures ;
+  - jamais le compte de l'auteur ni ses vraies candidatures ;
+  - suivi pré-rempli avec des candidatures fictives ;
+  - lecture seule côté serveur : aucun appel au LLM déclenché par un visiteur (le scoring de la persona est calculé par le cron), les clics marchent dans la session sans être enregistrés, ajout par URL et import désactivés avec une explication ;
+  - bandeau discret : « Démo avec un profil fictif · Données d'offres réelles ».
 - Métriques affichables : offres collectées, sources couvertes, entreprises surveillées, taux de rappel mesuré via l'outil « offre ratée ».
 
 ## Ordre de réalisation
 
-Découpage en tranches verticales : à la fin de chaque tranche, le site déployé fonctionne. Pas de correctif rapide sur le prototype actuel.
+Découpage en phases : à la fin de chacune, tests verts, commit + push, site testable en local et sur Vercel.
 
-1. Audit de l'existant et plan validé. **Fait.**
-2. Directions visuelles → choix → design system. Socle : comptes Google, profil en base, row-level security.
-3. « Ma recherche » en langage naturel et onboarding.
-4. Collecte large (ATS, France Travail, Adzuna, annuaire auto-enrichi) avec monitoring.
-5. Normalisation, dédup, préfiltre permissif, scoring et niveaux, test de non-régression.
-6. Interface monopage (Aujourd'hui, Offres, Suivi), panneau latéral, flux « Postuler → Tu as postulé ? ».
-7. Ajout d'offre par URL, outil « offre ratée », feedback.
-8. Onglet Entreprises, analyse CV ATS.
-9. Ouverture aux amis (invitations, plafonds, admin).
-10. Vitrine (README, démo).
+0. **Mise en ligne sur Vercel**, avec l'accès sur invitation en place avant que l'URL soit publique.
+1. **Onboarding fiable avec Mistral** : extraction des critères (négations, doublons), écran « Ce que j'ai compris », état de chargement, cas de non-régression au vert.
+2. **Pertinence des offres** : scoring Mistral réel avec progression, portes dans l'ordre, fraîcheur, vue « Écartées » avec la règle, France Travail et Adzuna en pagination complète.
+3. **Aujourd'hui, Suivi, personnalisation, logo** : écran Aujourd'hui, suivi enrichi (notes, contact, relance J+7), ajout d'offre par URL avec diagnostic, entreprises suivies, logo et icônes.
+4. **Automatisation et conformité** : cron GitHub Actions (collecte puis scoring des nouvelles offres), page Confidentialité, suppression du compte, archivage et purge.
+5. **Mode démo et page d'accueil publique.**
+
+Ensuite (backlog) :
+- Découverte massive des pages carrière via Common Crawl, auto-enrichissement de l'annuaire depuis France Travail et Adzuna.
+- Page Stats : entonnoir trouvées → sauvegardées → postulées → entretiens → offres, activité par semaine, taux et délai de réponse, répartition par niveau et par source. Graphes lisibles, actions mises en avant, refus affichés sobrement, pas de rouge.
+- Taux de couverture : la part des offres ajoutées par URL que Scout avait déjà trouvées.
+- Réinjection des « Pas pour moi » dans le scoring.
+- Analyse CV ATS (note sur 100, vue « Ce que voit un ATS », comparaison à une offre).
+- README vitrine avec lien vers la démo.
+- Notifications : Telegram pour un Coup de cœur, digest quotidien désactivable.
+- Bascule manuelle clair/sombre, raccourci ⌘K, finitions mobile.
+- Onglet Entreprises.
+- Vérification de marque Google (logo et nom sur l'écran de connexion).
 
 Hors périmètre (v2) : extension « Ajouter à Scout », signaux de candidature spontanée, aide à la rédaction de messages.

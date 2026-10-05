@@ -3,6 +3,7 @@ import { isAdminEmail } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { CollectButton } from "./collect-button";
+import { Invitations } from "./invitations";
 
 type Run = { source: string; started_at: string; offers_seen: number; offers_new: number; offers_archived: number; errors: number; error_sample: string | null };
 
@@ -11,12 +12,14 @@ export default async function AdminPage() {
   if (!isAdminEmail(user?.email)) notFound();
 
   const db = createAdminClient();
-  const [runs, offers, companies, users] = await Promise.all([
+  const [runs, offers, companies, users, invitations] = await Promise.all([
     db.from("collection_runs").select("source, started_at, offers_seen, offers_new, offers_archived, errors, error_sample").order("started_at", { ascending: false }).limit(300),
     db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
     db.from("companies").select("id", { count: "exact", head: true }),
     db.from("profiles").select("id", { count: "exact", head: true }).not("onboarded_at", "is", null),
+    db.from("invitations").select("email").order("created_at", { ascending: false }),
   ]);
+  const fromEnv = (process.env.INVITED_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 
   // Latest run per source, plus the previous one to spot a sudden drop.
   const bySource = new Map<string, Run[]>();
@@ -42,6 +45,9 @@ export default async function AdminPage() {
       <div className="mt-8">
         <CollectButton />
       </div>
+
+      <h2 className="mt-10 font-display text-2xl font-bold">Invitations</h2>
+      <Invitations invited={(invitations.data ?? []).map((i) => i.email as string)} fromEnv={fromEnv} />
 
       <h2 className="mt-10 font-display text-2xl font-bold">Santé des sources</h2>
       {rows.length === 0 ? (
