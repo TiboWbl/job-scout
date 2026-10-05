@@ -26,19 +26,35 @@ export type Judgement = {
   excluded_reason: string | null;
 };
 
+// Smaller models drift on format (accented levels, scores out of 10): normalise rather than drop.
+const LEVEL_ALIASES: Record<string, Level> = { coeur: "coeur", "coup de coeur": "coeur", solide: "solide", tremplin: "tremplin", ecartee: "ecartee", ecarte: "ecartee" };
+const Level_ = z.string().transform((v, ctx) => {
+  const key = v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").trim();
+  const level = LEVEL_ALIASES[key];
+  if (!level) ctx.addIssue({ code: "custom", message: `niveau inconnu : ${v}` });
+  return level ?? "ecartee";
+});
+const Score = z.coerce.number().min(0).max(100);
+const List = z.array(z.string()).nullish().transform((v) => v ?? []);
 const Item = z.object({
   id: z.string(),
-  niveau: z.enum(["coeur", "solide", "tremplin", "ecartee"]),
-  score_interet: z.number().min(0).max(100),
-  score_chances: z.number().min(0).max(100),
-  score_tremplin: z.number().min(0).max(100),
+  niveau: Level_,
+  score_interet: Score,
+  score_chances: Score,
+  score_tremplin: Score,
   pourquoi: z.string().min(1),
-  points_forts: z.array(z.string()).default([]),
-  points_d_attention: z.array(z.string()).default([]),
-  leviers_cv: z.array(z.string()).default([]),
-  raison_ecartee: z.string().nullable().optional(),
+  points_forts: List,
+  points_d_attention: List,
+  leviers_cv: List,
+  raison_ecartee: z.string().nullish(),
 });
-const Output = z.object({ resultats: z.array(Item) });
+
+// Some models answer on a 0-10 scale despite the instruction; detected per offer.
+function to100(item: z.infer<typeof Item>) {
+  const scores = [item.score_interet, item.score_chances, item.score_tremplin];
+  const factor = scores.every((n) => n <= 10) ? 10 : 1;
+  return scores.map((n) => Math.min(100, Math.round(n * factor)));
+}
 
 const SYSTEM = `Tu es le moteur de tri de Scout, un outil qui aide une personne à décrocher un emploi.
 Pour chaque offre, juge le POSTE RÉEL décrit, pas l'intitulé. Lis d'abord la partie « profil recherché / qualifications / requirements » pour estimer les chances.
@@ -50,12 +66,13 @@ Niveaux :
 - "tremplin" : métier passerelle avec un chemin crédible vers le métier visé.
 - "ecartee" : ni le métier visé ni une passerelle crédible, ou un deal-breaker. Donne alors "raison_ecartee" (une phrase).
 
-Scores 0-100 :
+Scores : entiers de 0 à 100 (pas sur 10) :
 - score_interet : alignement avec ce que la personne cherche (métier, missions, secteur).
 - score_chances : expérience demandée vs réelle, compétences requises vs CV, langues. Une expérience demandée supérieure à la sienne baisse ce score sans écarter l'offre.
 - score_tremplin : valeur comme étape de carrière (apprentissage, encadrement, passerelle).
 
 Rédige en français, tutoiement, ton bienveillant et factuel. "pourquoi" : une ou deux phrases concrètes, sans répéter l'intitulé. Listes de 0 à 3 éléments courts.
+Valeurs exactes de "niveau", sans accent : "coeur", "solide", "tremplin" ou "ecartee".
 Réponds uniquement avec {"resultats": [{"id", "niveau", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv", "raison_ecartee"}]} avec un élément par offre reçue.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
@@ -111,17 +128,22 @@ export async function judgeBatch(
     .join("\n")}`;
 
   const raw = await llm.json({ system: SYSTEM, user, tier: "fast" });
-  const parsed = Output.safeParse(raw);
+  const items = (raw as { resultats?: unknown })?.resultats;
   const results = new Map<string, Judgement>();
-  if (!parsed.success) return { results, by: "llm" };
-  for (const item of parsed.data.resultats) {
+  if (!Array.isArray(items)) return { results, by: "llm" };
+  // One malformed offer must not cost the whole batch.
+  for (const entry of items) {
+    const parsed = Item.safeParse(entry);
+    if (!parsed.success) continue;
+    const item = parsed.data;
     const id = shortIds.get(item.id);
     if (!id) continue;
+    const [interet, chances, tremplin] = to100(item);
     results.set(id, {
       level: item.niveau,
-      score_interet: Math.round(item.score_interet),
-      score_chances: Math.round(item.score_chances),
-      score_tremplin: Math.round(item.score_tremplin),
+      score_interet: interet,
+      score_chances: chances,
+      score_tremplin: tremplin,
       why: item.pourquoi,
       strengths: item.points_forts.slice(0, 3),
       watch: item.points_d_attention.slice(0, 3),
