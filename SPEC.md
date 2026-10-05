@@ -104,9 +104,10 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - Recruitee (`{slug}.recruitee.com/api/offers/`)
   - SmartRecruiters, Workable, Personio, Teamtailor.
   - Détection automatique de l'ATS à partir de l'URL de la page carrière ; repli sur un scraping simple de la page carrière de l'entreprise si aucun flux public n'existe.
-- **Agrégateurs officiels** :
-  - API France Travail (Offres d'emploi v2) ;
-  - API Adzuna.
+- **Agrégateurs officiels** (facultatifs : sans clés, la source est ignorée) :
+  - API France Travail (Offres d'emploi v2) : le connecteur est prêt, mais au 5 octobre 2026 l'API n'apparaît plus dans le catalogue en libre-service de francetravail.io (seule « Dépôt d'offres d'emploi en alternance » existe, en accès conditionné). Une application sans API rattachée est refusée à l'authentification ;
+  - API Adzuna : inscription bloquée par le reCAPTCHA du formulaire le 5 octobre 2026, à retenter.
+  - Tant que ces deux sources manquent, la couverture repose sur les pages carrière (annuaire, entreprises suivies, découverte de pages carrière).
   - Requêtes générées à partir de toutes les variantes d'intitulés de tous les profils, avec pagination complète.
 - Pas de LinkedIn, Indeed, Glassdoor, Google Jobs ni Welcome to the Jungle : aucun accès légal et gratuit.
 - **Annuaire d'entreprises partagé et auto-enrichi** :
