@@ -78,21 +78,28 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Company-tinted surfaces. Values are computed per company by src/lib/design/color.ts. */
-.tinted {
-  background: var(--bg-l);
+/* Company accent variables. Values are computed per company by src/lib/design/color.ts.
+   .tinted-vars exposes them; .tinted also paints the surface with the calm tint. */
+.tinted,
+.tinted-vars {
   --accent: var(--accent-l);
   --halo: var(--halo-l);
   --band: var(--band-l);
   --tint: var(--bg-l);
 }
+.tinted {
+  background: var(--bg-l);
+}
 @media (prefers-color-scheme: dark) {
-  .tinted {
-    background: var(--bg-d);
+  .tinted,
+  .tinted-vars {
     --accent: var(--accent-d);
     --halo: var(--halo-d);
     --band: var(--band-d);
     --tint: var(--bg-d);
+  }
+  .tinted {
+    background: var(--bg-d);
   }
 }
 

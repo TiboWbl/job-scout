@@ -9,8 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:llm": "RUN_LLM_TESTS=1 vitest run",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "collect": "tsx scripts/collect.ts"
+    "db:migrate": "tsx scripts/migrate.mts",
+    "collect": "tsx scripts/collect.mts",
+    "dry-run": "tsx scripts/dry-run.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

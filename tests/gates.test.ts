@@ -64,6 +64,7 @@ describe("contrat, séniorité, expérience", () => {
   it("détecte le contrat sans jamais deviner", () => {
     expect(detectContract("Stage Product Manager")).toBe("stage");
     expect(detectContract("Product Manager", "Full-time")).toBe("cdi");
+    expect(detectContract("Product Management Intern", "Full-time")).toBe("stage");
     expect(detectContract("Product Manager")).toBe("unknown");
     expect(detectContract("Product Manager", null, "Profil : première expérience (stage ou alternance acceptés). CDI.")).toBe("cdi");
     expect(detectContract("Product Manager", null, "Profil : première expérience en stage appréciée.")).toBe("unknown");

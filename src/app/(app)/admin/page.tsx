@@ -1,0 +1,83 @@
+import { notFound } from "next/navigation";
+import { isAdminEmail } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
+import { CollectButton } from "./collect-button";
+
+type Run = { source: string; started_at: string; offers_seen: number; offers_new: number; offers_archived: number; errors: number; error_sample: string | null };
+
+export default async function AdminPage() {
+  const { user } = await getUser();
+  if (!isAdminEmail(user?.email)) notFound();
+
+  const db = createAdminClient();
+  const [runs, offers, companies, users] = await Promise.all([
+    db.from("collection_runs").select("source, started_at, offers_seen, offers_new, offers_archived, errors, error_sample").order("started_at", { ascending: false }).limit(300),
+    db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
+    db.from("companies").select("id", { count: "exact", head: true }),
+    db.from("profiles").select("id", { count: "exact", head: true }).not("onboarded_at", "is", null),
+  ]);
+
+  // Latest run per source, plus the previous one to spot a sudden drop.
+  const bySource = new Map<string, Run[]>();
+  for (const r of (runs.data ?? []) as Run[]) bySource.set(r.source, [...(bySource.get(r.source) ?? []), r]);
+  const rows = [...bySource.entries()].map(([source, list]) => ({ source, last: list[0], prev: list[1] })).sort((a, b) => a.source.localeCompare(b.source));
+
+  return (
+    <div className="max-w-5xl px-1 pb-16 pt-3 md:px-2">
+      <h1 className="font-display text-5xl font-extrabold tracking-tight">Admin</h1>
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        {[
+          ["Offres actives", offers.count ?? 0],
+          ["Entreprises", companies.count ?? 0],
+          ["Utilisateurs", users.count ?? 0],
+        ].map(([label, n]) => (
+          <div key={label} className="rounded-[20px] border border-line bg-surface p-4">
+            <p className="text-sm text-muted">{label}</p>
+            <p className="font-display text-3xl font-extrabold">{n}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8">
+        <CollectButton />
+      </div>
+
+      <h2 className="mt-10 font-display text-2xl font-bold">Santé des sources</h2>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-muted">Aucune collecte pour l&apos;instant.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-surface">
+          <table className="w-full text-sm">
+            <thead className="text-left text-[12px] uppercase tracking-wide text-muted">
+              <tr>
+                <th className="px-4 py-3">Source</th>
+                <th className="px-4 py-3">Dernière collecte</th>
+                <th className="px-4 py-3 text-right">Vues</th>
+                <th className="px-4 py-3 text-right">Nouvelles</th>
+                <th className="px-4 py-3 text-right">Archivées</th>
+                <th className="px-4 py-3">État</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {rows.map(({ source, last, prev }) => {
+                const dropped = prev && prev.offers_seen > 10 && last.offers_seen < prev.offers_seen * 0.5;
+                const state = last.errors ? `Erreur : ${last.error_sample ?? "inconnue"}` : last.offers_seen === 0 ? "Aucune offre" : dropped ? `Chute (${prev.offers_seen} → ${last.offers_seen})` : "OK";
+                return (
+                  <tr key={source}>
+                    <td className="px-4 py-2.5 font-medium">{source}</td>
+                    <td className="px-4 py-2.5 text-muted">{new Date(last.started_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_seen}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_new}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_archived}</td>
+                    <td className={`px-4 py-2.5 ${state === "OK" ? "text-success" : "text-warn"}`}>{state}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

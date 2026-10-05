@@ -14,11 +14,20 @@ function tokens(s: string): string[] {
     .filter((t) => t.length >= 2 && !STOP.has(t));
 }
 
+// Words shared by countless job titles; a match on them alone says nothing about the role.
+const GENERIC = new Set([
+  "manager", "junior", "senior", "associate", "lead", "chef", "responsable", "head", "officer", "specialist", "specialiste",
+  "charge", "chargee", "consultant", "assistant", "assistante", "director", "directeur", "directrice", "intern", "stagiaire",
+  "alternant", "alternante", "confirme", "confirmee", "jr", "sr", "ii", "iii", "i",
+]);
+
 function phraseScore(phrase: string, titleTokens: Set<string>, text: string): { title: number; body: number } {
-  const ptoks = tokens(phrase);
-  if (ptoks.length === 0) return { title: 0, body: 0 };
+  const all = tokens(phrase);
+  if (all.length === 0) return { title: 0, body: 0 };
+  const distinctive = all.filter((t) => !GENERIC.has(t));
+  const ptoks = distinctive.length > 0 ? distinctive : all;
   const inTitle = ptoks.filter((t) => titleTokens.has(t)).length / ptoks.length;
-  const body = text.includes(ptoks.join(" ")) ? 1 : 0;
+  const body = text.includes(all.join(" ")) ? 1 : 0;
   return { title: inTitle >= 0.99 ? 1 : inTitle >= 0.5 ? 0.5 : 0, body };
 }
 

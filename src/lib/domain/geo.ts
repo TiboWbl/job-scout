@@ -16,6 +16,11 @@ const COUNTRY_ALIASES: Record<string, string> = {
   austria: "AT", czechia: "CZ", "czech republic": "CZ", romania: "RO", greece: "GR",
   morocco: "MA", maroc: "MA", tunisia: "TN", tunisie: "TN", india: "IN", israel: "IL",
   singapore: "SG", australia: "AU", japan: "JP", brazil: "BR", mexico: "MX", argentina: "AR",
+  turkey: "TR", turkiye: "TR", "türkiye": "TR", "south korea": "KR", korea: "KR", ukraine: "UA", estonia: "EE", latvia: "LV",
+  lithuania: "LT", finland: "FI", norway: "NO", georgia: "GE", malta: "MT", hungary: "HU", bulgaria: "BG", croatia: "HR",
+  serbia: "RS", egypt: "EG", nigeria: "NG", kenya: "KE", "south africa": "ZA", "united arab emirates": "AE", uae: "AE",
+  "saudi arabia": "SA", china: "CN", "hong kong": "HK", taiwan: "TW", thailand: "TH", vietnam: "VN", philippines: "PH",
+  indonesia: "ID", malaysia: "MY", "new zealand": "NZ", colombia: "CO", chile: "CL", peru: "PE", uruguay: "UY", algeria: "DZ", algerie: "DZ", senegal: "SN",
 };
 
 // city -> [country, region?]. French regions use short codes so a user can pick "Île-de-France".
@@ -41,6 +46,16 @@ const CITIES: Record<string, [string, string?]> = {
   milan: ["IT"], milano: ["IT"], rome: ["IT"], dublin: ["IE"], toronto: ["CA"], montreal: ["CA"], "montréal": ["CA"], vancouver: ["CA"],
   warsaw: ["PL"], stockholm: ["SE"], copenhagen: ["DK"], vienna: ["AT"], prague: ["CZ"], casablanca: ["MA"], tunis: ["TN"],
   bangalore: ["IN"], bengaluru: ["IN"], "tel aviv": ["IL"], singapore: ["SG"], sydney: ["AU"], tokyo: ["JP"], "sao paulo": ["BR"], "são paulo": ["BR"],
+  istanbul: ["TR"], ankara: ["TR"], seoul: ["KR"], kyiv: ["UA"], kiev: ["UA"], lviv: ["UA"], kharkiv: ["UA"], karkiv: ["UA"], tallinn: ["EE"],
+  riga: ["LV"], vilnius: ["LT"], helsinki: ["FI"], oslo: ["NO"], tbilisi: ["GE"], krakow: ["PL"], "kraków": ["PL"], wroclaw: ["PL"],
+  bucharest: ["RO"], sofia: ["BG"], budapest: ["HU"], athens: ["GR"], belgrade: ["RS"], zagreb: ["HR"], cairo: ["EG"], lagos: ["NG"],
+  nairobi: ["KE"], johannesburg: ["ZA"], "cape town": ["ZA"], dubai: ["AE"], "abu dhabi": ["AE"], riyadh: ["SA"], shanghai: ["CN"],
+  beijing: ["CN"], shenzhen: ["CN"], taipei: ["TW"], bangkok: ["TH"], "ho chi minh": ["VN"], hanoi: ["VN"], manila: ["PH"], jakarta: ["ID"],
+  "kuala lumpur": ["MY"], melbourne: ["AU"], auckland: ["NZ"], mumbai: ["IN"], "new delhi": ["IN"], delhi: ["IN"], hyderabad: ["IN"],
+  pune: ["IN"], chennai: ["IN"], "mexico city": ["MX"], bogota: ["CO"], "bogotá": ["CO"], santiago: ["CL"], lima: ["PE"],
+  "buenos aires": ["AR"], montevideo: ["UY"], "san diego": ["US"], "salt lake city": ["US"], ottawa: ["CA"],
+  tarragona: ["ES"], seville: ["ES"], malaga: ["ES"], bilbao: ["ES"], valletta: ["MT"], dakar: ["SN"], algiers: ["DZ"], alger: ["DZ"],
+  luxembourg: ["LU"], monaco: ["MC"], antwerp: ["BE"], gand: ["BE"], ghent: ["BE"], liege: ["BE"], "liège": ["BE"], basel: ["CH"], bern: ["CH"],
 };
 
 export const REGION_LABELS: Record<string, string> = {

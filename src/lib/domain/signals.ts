@@ -25,6 +25,9 @@ const DESCRIPTION_PATTERNS: [RegExp, Contract][] = [
 
 // `explicit` is a structured field from the source (e.g. Lever "commitment"); it wins over prose.
 export function detectContract(title: string, explicit?: string | null, description = ""): Contract | "unknown" {
+  // A title saying "Intern" or "Alternance" beats a generic "Full-time" ATS field.
+  const t = norm(title);
+  for (const [re, contract] of CONTRACT_PATTERNS) if (contract !== "cdi" && re.test(t)) return contract;
   for (const text of [explicit ?? "", title]) {
     const n = norm(text);
     if (!n) continue;
@@ -60,6 +63,10 @@ export function titleSeniorityYears(title: string): number {
   const n = norm(title);
   if (/\b(vp|vice[- ]president|chief|cpo|cto|director|directeur|directrice|head of|head)\b/.test(n)) return 8;
   if (/\b(principal|staff|group product manager)\b/.test(n)) return 7;
-  if (/\b(senior|sr\.?|lead|confirme|confirmee|experimente|experimentee)\b/.test(n)) return 4;
+  // People-management roles need experience whatever the field.
+  if (/\b(engineering manager|manager, engineering|manager i+, engineering|people manager|team lead|tech lead)\b/.test(n)) return 5;
+  if (/\b(senior|sr\.?|lead|confirme|confirmee|confirmed|experimente|experimentee|experienced|expert)\b/.test(n)) return 4;
+  // Levelled titles (e.g. "Architect 3", "Engineer III").
+  if (/\b(iii|iv|v)\b|\s[3-5]\s*$|\s[3-5]\s*[-–(]/.test(n)) return 4;
   return 0;
 }
