@@ -34,7 +34,7 @@ export const SEED_BOARDS: Board[] = [
   { name: "Voodoo", domain: "voodoo.io", ats: "ashby", token: "voodoo" },
 ];
 
-const TIMEOUT_MS = 20_000;
+const TIMEOUT_MS = 30_000;
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { "User-Agent": "Scout job aggregator" } });
