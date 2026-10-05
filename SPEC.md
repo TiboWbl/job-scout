@@ -37,7 +37,7 @@ Dernière mise à jour : 5 octobre 2026.
 | Front + API | Vercel Hobby | Usage non commercial ; pas de Vercel Cron (1/jour max) |
 | Base, auth, stockage CV | Supabase Free | 500 Mo de base, 1 Go de stockage ; projet mis en pause après 7 jours sans activité (évité par la collecte planifiée) |
 | Collecte et scoring planifiés | GitHub Actions, 2 à 3 fois par jour | Illimité si le repo est public ; 2 000 min/mois si privé |
-| LLM | Mistral, plan gratuit « Experiment » | 1 requête/s, quota mensuel de tokens ; désactiver l'usage des données pour l'entraînement dans la console (Admin > Privacy) |
+| LLM | Mistral, plan gratuit | Sur ce plan, seuls les modèles `ministral` sont servis (`mistral-small`/`medium` limités à 0 requête, `mistral-large` exclu) : `ministral-14b-2512`, 30 requêtes/minute ; désactiver l'usage des données pour l'entraînement dans la console (Admin > Privacy) |
 | Logos | logo.dev (plan Community) ou Brandfetch | 500 000 requêtes/mois ; pas d'attribution requise pour un projet personnel non commercial |
 | Notifications | Bot Telegram ; email optionnel via SMTP Gmail (mot de passe d'application) | |
 
@@ -153,7 +153,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - XP demandée supérieure à l'XP réelle : voir la porte « Écart d'expérience » ci-dessus.
 - Le curseur d'ouverture pondère le classement entre Intérêt, Chances et Tremplin.
 - Cache par couple (offre, version du profil).
-- **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `mistral-small` pour le scoring ; un modèle plus gros pour l'analyse de CV et la conversion des critères. File d'attente à 1 requête/seconde avec nouvel essai sur 429. **Scoring par lots de 8 offres par requête.**
+- **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `ministral-14b-2512` pour le scoring comme pour l'analyse de CV et la conversion des critères (modèles réglables par variables d'environnement). File d'attente à une requête toutes les 2,1 s (30/minute) avec nouvel essai sur 429. **Scoring par lots de 8 offres par requête.**
 - Premier tri : progression visible (« 340 / 1 249 offres lues »), la sélection se remplit au fur et à mesure.
 - **Test de non-régression** automatique, rejoué à chaque modification du prompt. Offres fictives rédigées pour le test, sans nom d'entreprise réel.
   - Préfiltre et pièges :

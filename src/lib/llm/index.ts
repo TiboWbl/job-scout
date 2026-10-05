@@ -9,8 +9,11 @@ export interface LlmProvider {
   json(input: { system: string; user: string; tier: Tier }): Promise<unknown>;
 }
 
-const MIN_INTERVAL_MS = 1100; // free plan: 1 request per second
+// Free plan: ministral-14b allows 30 requests/minute. Overridable when the plan or model changes.
+const MIN_INTERVAL_MS = Number(process.env.LLM_MIN_INTERVAL_MS) || 2100;
 const MAX_RETRIES = 5;
+// The free plan currently rate-limits mistral-small/medium to zero; ministral-14b is the most capable model it serves.
+const DEFAULT_MODEL = "ministral-14b-2512";
 
 let queue: Promise<unknown> = Promise.resolve();
 let lastCallAt = 0;
@@ -32,7 +35,7 @@ class MistralProvider implements LlmProvider {
   constructor(private apiKey: string) {}
 
   async json({ system, user, tier }: { system: string; user: string; tier: Tier }) {
-    const model = tier === "fast" ? process.env.LLM_MODEL_FAST || "mistral-small-latest" : process.env.LLM_MODEL_STRONG || "mistral-medium-latest";
+    const model = tier === "fast" ? process.env.LLM_MODEL_FAST || DEFAULT_MODEL : process.env.LLM_MODEL_STRONG || DEFAULT_MODEL;
     for (let attempt = 0; ; attempt++) {
       const res = await throttled(() =>
         fetch("https://api.mistral.ai/v1/chat/completions", {
