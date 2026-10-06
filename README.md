@@ -8,7 +8,7 @@ La spécification complète est dans [SPEC.md](SPEC.md). Les maquettes de la dir
 
 - **Connexion Google** et profil privé (row-level security Postgres).
 - **Onboarding en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables en puces (métier, variantes d'intitulés FR/EN, passerelles, secteurs, zone, contrats, expérience).
-- **Collecte légale** : API publiques des pages carrière (Greenhouse, Lever, Ashby), France Travail et Adzuna en option. Pas de filtre sur l'intitulé à la collecte, dédoublonnage entre sources, archivage des offres retirées.
+- **Collecte légale** : API et flux publics des pages carrière (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor, Personio), moteurs Adzuna et Jooble. Annuaire de pages carrière agrandi automatiquement (index public Common Crawl, noms d'entreprises vus dans les offres). Dédoublonnage entre sources, archivage des offres retirées, stockage limité aux pays où quelqu'un cherche.
 - **Tri en deux temps** :
   1. des **portes** déterministes : zone, contrat, séniorité relative à l'expérience, écart d'expérience. Une offre qui en viole une est écartée ou mise à part, jamais compensée par le reste ;
   2. un **LLM** qui lit la description complète, d'abord le profil recherché, et juge le poste réel. Il attribue un niveau (Coup de cœur, Solide, Tremplin, Écartée), un « pourquoi », des points forts et d'attention.
@@ -18,8 +18,8 @@ La spécification complète est dans [SPEC.md](SPEC.md). Les maquettes de la dir
 
 ```
 GitHub Actions / bouton admin ──► collecte (TypeScript) ──► Supabase Postgres ◄── Next.js sur Vercel
-   Greenhouse · Lever · Ashby          normalisation              offres, entreprises (partagées)
-   France Travail · Adzuna             dédoublonnage              profils, scores, suivi (privés, RLS)
+   8 ATS publics · Adzuna · Jooble         normalisation              offres, entreprises (partagées)
+   découverte des pages carrière         dédoublonnage              profils, scores, suivi (privés, RLS)
                                        couleur des logos
                                                      scoring à la demande (portes → Mistral par lots)
 ```
@@ -36,7 +36,7 @@ GitHub Actions / bouton admin ──► collecte (TypeScript) ──► Supabase
 
 Choix notables :
 - **Gratuit à 100 %** : Vercel Hobby, Supabase Free, Mistral (plan gratuit), logo.dev (plan gratuit).
-- **Scoring en tranches de 45 s** : chaque appel tient dans la limite d'une fonction Vercel Hobby, et l'interface relance jusqu'à ce que tout soit évalué.
+- **Scoring en tranches de moins de 52 s** : portes d'abord, puis seulement les offres à l'intitulé proche, en lots parallèles au rythme du plan gratuit de Mistral. Chaque appel tient dans la limite Vercel Hobby, et l'interface relance jusqu'à ce que tout soit évalué.
 - **Une seule couleur stockée** par entreprise (le code hex extrait du logo), jamais une copie du logo.
 - **Logs de collecte agrégés par source**, sans aucune donnée d'utilisateur (le repo et ses logs CI sont publics).
 
@@ -76,6 +76,7 @@ npm run dev
 | Commande | Effet |
 |---|---|
 | `npm run collect` | Une passe de collecte complète (comptes agrégés en sortie) |
+| `npm run discover` | Agrandit l'annuaire de pages carrière (`--crawls 3 --names 300`) |
 | `npm run dry-run` | Collecte réelle + portes du préfiltre en mémoire, sans base, pour contrôler la qualité |
 | `npm test` | Tests unitaires, portes et filet de sécurité des 12 cas de non-régression |
 | `npm run test:llm` | Les 12 cas complets, prompts inclus (nécessite `MISTRAL_API_KEY`) |
