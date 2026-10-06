@@ -32,6 +32,10 @@ export const Criteria = z.object({
   sectorsPriority: list(),
   sectorsOk: list(),
   sectorsAvoid: list(),
+  // Whether sectors outside the priority/accepted lists are welcome, and on what condition.
+  otherSectors: z
+    .object({ open: z.boolean().default(true), condition: z.string().trim().nullable().default(null) })
+    .default({ open: true, condition: null }),
   zone: z
     .object({
       places: z.array(ZonePlace).default([]),
@@ -44,6 +48,7 @@ export const Criteria = z.object({
   contracts: z.array(z.enum(CONTRACTS)).default([]),
   experienceYears: z.number().min(0).max(45).nullable().default(null),
   languages: list(),
+  availability: z.string().trim().nullable().default(null),
   companiesAvoid: list(),
   companiesFollow: list(),
   dealBreakers: list(),

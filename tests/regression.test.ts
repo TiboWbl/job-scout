@@ -35,7 +35,7 @@ describe.skipIf(!LLM_ENABLED)("jugement LLM", () => {
     }));
     const results = new Map();
     for (let i = 0; i < inputs.length; i += 5) {
-      const { results: batch } = await judgeBatch(inputs.slice(i, i + 5), PROFILE, CvSummary.parse(CV), PROFILE.experienceYears);
+      const batch = await judgeBatch(inputs.slice(i, i + 5), PROFILE, CvSummary.parse(CV), PROFILE.experienceYears);
       for (const [k, v] of batch) results.set(k, v);
     }
 

@@ -40,15 +40,25 @@ export function Feed({ items: initial, openness, pending, hasOffers, isAdmin }: 
     if (pending <= 0) return;
     let cancelled = false;
     (async () => {
+      let remaining = pending;
       for (let attempt = 0; attempt < 60 && !cancelled; attempt++) {
-        const res = await fetch("/api/score", { method: "POST" });
-        if (!res.ok) {
-          if (!cancelled) setProgress({ remaining: pending, error: "Le classement s'est interrompu. Recharge la page pour reprendre." });
-          return;
+        const res = await fetch("/api/score", { method: "POST" }).catch(() => null);
+        if (!res?.ok) {
+          const body = (await res?.json().catch(() => null)) as { error?: string; retry?: boolean } | null;
+          if (cancelled) return;
+          if (!body?.retry) {
+            setProgress({ remaining, error: "Le classement s'est interrompu. Recharge la page pour reprendre." });
+            return;
+          }
+          // The model is unreachable: say so and try again shortly, never fall back to a rough guess.
+          setProgress({ remaining, error: `${body.error} Nouvel essai dans 30 secondes.` });
+          await new Promise((r) => setTimeout(r, 30_000));
+          continue;
         }
         const data = (await res.json()) as { remaining: number; scoredNow: number };
         if (cancelled) return;
-        setProgress({ remaining: data.remaining });
+        remaining = data.remaining;
+        setProgress({ remaining });
         router.refresh();
         if (data.remaining === 0 || data.scoredNow === 0) break;
       }

@@ -20,7 +20,7 @@ type LightOffer = {
   company: { name: string } | null;
 };
 
-export type ScoringProgress = { scoredNow: number; remaining: number; total: number; by: "llm" | "mock" | null };
+export type ScoringProgress = { scoredNow: number; remaining: number; total: number };
 
 async function pages<T>(fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const out: T[] = [];
@@ -95,7 +95,6 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   candidates.sort((a, b) => b.rel - a.rel);
   let scoredNow = 0;
   let missed = 0;
-  let by: ScoringProgress["by"] = null;
   while (candidates.length > 0 && Date.now() - startedAt < budgetMs) {
     const batch = candidates.splice(0, BATCH_SIZE);
     const inputs: JudgeInput[] = batch.map(({ offer }) => ({
@@ -107,15 +106,14 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       experienceRequired: offer.experience_min_years,
       description: descriptions.get(offer.id) ?? "",
     }));
-    const { results, by: judgedBy } = await judgeBatch(inputs, criteria, cv, experienceYears);
-    by = judgedBy;
+    const results = await judgeBatch(inputs, criteria, cv, experienceYears);
     if (results.size === 0) {
       candidates.unshift(...batch);
       break;
     }
     const rows = batch
       .filter(({ offer }) => results.has(offer.id))
-      .map(({ offer, outOfZone }) => ({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...results.get(offer.id)!, scored_by: judgedBy }));
+      .map(({ offer, outOfZone }) => ({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...results.get(offer.id)!, scored_by: "llm" }));
     const { error: e } = await db.from("offer_scores").upsert(rows);
     if (e) throw e;
     scoredNow += rows.length;
@@ -123,5 +121,5 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     missed += batch.length - rows.length;
   }
 
-  return { scoredNow, remaining: candidates.length + missed, total: offers.length, by };
+  return { scoredNow, remaining: candidates.length + missed, total: offers.length };
 }

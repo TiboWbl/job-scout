@@ -54,22 +54,30 @@ class MistralProvider implements LlmProvider {
         }),
       );
       if (res.status === 429 || res.status >= 500) {
-        if (attempt >= MAX_RETRIES) throw new Error(`Mistral HTTP ${res.status} after ${MAX_RETRIES} retries`);
+        if (attempt >= MAX_RETRIES) throw new LlmUnavailableError(`Mistral HTTP ${res.status} after ${MAX_RETRIES} retries`);
         const retryAfter = Number(res.headers.get("retry-after"));
         await new Promise((r) => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1500 * 2 ** attempt));
         continue;
       }
-      if (!res.ok) throw new Error(`Mistral HTTP ${res.status}`);
+      if (!res.ok) throw new LlmUnavailableError(`Mistral HTTP ${res.status}`);
       const body = (await res.json()) as { choices: { message: { content: string } }[] };
       return JSON.parse(body.choices[0].message.content);
     }
   }
 }
 
-export function getLlm(): LlmProvider | null {
-  const provider = (process.env.LLM_PROVIDER || "mistral").toLowerCase();
-  if (provider === "mock") return null;
-  if (provider === "mistral" && process.env.MISTRAL_API_KEY) return new MistralProvider(process.env.MISTRAL_API_KEY);
-  // No usable provider configured: callers fall back to their deterministic heuristics.
-  return null;
+// Raised when no model can answer: callers surface a clear message and retry, never an approximate result.
+export class LlmUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    super("LLM unavailable", { cause });
+    this.name = "LlmUnavailableError";
+  }
 }
+
+export function getLlm(): LlmProvider {
+  const provider = (process.env.LLM_PROVIDER || "mistral").toLowerCase();
+  if (provider === "mistral" && process.env.MISTRAL_API_KEY) return new MistralProvider(process.env.MISTRAL_API_KEY);
+  throw new LlmUnavailableError(`provider "${provider}" is not configured`);
+}
+
+export const LLM_UNAVAILABLE_MESSAGE = "Scout n'arrive pas à joindre l'IA pour le moment. Réessaie dans un instant.";
