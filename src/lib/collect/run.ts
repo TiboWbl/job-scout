@@ -2,18 +2,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria } from "@/lib/domain/criteria";
 import type { NormalizedOffer } from "@/lib/domain/offer";
 import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats";
-import type { Keep } from "./connectors/ats-more";
+import type { Keep, Wanted } from "./connectors/ats-more";
+import { titleRelevance } from "@/lib/scoring/relevance";
+import { detectExperience } from "@/lib/domain/signals";
 import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
 import { fillCovers } from "./cover";
 import { enrichCompanies } from "./enrich";
-import { companyKey, dedupKey } from "./normalize";
+import { companyKey, offerKey } from "./normalize";
 
 export type SourceReport = { source: string; seen: number; created: number; archived: number; error?: string };
 
 const MAX_GENERATED_QUERIES = 8;
+const MAX_FAVORITE_QUERIES = 25;
 const COLOR_BATCH = 150;
 const RETENTION_DAYS = 60;
 // Search engines never say when an offer is withdrawn: unseen for this long, it is archived.
@@ -25,13 +28,15 @@ const BOARD_CONCURRENCY = 6;
 type Log = (line: string) => void;
 type Options = { log?: Log; budgetMs?: number };
 
-type Scope = { queries: SearchQuery[]; countries: Set<string> };
+// wanted: whether a title is close to a role or bridge someone looks for (big boards fetch details only for those).
+type Scope = { queries: SearchQuery[]; countries: Set<string>; wanted: Wanted };
 
 export async function runCollection(db: SupabaseClient, { log = () => {}, budgetMs = Infinity }: Options = {}): Promise<SourceReport[]> {
   const startedAt = Date.now();
   await seedBoards(db);
   const scope = await scopeFromProfiles(db);
   const keep = keepInScope(scope);
+  const wanted = scope.wanted;
   const reports: SourceReport[] = [];
 
   // Search engines first: they bring the most offers for the people actually using Scout.
@@ -48,7 +53,7 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
   const worker = async () => {
     while (next < boards.length && Date.now() - startedAt < budgetMs) {
       const board = boards[next++];
-      const r = await collectBoard(db, board, keep);
+      const r = await collectBoard(db, board, keep, wanted);
       const agg = byAts.get(board.ats) ?? { source: board.ats, seen: 0, created: 0, archived: 0 };
       agg.seen += r.seen;
       agg.created += r.created;
@@ -99,15 +104,18 @@ async function loadBoards(db: SupabaseClient): Promise<(Board & { id: string })[
 // Search queries and kept countries come only from the profiles in the database: every user widens
 // the coverage, and nothing is stored for places nobody is looking at (the free database is 500 MB).
 export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
-  // The demo persona does not spend the search engines' quotas.
-  const { data } = await db.from("profiles").select("criteria").not("onboarded_at", "is", null).eq("is_demo", false);
+  const { data } = await db.from("profiles").select("criteria, is_demo").not("onboarded_at", "is", null);
   const counts = new Map<string, { q: SearchQuery; n: number }>();
   const countries = new Set<string>();
+  const sought: Criteria[] = [];
   for (const row of data ?? []) {
     const parsed = Criteria.safeParse(row.criteria);
     if (!parsed.success) continue;
     const c = parsed.data;
+    sought.push(c);
     for (const p of c.zone.places) countries.add(p.country);
+    // The demo persona does not spend the search engines' quotas.
+    if (row.is_demo) continue;
     const place = c.zone.places.find((p) => p.kind !== "country") ?? c.zone.places[0] ?? null;
     const where = place?.label ?? null;
     for (const what of [...c.targetRoles, ...c.titleVariants]) {
@@ -117,7 +125,12 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
     }
   }
   const queries = [...counts.values()].sort((a, b) => b.n - a.n).slice(0, MAX_GENERATED_QUERIES).map((x) => x.q);
-  return { queries, countries };
+  // Favourite companies whose career page Scout cannot read: searched by name, so none is missed.
+  const { data: favs } = await db.from("favorite_companies").select("company:companies(name, ats)");
+  const favNames = [...new Set((favs ?? []).map((f) => f.company as unknown as { name: string; ats: string | null } | null).filter((c) => c && !c.ats).map((c) => c!.name))];
+  queries.push(...favNames.slice(0, MAX_FAVORITE_QUERIES).map((company) => ({ what: "", where: null, country: [...countries][0] ?? "FR", company })));
+  const wanted: Wanted = (title) => sought.length === 0 || sought.some((c) => titleRelevance(title, c) >= 3);
+  return { queries, countries, wanted };
 }
 
 export function keepInScope(scope: Scope): Keep {
@@ -127,12 +140,12 @@ export function keepInScope(scope: Scope): Keep {
   return (places) => places.some((p) => p.country !== undefined && scope.countries.has(p.country));
 }
 
-export async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep): Promise<SourceReport> {
+export async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep, wanted?: Wanted): Promise<SourceReport> {
   const startedAt = new Date().toISOString();
   const source = `${board.ats}:${board.token}`;
   const report: SourceReport = { source, seen: 0, created: 0, archived: 0 };
   try {
-    const all = await fetchBoard(board, keep);
+    const all = await fetchBoard(board, keep, wanted);
     const offers = all.filter((o) => keep(o.places, o.remote));
     report.seen = offers.length;
     report.created = await upsertOffers(db, offers);
@@ -217,7 +230,12 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
   const now = new Date().toISOString();
 
   const byKey = new Map<string, NormalizedOffer>();
-  for (const o of offers) byKey.set(dedupKey(o.company.name, o.title, o.places[0]?.city), o);
+  for (const o of offers) {
+    // Among true duplicates, the most complete version wins.
+    const key = offerKey(o);
+    const prev = byKey.get(key);
+    if (!prev || o.description.length > prev.description.length) byKey.set(key, o);
+  }
   const keys = [...byKey.keys()];
   let created = 0;
 
@@ -229,6 +247,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
 
     const rows = slice.map((key) => {
       const o = byKey.get(key)!;
+      const range = detectExperience(o.description);
       const prev = known.get(key);
       const urls: { source: string; url: string }[] = prev?.urls ?? [];
       if (!urls.some((u) => u.url === o.sourceUrl)) urls.push({ source: o.sourceKey, url: o.sourceUrl });
@@ -244,9 +263,11 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
         remote: o.remote,
         remote_scope: o.remoteScope,
         contract: o.contract,
-        experience_min_years: o.experienceMinYears,
+        experience_min_years: o.experienceMinYears ?? range.min,
+        experience_max_years: range.max,
         description: o.description.length >= prevDesc.length ? o.description : prevDesc,
         apply_url: direct?.url ?? o.applyUrl,
+        ...(o.imageUrl ? { image_url: o.imageUrl } : {}),
         urls,
         sources: Array.from(new Set([...(prev?.sources ?? []), o.sourceKey])),
         published_at: o.publishedAt,

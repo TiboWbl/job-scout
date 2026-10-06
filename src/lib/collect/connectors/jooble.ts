@@ -43,7 +43,8 @@ const located = (q: SearchQuery) => {
 
 export async function fetchJooble(queries: SearchQuery[]): Promise<NormalizedOffer[]> {
   const out = new Map<string, NormalizedOffer>();
-  for (const q of queries) {
+  // Jooble matches company names loosely: favourite-company searches go to Adzuna only.
+  for (const q of queries.filter((x) => !x.company)) {
     for (let page = 1; page <= MAX_PAGES; page++) {
       const res = await fetch(`https://jooble.org/api/${process.env.JOOBLE_API_KEY}`, {
         method: "POST",

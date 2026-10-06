@@ -6,6 +6,8 @@ import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { freshness, placeLabel } from "@/lib/format";
+import { experienceLabel } from "@/lib/domain/signals";
+import { structureDescription } from "@/lib/format-description";
 import { createClient } from "@/lib/supabase/browser";
 import { CompanyLogo } from "@/components/company-logo";
 import { ArrowIcon, CloseIcon, NopeIcon, SaveIcon } from "@/components/icons";
@@ -92,13 +94,13 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const blocks = description ? toBlocks(description) : [];
+  const blocks = description ? toBlocks(structureDescription(description)) : [];
   const seenAt = offer.published_at ?? offer.first_seen_at;
   const facts = [
     ["Lieu", placeLabel(offer.places, offer.location_raw)],
     ["Télétravail", REMOTE_LABELS[offer.remote]],
     ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
-    ["Expérience demandée", item.experience_asked ?? (offer.experience_min_years === null ? "Non précisée" : offer.experience_min_years === 0 ? "Débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`)],
+    ["Expérience demandée", experienceLabel(offer.experience_min_years, offer.experience_max_years) ?? item.experience_asked ?? "Non précisée"],
     ["Salaire", item.salary ?? "Non indiqué"],
     ["Publiée", freshness(seenAt).replace(/^./, (c) => c.toUpperCase())],
   ];
@@ -110,10 +112,10 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
       onClick={(e) => e.stopPropagation()}
       className="tinted-vars animate-rise flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl"
     >
-      <div className={`relative shrink-0 bg-[var(--band)] ${offer.company.cover_url && !coverFailed ? "h-44" : "h-[92px]"}`}>
-        {offer.company.cover_url && !coverFailed && (
+      <div className={`relative shrink-0 bg-[var(--band)] ${(offer.image_url ?? offer.company.cover_url) && !coverFailed ? "h-44" : "h-[92px]"}`}>
+        {(offer.image_url ?? offer.company.cover_url) && !coverFailed && (
           // eslint-disable-next-line @next/next/no-img-element -- external image, referenced not copied
-          <img src={offer.company.cover_url} alt="" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
+          <img src={(offer.image_url ?? offer.company.cover_url)!} alt="" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
         )}
         <div className="absolute right-4 top-4 flex gap-2">
           <button type="button" onClick={onClose} aria-label="Fermer" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-[#17151f] hover:bg-white">

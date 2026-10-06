@@ -151,3 +151,21 @@ describe("expérience demandée lue dans l'offre", () => {
     });
   }
 });
+
+describe("expérience en fourchette", async () => {
+  const { detectExperience, experienceLabel } = await import("@/lib/domain/signals");
+  const cases: [string, number | null, number | null, string | null][] = [
+    ["Tu es diplômé(e) d'une école d'ingénieur avec jusqu'à 2 ans d'expérience professionnelle", 0, 2, "0 à 2 ans"],
+    ["Expérience : 3-6 ans dans un rôle produit", 3, 6, "3 à 6 ans"],
+    ["Vous avez entre 2 à 4 ans d'expérience en gestion de projet", 2, 4, "2 à 4 ans"],
+    ["Must-haves - 3+ years in product management", 3, null, "3 ans et plus"],
+    ["Up to 2 years of experience in a product team", 0, 2, "0 à 2 ans"],
+    ["Moins de 3 ans d'expérience", 0, 3, "0 à 3 ans"],
+  ];
+  for (const [text, min, max, label] of cases) {
+    it(`« ${text.slice(0, 45)} » → ${label}`, () => {
+      expect(detectExperience(text)).toEqual({ min, max });
+      expect(experienceLabel(min, max)).toBe(label);
+    });
+  }
+});

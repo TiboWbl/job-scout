@@ -1,7 +1,7 @@
 import { parseLocation } from "@/lib/domain/geo";
 import { detectContract, detectExperienceYears } from "@/lib/domain/signals";
 import type { NormalizedOffer } from "@/lib/domain/offer";
-import { htmlToText } from "../normalize";
+import { companyKey, htmlToText } from "../normalize";
 
 // Adzuna public API (France). Optional: skipped without credentials.
 const SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/fr/search";
@@ -10,7 +10,10 @@ const MAX_PAGES = 5;
 const MAX_DAYS_OLD = 60;
 
 // `country`: ISO code of the place, so engines that serve several countries search the right one.
-export type SearchQuery = { what: string; where: string | null; country: string | null };
+// `company`: a favourite company whose career page Scout cannot read. Adzuna's own company filter only
+// accepts its internal spelling (400 otherwise), so the name is searched as a phrase and only offers
+// from that employer are kept.
+export type SearchQuery = { what: string; where: string | null; country: string | null; company?: string };
 
 export function isAdzunaConfigured() {
   return Boolean(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY);
@@ -56,15 +59,26 @@ export async function fetchAdzuna(queries: SearchQuery[]): Promise<NormalizedOff
       const url = new URL(`${SEARCH_URL}/${page}`);
       url.searchParams.set("app_id", process.env.ADZUNA_APP_ID!);
       url.searchParams.set("app_key", process.env.ADZUNA_APP_KEY!);
-      url.searchParams.set("what", q.what);
+      if (q.company) url.searchParams.set("what_phrase", q.company);
+      else url.searchParams.set("what", q.what);
       if (q.where) url.searchParams.set("where", q.where);
       url.searchParams.set("max_days_old", String(MAX_DAYS_OLD));
       url.searchParams.set("results_per_page", "50");
       const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-      if (!res.ok) throw new Error(`search HTTP ${res.status}`);
+      if (!res.ok) {
+        // One company search failing must not cost the whole source.
+        if (q.company) break;
+        throw new Error(`search HTTP ${res.status}`);
+      }
       const data = (await res.json()) as { results?: AdzunaOffer[] };
-      for (const o of data.results ?? []) out.set(o.id, normalize(o));
-      if ((data.results?.length ?? 0) < 50) break;
+      const wanted = q.company ? companyKey(q.company) : null;
+      for (const o of data.results ?? []) {
+        // A phrase search also finds offers that merely mention the company (agencies, resellers).
+        if (wanted && companyKey(o.company?.display_name ?? "") !== wanted) continue;
+        out.set(o.id, normalize(o));
+      }
+      // A company search keeps its latest offers only: one page is enough and spares the quota.
+      if (q.company || (data.results?.length ?? 0) < 50) break;
     }
   }
   return [...out.values()];

@@ -9,6 +9,8 @@ import { htmlToText } from "../normalize";
 export type BoardRef = { name: string; domain: string | null; token: string };
 // Lets a connector skip detail requests for offers that would be dropped anyway (outside every zone).
 export type Keep = (places: Place[], remote: NormalizedOffer["remote"]) => boolean;
+// Whether someone's search could use this title: big boards fetch details only for those.
+export type Wanted = (title: string) => boolean;
 
 const TIMEOUT_MS = 30_000;
 const HEADERS = { "User-Agent": "Scout job aggregator", Accept: "application/json" };
@@ -243,4 +245,71 @@ export async function personio(board: BoardRef): Promise<NormalizedOffer[]> {
       publishedAt: tag(p, "createdAt") || null,
     };
   });
+}
+
+// DigitalRecruiters ---------------------------------------------------------------------------
+// The API the company's own careers site calls; the board is identified by the site's domain.
+
+type DrListItem = { job_ad_id: number; title: string; contract?: string; location?: string; url: string; image_wide?: { src?: string } };
+type DrDetail = {
+  title?: string;
+  contract?: string;
+  working_time?: string;
+  job_experience?: string;
+  location?: string;
+  formatted_address?: string;
+  brand_name?: string;
+  description?: string;
+  profile?: string;
+  catch_phrase?: string;
+  republished_at?: string;
+};
+const DR_API = "https://api.digitalrecruiters.com/public/v1/careers-site/job-ads";
+const DR_DETAILS_PER_BOARD = 150;
+
+export async function digitalrecruiters(board: BoardRef, keep?: Keep, wanted?: Wanted): Promise<NormalizedOffer[]> {
+  const items: DrListItem[] = [];
+  for (let page = 1; page <= 30; page++) {
+    const res = await fetch(`${DR_API}?domainName=${board.token}&limit=100&page=${page}&locale=fr_FR`, {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { count?: number; items?: DrListItem[] };
+    items.push(...(data.items ?? []));
+    if (!data.items || data.items.length < 100) break;
+  }
+  const out: NormalizedOffer[] = [];
+  let details = 0;
+  for (const item of items) {
+    const loc = parseLocation(item.location ?? "", item.title);
+    if (!loc.places.length) loc.places = [{ country: "FR" }];
+    if (keep && !keep(loc.places, loc.remote)) continue;
+    const url = `https://${board.token}/fr/annonce/${item.url}`;
+    const image = item.image_wide?.src ? `https://${board.token}${item.image_wide.src}` : undefined;
+    // Details (description, experience) only where a search could use them, within a cap.
+    let detail: DrDetail | null = null;
+    if ((!wanted || wanted(item.title)) && details < DR_DETAILS_PER_BOARD) {
+      details++;
+      detail = (await (await get(`${DR_API}/${item.job_ad_id}?domainName=${board.token}&locale=fr_FR`)).json().catch(() => null)) as DrDetail | null;
+    }
+    const description = detail ? [htmlToText(detail.catch_phrase ?? ""), htmlToText(detail.description ?? ""), htmlToText(detail.profile ?? "")].filter(Boolean).join("\n\n") : "";
+    const experience = detail?.job_experience && !/pas de pr[ée]f[ée]rence/i.test(detail.job_experience) ? `${detail.job_experience}\n` : "";
+    out.push({
+      ...base("digitalrecruiters", board, detail?.brand_name || board.name),
+      sourceUrl: url,
+      title: item.title.trim(),
+      locationRaw: detail?.formatted_address ?? item.location ?? null,
+      ...loc,
+      contract: detectContract(item.title, item.contract ?? detail?.contract ?? null, description),
+      experienceMinYears: detectExperienceYears(experience + description),
+      description: experience + description,
+      applyUrl: url,
+      publishedAt: detail?.republished_at ? new Date(detail.republished_at.replace(" ", "T") + "Z").toISOString() : null,
+      imageUrl: image,
+    });
+  }
+  return out;
 }

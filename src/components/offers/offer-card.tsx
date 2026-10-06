@@ -6,6 +6,7 @@ import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { freshness, isFresh, placeLabel } from "@/lib/format";
+import { experienceLabel } from "@/lib/domain/signals";
 import { CompanyLogo } from "@/components/company-logo";
 import { NopeIcon, SaveIcon } from "@/components/icons";
 import { LevelBadge } from "@/components/level-badge";
@@ -25,14 +26,13 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
   const [nopeOpen, setNopeOpen] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const { offer } = item;
-  const cover = !coverFailed ? offer.company.cover_url : null;
+  // The offer's own photo first, then the company's.
+  const cover = !coverFailed ? (offer.image_url ?? offer.company.cover_url) : null;
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
   const seenAt = offer.published_at ?? offer.first_seen_at;
   const fresh = isFresh(seenAt);
-  // What the model read in "profil recherché", else what the posting's text states.
-  const experience =
-    item.experience_asked ??
-    (offer.experience_min_years === null ? null : offer.experience_min_years === 0 ? "débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`);
+  // What the posting states (read deterministically) first, else what the model quoted from it.
+  const experience = experienceLabel(offer.experience_min_years, offer.experience_max_years) ?? item.experience_asked;
 
   return (
     <article

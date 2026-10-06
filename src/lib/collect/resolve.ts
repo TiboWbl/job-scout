@@ -9,6 +9,8 @@ import { collectBoard, keepInScope, scopeFromProfiles } from "./run";
 
 const NOT_A_COMPANY = new Set(["www", "api", "embed", "v1", "app", "careers", "jobs", "j", "widget", "boards", "job_board"]);
 const PATTERNS: [Ats, RegExp][] = [
+  // A DigitalRecruiters careers site loads its styles from the API under its own domain.
+  ["digitalrecruiters", /api\.digitalrecruiters\.com\/careers\/v1\/careers-sites\/([a-z0-9.-]+\.[a-z]{2,})/i],
   ["greenhouse", /greenhouse\.io\/embed\/job_board(?:\/js)?\?for=([a-z0-9_-]+)/i],
   ["greenhouse", /(?:job-)?boards(?:-api)?\.greenhouse\.io\/(?:v1\/boards\/)?([a-z0-9_-]+)/i],
   ["lever", /jobs\.(?:eu\.)?lever\.co\/([a-z0-9_.-]+)/i],
@@ -45,7 +47,6 @@ const PLATFORMS: [string, RegExp][] = [
   ["SuccessFactors", /successfactors\.(com|eu)|jobs\.sap\.com/i],
   ["Taleo", /taleo\.net/i],
   ["Talentsoft", /talent-soft\.com|talentsoft/i],
-  ["DigitalRecruiters", /digitalrecruiters\.com/i],
   ["Jobaffinity", /jobaffinity\.fr/i],
   ["Flatchr", /flatchr\.io/i],
   ["Taleez", /taleez\.com/i],
@@ -58,7 +59,8 @@ async function page(url: string): Promise<{ url: string; html: string } | null> 
 }
 
 // Light checks, all in parallel: does this ATS have a non-empty board under this slug?
-const BOARD_CHECKS: Record<Ats, (t: string) => [string, (body: string) => boolean]> = {
+// DigitalRecruiters boards are named by their careers domain: found from the site, never guessed.
+const BOARD_CHECKS: Partial<Record<Ats, (t: string) => [string, (body: string) => boolean]>> = {
   greenhouse: (t) => [`https://boards-api.greenhouse.io/v1/boards/${t}/jobs`, (b) => /"jobs":\[\{/.test(b)],
   lever: (t) => [`https://api.lever.co/v0/postings/${t}?mode=json&limit=1`, (b) => b.trim().startsWith("[{")],
   ashby: (t) => [`https://api.ashbyhq.com/posting-api/job-board/${t}`, (b) => /"jobs":\[\{/.test(b)],
@@ -70,10 +72,10 @@ const BOARD_CHECKS: Record<Ats, (t: string) => [string, (body: string) => boolea
 };
 
 async function probeName(name: string): Promise<{ ats: Ats; token: string } | null> {
-  const guesses = slugGuesses(name).flatMap((token) => ATS_LIST.map((ats) => ({ ats, token })));
+  const guesses = slugGuesses(name).flatMap((token) => ATS_LIST.filter((ats) => BOARD_CHECKS[ats]).map((ats) => ({ ats, token })));
   const hits = await Promise.all(
     guesses.map(async (g) => {
-      const [url, ok] = BOARD_CHECKS[g.ats](g.token);
+      const [url, ok] = BOARD_CHECKS[g.ats]!(g.token);
       const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: { "User-Agent": "Scout job aggregator" } }).catch(() => null);
       return res?.ok && ok(await res.text().catch(() => "")) ? g : null;
     }),
@@ -162,8 +164,8 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry):
   // Read the career page now, so the company's offers are there right away.
   let offers = 0;
   if (board) {
-    const keep = keepInScope(await scopeFromProfiles(db));
-    offers = (await collectBoard(db, { id: companyId, name, domain: host, ats: board.ats, token: board.token }, keep)).seen;
+    const scope = await scopeFromProfiles(db);
+    offers = (await collectBoard(db, { id: companyId, name, domain: host, ats: board.ats, token: board.token }, keepInScope(scope), scope.wanted)).seen;
   }
   return { companyId, name, found: Boolean(board), platform, offers };
 }

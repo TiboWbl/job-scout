@@ -44,10 +44,21 @@ export function slug(text: string): string {
 }
 
 export function companyKey(name: string): string {
-  return slug(name).replace(/\b(sas|sa|sarl|inc|ltd|gmbh|group|groupe)\b/g, "").replace(/\s+/g, " ").trim();
+  return slug(name)
+    .replace(/\b(sas|sa|sarl|inc|ltd|gmbh|group|groupe)\b/g, "")
+    // "Robeaute-1": a suffix that career-page addresses add to tell boards apart, not a different company.
+    .replace(/([a-z])\s+\d$/, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // Same company + same normalised title + same first city = same offer, whatever the source.
 export function dedupKey(company: string, title: string, firstCity: string | undefined): string {
   return [companyKey(company), slug(title), slug(firstCity ?? "na")].join("|");
+}
+
+// The key of a normalised offer. Unknown small towns fall back on the raw place, so store-by-store
+// postings of the same job stay distinct.
+export function offerKey(o: { company: { name: string }; title: string; places: { city?: string }[]; locationRaw: string | null }): string {
+  return dedupKey(o.company.name, o.title, o.places[0]?.city ?? o.locationRaw ?? undefined);
 }

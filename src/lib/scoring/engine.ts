@@ -5,13 +5,15 @@ import { chancesCap, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
 import { titleRelevance } from "./relevance";
-import { judgeBatch, type JudgeInput, type Judgement } from "./judge";
+import { judgeBatch, type Feedback, type JudgeInput, type Judgement } from "./judge";
 
 const BATCH_SIZE = 8;
 // A batch of 8 takes ~20-25 s on the free model; with 2.1 s between starts, ~12 fit in one call.
 const BATCH_DURATION_MS = 30_000;
 const MAX_BATCHES_PER_CALL = 12;
 const MIN_TITLE_RELEVANCE = 3;
+// Offers of favourite companies skip the title pre-sort, judged after the closest titles.
+const FAVORITE_RELEVANCE = 1;
 const HARD_STOP_MS = 52_000;
 const PAGE = 1000;
 
@@ -24,6 +26,8 @@ type LightOffer = {
   remote_scope: string[];
   contract: string;
   experience_min_years: number | null;
+  company_id: string;
+  has_description: boolean;
   company: { name: string } | null;
 };
 
@@ -59,7 +63,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const offers = await pages<LightOffer>((f, t) =>
     db
       .from("offers")
-      .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, company:companies(name)")
+      .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, company_id, has_description, company:companies(name)")
       .is("archived_at", null)
       .order("first_seen_at", { ascending: false })
       .range(f, t) as unknown as PromiseLike<{ data: LightOffer[] | null; error: unknown }>,
@@ -68,6 +72,8 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
 
   const base = { user_id: userId, criteria_version: version };
   const gateRows: Record<string, unknown>[] = [];
+  const { data: favoriteRows } = await db.from("favorite_companies").select("company_id").eq("user_id", userId);
+  const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.company_id as string));
   const passed: { offer: LightOffer; outOfZone: boolean; gap: number }[] = [];
   for (const offer of unscored) {
     const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
@@ -80,7 +86,8 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const candidates: { offer: LightOffer; outOfZone: boolean; gap: number; rel: number }[] = [];
   for (const p of passed) {
     const rel = titleRelevance(p.offer.title, criteria);
-    if (rel >= MIN_TITLE_RELEVANCE) candidates.push({ ...p, rel });
+    // A favourite company's offers are always read: a good role there may carry an unexpected title.
+    if (rel >= MIN_TITLE_RELEVANCE || (favoriteIds.has(p.offer.company_id) && p.offer.has_description)) candidates.push({ ...p, rel: Math.max(rel, FAVORITE_RELEVANCE) });
     else
       gateRows.push({
         ...base,
@@ -100,6 +107,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   candidates.sort((a, b) => b.rel - a.rel);
   const { data: favs } = await db.from("favorite_companies").select("company:companies(name)").eq("user_id", userId);
   const favoriteNames = (favs ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
+  const feedback = await loadFeedback(db, userId);
   const descriptions = new Map<string, string>();
   const excerpts = new Set<string>();
   const toLoad = candidates.slice(0, MAX_BATCHES_PER_CALL * BATCH_SIZE).map((c) => c.offer.id);
@@ -155,7 +163,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       excerpt: excerpts.has(offer.id),
     }));
     running.push(
-      judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames).then(async (results) => {
+      judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames, feedback).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
           .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts));
@@ -179,6 +187,21 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const unfinished = running.length - finished + failures.length;
 
   return { scoredNow, remaining: candidates.length + missed + unfinished * BATCH_SIZE, total: offers.length };
+}
+
+// The person's own signals, newest first: kept or applied to (liked), set aside with a reason (disliked).
+async function loadFeedback(db: SupabaseClient, userId: string): Promise<Feedback> {
+  const [actions, applied] = await Promise.all([
+    db.from("user_offers").select("saved, dismissed, dismiss_reason, offer:offers(title, company:companies(name))").eq("user_id", userId).order("updated_at", { ascending: false }).limit(40),
+    db.from("applications").select("title, company").eq("user_id", userId).order("updated_at", { ascending: false }).limit(10),
+  ]);
+  type Row = { saved: boolean; dismissed: boolean; dismiss_reason: string | null; offer: { title: string; company: { name: string } | null } | null };
+  const rows = (actions.data ?? []) as unknown as Row[];
+  const label = (r: Row) => `${r.offer?.title} (${r.offer?.company?.name ?? "?"})`;
+  return {
+    liked: [...(applied.data ?? []).map((a) => `${a.title} (${a.company})`), ...rows.filter((r) => r.saved && r.offer).map(label)].slice(0, 10),
+    disliked: rows.filter((r) => r.dismissed && r.offer).map((r) => `${label(r)} : ${r.dismiss_reason ?? "sans raison"}`).slice(0, 12),
+  };
 }
 
 // The experience gate keeps its word whatever the model thought of the chances. When the model found
@@ -213,7 +236,9 @@ function scoreRow(
         return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: `${found} ans d'expérience demandés, ${experienceYears} de ton côté.`, scored_by: "llm" };
     }
   }
-  return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, score_chances: Math.min(rest.score_chances, chancesCap(effectiveGap)), scored_by: "llm" };
+  // A crush is a match within reach: 2 years or more above the person's experience is Solide at best.
+  const level = rest.level === "coeur" && effectiveGap >= 2 ? "solide" : rest.level;
+  return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level, score_chances: Math.min(rest.score_chances, chancesCap(effectiveGap)), scored_by: "llm" };
 }
 
 // An offer the person added themselves: same gates and judgement, no title pre-sort, right away.
@@ -254,6 +279,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
       cv,
       experienceYears,
       favoriteNames,
+      await loadFeedback(db, userId),
     );
     for (const { offer, outOfZone, gap } of toJudge) {
       const judged = results.get(offer.id);

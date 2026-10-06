@@ -50,14 +50,14 @@ describe("découverte", () => {
 });
 
 describe("filtre géographique à la collecte", () => {
-  const keep = keepInScope({ queries: [], countries: new Set(["FR"]) });
+  const keep = keepInScope({ queries: [], countries: new Set(["FR"]), wanted: () => true });
   it("garde la France, écarte le reste et les lieux inconnus", () => {
     expect(keep([{ city: "Paris", country: "FR" }], "hybrid")).toBe(true);
     expect(keep([], "remote")).toBe(false);
     expect(keep([{ city: "Boston", country: "US" }], "onsite")).toBe(false);
   });
   it("garde tout tant qu'aucun profil n'existe", () => {
-    expect(keepInScope({ queries: [], countries: new Set() })([{ city: "Boston", country: "US" }], "onsite")).toBe(true);
+    expect(keepInScope({ queries: [], countries: new Set(), wanted: () => true })([{ city: "Boston", country: "US" }], "onsite")).toBe(true);
   });
 });
 
@@ -66,5 +66,28 @@ describe("liste d'entreprises favorites", () => {
     const { parseEntries } = await import("@/components/favorites");
     expect(parseEntries("Acme Sport\nExemple Santé, Autre Boîte\nhttps://jobs.lever.co/acme")).toEqual([{ name: "Acme Sport" }, { name: "Exemple Santé" }, { name: "Autre Boîte" }, { site: "https://jobs.lever.co/acme" }]);
     expect(parseEntries("entreprise,site\nAcme Sport,https://acme.fr\nExemple Santé,")).toEqual([{ name: "Acme Sport", site: "https://acme.fr" }, { name: "Exemple Santé", site: undefined }]);
+  });
+});
+
+describe("descriptions restructurées", async () => {
+  const { structureDescription } = await import("@/lib/format-description");
+  it("isole les rubriques et transforme les tirets en liste", () => {
+    const flat = "Rejoins une équipe produit en croissance à Paris. Tes missions : - Prioriser le backlog - Mener la discovery - Suivre les KPIs. Profil recherché : jusqu'à 2 ans d'expérience en produit.";
+    const out = structureDescription(flat).split("\n");
+    expect(out).toContain("Tes missions :");
+    expect(out).toContain("• Prioriser le backlog");
+    expect(out).toContain("Profil recherché :");
+  });
+  it("laisse intact un texte déjà structuré", () => {
+    const ok = "Missions\n• Une\n• Deux\nProfil\n• Trois";
+    expect(structureDescription(ok)).toBe(ok);
+  });
+});
+
+describe("même entreprise, nom de page carrière différent", async () => {
+  const { companyKey } = await import("@/lib/collect/normalize");
+  it("ignore le suffixe numérique des adresses (Robeaute-1)", () => {
+    expect(companyKey("Robeaute-1")).toBe(companyKey("Robeaute"));
+    expect(companyKey("1&1")).not.toBe("");
   });
 });

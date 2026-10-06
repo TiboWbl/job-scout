@@ -112,7 +112,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - API Adzuna (branchée le 6 octobre 2026) : recherches croisant les intitulés de chaque profil avec son lieu, offres de moins de 60 jours, 8 recherches × 5 pages par collecte pour rester sous le quota gratuit (~250 appels/jour). Extraits de description seulement.
   - **Jooble** (branché, clé gratuite) : mêmes recherches, 3 pages. **Careerjet** (API d'affichage gratuite) : à brancher. Ces moteurs ne renvoient qu'un extrait de description : l'offre est scorée sur cet extrait et le lien mène à l'annonce complète.
 - **La couverture est le levier n°1 de l'utilité de Scout.** Au 5 octobre 2026, seules 22 entreprises sont lues (environ 1 300 offres). Priorités, intégrées à la phase 2 :
-  1. connecteurs pour 8 ATS à API ou flux publics : Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor (RSS) et Personio (XML) ;
+  1. connecteurs pour 9 ATS à API ou flux publics : Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor (RSS), Personio (XML) et DigitalRecruiters (sites carrière de nombreuses entreprises françaises, dont Decathlon ; fiches détaillées lues seulement pour les intitulés recherchés ; photo propre à chaque annonce) ;
+  - favorites sans page carrière lisible recherchées par leur nom sur Adzuna (25 au plus par collecte, une page chacune), en ne gardant que les offres publiées par cette entreprise ;
   2. découverte des pages carrière (`npm run discover`) : adresses vues dans l'index public de Common Crawl, et adresses devinées à partir des noms d'entreprises vus dans les offres des moteurs (« Acme Sport » → `acmesport`, `acme-sport` sur chaque ATS). Une entreprise n'entre dans l'annuaire que si sa page carrière publie au moins une offre dans la zone d'un profil ;
   3. Jooble et Adzuna branchés, Careerjet à brancher.
 - **Pages carrière lues en rotation** : les moins récemment collectées d'abord, dans un budget de temps (le bouton admin tient dans un appel serverless ; la collecte planifiée lit tout). Une page qui répond 404 sort de la rotation. Santé des sources agrégée par ATS.
@@ -146,7 +147,9 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
      - 3 ans : offre gardée, score Chances bas ;
      - ≥ 4 ans : offre écartée.
   5. **Secteurs et entreprises à éviter.**
-- Après les portes, seules les offres dont l'intitulé est proche d'un métier visé, d'un intitulé équivalent ou d'une passerelle partent au LLM. Les autres sont écartées avec cette raison (consultable). Juger sur la description enverrait presque tout : « travailler avec les product managers » figure dans d'innombrables offres.
+- Retours de la personne réinjectés dans chaque jugement : offres sauvegardées ou postulées (appréciées), offres « Pas pour moi » avec leur raison (écartées).
+- Expérience lue comme une fourchette (minimum, maximum) et affichée telle quelle (« 0 à 2 ans », « 3 à 6 ans », « 3 ans et plus »).
+- Après les portes, seules les offres dont l'intitulé est proche d'un métier visé, d'un intitulé équivalent ou d'une passerelle partent au LLM, sauf celles des entreprises favorites, lues dès que leur description est connue. Les autres sont écartées avec cette raison (consultable). Juger sur la description enverrait presque tout : « travailler avec les product managers » figure dans d'innombrables offres.
 - Pas d'embeddings au départ (aucun fournisseur gratuit retenu) : le préfiltre et une file d'attente plafonnée suffisent. À réévaluer si le volume l'exige.
 - Le LLM lit la description complète et juge le **poste réel**, pas l'intitulé. Il lit **en priorité « Profil recherché » / « Qualifications »** pour estimer les chances. Il détecte les pièges : intitulé trompeur, poste commercial déguisé, missions sans rapport avec le titre.
 - Sortie JSON validée par un schéma :
@@ -157,7 +160,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - `pourquoi` (1-2 phrases), `points_forts`, `points_d_attention` ;
   - `leviers_cv` : intitulé à reprendre, compétences à remonter, expérience à mettre en avant.
 - Niveaux, avec des libellés bienveillants :
-  - **Coup de cœur** : le métier visé dans un secteur prioritaire.
+  - **Coup de cœur** : le métier visé dans un secteur prioritaire, et à portée : l'expérience minimale demandée ne dépasse pas celle de la personne de plus d'un an (2 ans ou plus d'écart = Solide au mieux).
   - **Solide** : le métier visé, autre secteur, bonne entreprise.
   - **Tremplin** : métier passerelle avec un chemin crédible.
   - **Écartée** : avec raison, consultable.

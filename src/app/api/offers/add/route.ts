@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
 import { fromText, fromUrl } from "@/lib/collect/manual";
-import { dedupKey } from "@/lib/collect/normalize";
+import { offerKey } from "@/lib/collect/normalize";
 import { resolveCompany } from "@/lib/collect/resolve";
 import { upsertOffers } from "@/lib/collect/run";
 import { LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     if (!offerId) {
       const posting = text ? await fromText(text, url ?? null) : await fromUrl(url!);
       if (!posting) return NextResponse.json({ needText: true });
-      const key = dedupKey(posting.company.name, posting.title, posting.places[0]?.city);
+      const key = offerKey(posting);
       const { data: same } = await admin.from("offers").select("id, first_seen_at").eq("dedup_key", key).maybeSingle();
       if (same) [offerId, known] = [same.id, same];
       else {

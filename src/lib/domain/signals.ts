@@ -39,33 +39,55 @@ export function detectContract(title: string, explicit?: string | null, descript
 }
 
 // A number of years, alone or as a range: "3", "3+", "3 ou plus", "3-5", "3 à 5".
-const YEARS = String.raw`(\d{1,2})\s*(?:\+|ou plus|or more)?\s*(?:(?:a|-|to|–)\s*\d{1,2}\s*\+?\s*)?`;
+// A number of years, alone or as a range: "3", "3+", "3 ou plus", "3-5", "3 à 5" (the upper bound is captured).
+const YEARS = String.raw`(\d{1,2})\s*(?:\+|ou plus|or more)?\s*(?:(?:a|-|to|–)\s*(\d{1,2})\s*\+?\s*)?`;
 const UNIT = String.raw`(?:ans?|annees?|years?|yrs?)\b['’]?`;
 // What follows the years when they describe the candidate's experience, not the company's history.
 const CONTEXT = String.raw`(?:in|as|of|on|at|working|within|en|dans|comme|chez|sur|d['’ ]?|de|minimum|min\b|(?:\w+\s+){0,3}experience|(?:\w+\s+){0,3}exp\b)`;
-const EXPERIENCE_PATTERNS = [
-  new RegExp(`${YEARS}${UNIT}\\s+(?:minimum\\s+)?(?:d['’ ]\\s*)?(?:experience|exp\\b)`, "g"),
-  /(?:minimum|au moins|at least|min\.?)\s+(?:de\s+)?(\d{1,2})\s*\+?\s*(?:ans?|annees?|years?|yrs?)\b/g,
-  /experience\s+(?:de\s+|of\s+|minimum\s+de\s+|d['’ ]au moins\s+)?(\d{1,2})\s*\+?\s*(?:(?:a|-|to|–)\s*\d{1,2}\s*)?(?:ans?|annees?|years?|yrs?)\b/g,
+// Each pattern: [regex, index of the lower bound, index of the upper bound or null, implicit lower bound].
+const EXPERIENCE_PATTERNS: [RegExp, number, number | null, number | null][] = [
+  [new RegExp(`${YEARS}${UNIT}\\s+(?:minimum\\s+)?(?:d['’ ]\\s*)?(?:experience|exp\\b)`, "g"), 1, 2, null],
+  [/(?:minimum|au moins|at least|min\.?)\s+(?:de\s+)?(\d{1,2})\s*\+?\s*(?:ans?|annees?|years?|yrs?)\b/g, 1, null, null],
+  [/experience\s+(?:de\s+|of\s+|minimum\s+de\s+|d['’ ]au moins\s+)?(\d{1,2})\s*\+?\s*(?:(?:a|-|to|–)\s*(\d{1,2})\s*)?(?:ans?|annees?|years?|yrs?)\b/g, 1, 2, null],
   // "3+ years in product management", "5 years as a PM", "3 ans en gestion de produit", "2 ans sur un poste similaire"
-  new RegExp(`${YEARS}${UNIT}\\s+${CONTEXT}`, "g"),
+  [new RegExp(`${YEARS}${UNIT}\\s+${CONTEXT}`, "g"), 1, 2, null],
+  // "jusqu'à 2 ans d'expérience", "up to 2 years", "moins de 3 ans": a ceiling, so from 0.
+  [/(?:jusqu['’ ]?a|up to|moins de|less than|maximum|max\.?)\s+(\d{1,2})\s*(?:ans?|annees?|years?|yrs?)\b/g, 0, 1, 0],
 ];
 // Years that describe the company or a past period, never a requirement.
 const NOT_A_REQUIREMENT = /(?:depuis|since|founded|fondee?|cree+e?|il y a|ago|over the (?:past|last)|for the (?:past|last)|pendant|during|age|old|garantie|guarantee|anniversaire)\s*(?:\w+\s+){0,2}$/;
 
-// Lowest number of years the offer asks for, or null when it doesn't say.
-export function detectExperienceYears(description: string): number | null {
+export type ExperienceRange = { min: number | null; max: number | null };
+
+// The experience the offer asks for: the lowest requirement found, with its upper bound if it gives one.
+export function detectExperience(description: string): ExperienceRange {
   const n = norm(description);
-  let min: number | null = null;
-  for (const re of EXPERIENCE_PATTERNS) {
+  let best: ExperienceRange = { min: null, max: null };
+  for (const [re, minIndex, maxIndex, implicitMin] of EXPERIENCE_PATTERNS) {
     for (const m of n.matchAll(re)) {
-      const years = Number(m[1]);
       const before = n.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0);
       if (NOT_A_REQUIREMENT.test(before)) continue;
-      if (Number.isFinite(years) && years <= 15 && (min === null || years < min)) min = years;
+      const min = implicitMin ?? Number(m[minIndex]);
+      const rawMax = maxIndex !== null && m[maxIndex] !== undefined ? Number(m[maxIndex]) : null;
+      const max = rawMax !== null && rawMax >= min && rawMax <= 20 ? rawMax : null;
+      if (!Number.isFinite(min) || min > 15) continue;
+      if (best.min === null || min < best.min || (min === best.min && best.max === null && max !== null)) best = { min, max };
     }
   }
-  return min;
+  return best;
+}
+
+// Lowest number of years the offer asks for, or null when it doesn't say.
+export function detectExperienceYears(description: string): number | null {
+  return detectExperience(description).min;
+}
+
+// "0 à 2 ans", "3 à 6 ans", "3 ans et plus", "Débutant accepté": how a range reads on a card.
+export function experienceLabel(min: number | null, max: number | null): string | null {
+  if (min === null) return null;
+  if (max !== null && max > min) return `${min} à ${max} ans`;
+  if (min === 0) return "Débutant accepté";
+  return `${min} an${min > 1 ? "s" : ""} et plus`;
 }
 
 // Minimum experience an intitulé implies, used only as a coarse, safe gate.

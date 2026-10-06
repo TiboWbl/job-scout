@@ -8,6 +8,8 @@ export type FeedOffer = {
   remote: Remote;
   contract: string;
   experience_min_years: number | null;
+  experience_max_years: number | null;
+  image_url: string | null;
   apply_url: string;
   published_at: string | null;
   first_seen_at: string;
@@ -35,7 +37,7 @@ export type FeedItem = {
 };
 
 const OFFER_FIELDS =
-  "id, title, location_raw, places, remote, contract, experience_min_years, apply_url, published_at, first_seen_at, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url)";
+  "id, title, location_raw, places, remote, contract, experience_min_years, experience_max_years, image_url, apply_url, published_at, first_seen_at, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url)";
 
 // One shape for every feed query, server-side for the selection and client-side for "Écartées".
 export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, salary, experience_asked, score_interet, score_chances, score_tremplin, why, strengths, watch, cv_levers, scored_by, offer:offers(${OFFER_FIELDS})`;

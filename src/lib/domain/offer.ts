@@ -33,6 +33,8 @@ export type NormalizedOffer = {
   description: string;
   applyUrl: string;
   publishedAt: string | null;
+  // A photo published with the offer itself, when the source has one.
+  imageUrl?: string;
 };
 
 // An offer as read back from the database, with its company.
