@@ -288,15 +288,17 @@ export async function judgeBatch(
     const quoted = (q: string | null) => Boolean(q && q.trim().length >= 8 && squash(input.description).includes(squash(q)));
     const avoided = criteria.sectorsAvoid.find((x) => namedItem(item.secteur_evite_concerne, [x]));
     const sector = item.secteur === "a_eviter" && !(avoided && quoted(item.citation_secteur) && proves(avoided, item.citation_secteur)) ? "autre" : item.secteur;
+    // A "trap" that only talks about the sector is a sector opinion, not a misleading title: kept as a note.
+    const trap = item.piege && !/\b(secteurs?|prioritaires?|sant[eé]|sport)\b/i.test(item.piege) ? item.piege : null;
     // A title naming the role sought is that role. A role read only because the company is a favourite
     // is a bridge only in a preferred sector (close to the product and its users there).
     const match =
-      item.correspondance === "passerelle" && !item.piege && namesTargetRole(input.title, criteria)
+      item.correspondance === "passerelle" && !trap && namesTargetRole(input.title, criteria)
         ? "metier_vise"
         : item.correspondance === "passerelle" && input.titleMatch === false && sector !== "prioritaire"
           ? "autre"
           : // Only a search-engine excerpt: too little to rule out an offer whose title is the role sought.
-            item.correspondance === "autre" && input.excerpt && !item.piege && namesTargetRole(input.title, criteria)
+            item.correspondance === "autre" && input.excerpt && !trap && namesTargetRole(input.title, criteria)
             ? "metier_vise"
             : item.correspondance;
     const asked = input.experienceRequired ?? experience.years;
@@ -310,7 +312,7 @@ export async function judgeBatch(
       item.deal_breaker && breaker && quoted(item.citation_deal_breaker) && !NEGATIVE.test(fold(breaker).replace(/_/g, " ")) && proves(breaker, item.citation_deal_breaker)
         ? item.deal_breaker
         : null;
-    const facts: Facts = { match, sector, trap: item.piege, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };
+    const facts: Facts = { match, sector, trap, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };
     const { level, reason } = deriveLevel(facts, criteria);
     const [interet, chances, tremplin] = to100(item, level);
     // A deal-breaker the posting does not prove stays visible as something to check.
