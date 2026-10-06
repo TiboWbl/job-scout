@@ -20,10 +20,12 @@ const LEVEL_FILTERS: { key: Filter; label: string }[] = [
   { key: "coeur", label: "Coups de cœur" },
   { key: "solide", label: "Solides" },
   { key: "tremplin", label: "Tremplins" },
+  { key: "ecartees", label: "Écartées" },
 ];
 
 // What each level means for the person, in one short line.
 const LEVEL_HELP: Partial<Record<Filter, string>> = {
+  ecartees: "Chaque offre écartée affiche sa raison. Si une raison te semble fausse, c'est un réglage de Ma recherche à revoir.",
   coeur: "Le métier que tu vises, à ta portée : dans un secteur que tu préfères, chez une favorite ou ouvert aux juniors.",
   solide: "Le métier que tu vises, avec moins de chances ou dans un autre secteur.",
   tremplin: "Un poste proche qui peut te mener au métier que tu vises.",
@@ -296,7 +298,10 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
       <p className="mt-2 text-[15px] text-muted">
         {main.length - staleCount > 0
           ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
-          : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
+          : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}{" "}
+        <Link href={`${base}/recherche`} className="font-medium text-ink underline underline-offset-4 hover:text-brand">
+          Modifier ma recherche
+        </Link>
       </p>
 
       {collecting && (
@@ -320,62 +325,50 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher une entreprise ou un intitulé"
-          aria-label="Rechercher une entreprise ou un intitulé"
-          className="w-full max-w-sm rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
-        />
-        {filter === "ecartees" ? (
-          <button type="button" onClick={() => setFilter("all")} className="btn-soft">
-            ← Retour à ma sélection
-          </button>
-        ) : (
-          excludedTotal > 0 && (
-            <button type="button" onClick={openExcluded} className="btn-soft sm:ml-auto">
-              Voir les écartées · {excludedTotal.toLocaleString("fr-FR")}
-            </button>
-          )
-        )}
-      </div>
-
-      {filter !== "ecartees" && (
-        <div className="mb-5 mt-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-wrap rounded-xl border border-line bg-surface p-1">
-              {LEVEL_FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={filter === f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-button text-button-ink" : "text-muted hover:text-ink"}`}
-                >
-                  {f.label} <span className={filter === f.key ? "opacity-70" : "opacity-60"}>{levelCount(f.key)}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2" aria-label="Affiner">
-              <Toggle on={juniorOnly} onClick={() => setJuniorOnly((v) => !v)}>
-                Junior (2 ans max)
-              </Toggle>
-              <Toggle on={freshOnly} onClick={() => setFreshOnly((v) => !v)}>
-                Moins de 48 h
-              </Toggle>
-              {staleCount > 0 && (
-                <Toggle on={showStale} onClick={() => setShowStale((v) => !v)}>
-                  Inclure les +{STALE_DAYS} jours
-                </Toggle>
-              )}
-            </div>
+      <div className="mb-5 mt-5">
+        {/* The search takes exactly the width of the level selector under it. */}
+        <div className="inline-flex max-w-full flex-col gap-3">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher une entreprise ou un intitulé"
+            aria-label="Rechercher une entreprise ou un intitulé"
+            className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
+          />
+          <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-wrap rounded-xl border border-line bg-surface p-1">
+            {LEVEL_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                role="radio"
+                aria-checked={filter === f.key}
+                onClick={() => (f.key === "ecartees" ? openExcluded() : setFilter(f.key))}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-button text-button-ink" : "text-muted hover:text-ink"}`}
+              >
+                {f.label}{" "}
+                <span className={filter === f.key ? "opacity-70" : "opacity-60"}>{f.key === "ecartees" ? excludedTotal.toLocaleString("fr-FR") : levelCount(f.key)}</span>
+              </button>
+            ))}
           </div>
-          {LEVEL_HELP[filter] && <p className="mt-2.5 text-sm text-muted">{LEVEL_HELP[filter]}</p>}
         </div>
-      )}
+        {filter !== "ecartees" && (
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="Affiner">
+            <Toggle on={juniorOnly} onClick={() => setJuniorOnly((v) => !v)}>
+              Junior (2 ans max)
+            </Toggle>
+            <Toggle on={freshOnly} onClick={() => setFreshOnly((v) => !v)}>
+              Moins de 48 h
+            </Toggle>
+            {staleCount > 0 && (
+              <Toggle on={showStale} onClick={() => setShowStale((v) => !v)}>
+                Inclure les +{STALE_DAYS} jours
+              </Toggle>
+            )}
+          </div>
+        )}
+        {LEVEL_HELP[filter] && <p className="mt-2.5 text-sm text-muted">{LEVEL_HELP[filter]}</p>}
+      </div>
 
       {!hasOffers && (
         <div className="rounded-3xl border border-line bg-surface p-8">
@@ -481,7 +474,6 @@ function SetAside({ items, loading, more, searching, onMore, onOpen }: { items: 
     );
   return (
     <div>
-      <p className="mb-4 text-sm text-muted">Chaque offre écartée affiche sa raison. Si une raison te semble fausse, c&apos;est un réglage de Ma recherche à revoir.</p>
       <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
         {items.map((i) => (
           <li key={i.offer.id}>

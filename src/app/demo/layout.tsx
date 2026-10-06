@@ -27,7 +27,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
       <main className="min-w-0 flex-1">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-violet-soft px-4 py-2.5 text-sm text-violet-ink">
           <span>
-            <span className="font-semibold">Démo avec un profil fictif</span> · Données d&apos;offres réelles
+            <span className="font-semibold">Démo avec un profil fictif</span> · Offres réelles · Tout est modifiable, rien n&apos;est enregistré
           </span>
           <Link href="/" className="btn-soft py-1.5">
             Quitter la démo

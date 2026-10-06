@@ -2,6 +2,8 @@ import { Feed } from "@/app/(app)/offres/feed";
 import { demoContext } from "@/lib/demo-page";
 import { loadFeed } from "@/lib/views/feed";
 
+export const metadata = { title: "Offres (démo)" };
+
 export default async function DemoOffresPage({ searchParams }: { searchParams: Promise<{ offre?: string }> }) {
   const { offre } = await searchParams;
   const { db, userId } = await demoContext();

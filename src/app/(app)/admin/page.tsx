@@ -7,6 +7,8 @@ import { CollectButton } from "./collect-button";
 import { Columns, Rows } from "./charts";
 import { Invitations } from "./invitations";
 
+export const metadata = { title: "Admin" };
+
 type Run = { source: string; started_at: string; offers_seen: number; offers_new: number; offers_archived: number; errors: number; error_sample: string | null };
 
 export default async function AdminPage() {

@@ -73,14 +73,12 @@ export function Favorites() {
   return (
     <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
       <h2 className="font-display text-xl font-bold tracking-tight">Mes entreprises favorites</h2>
-      <p className="mt-1 text-sm text-muted">
-        Les entreprises où tu rêverais de travailler. Scout surveille leur page carrière à chaque collecte et signale leurs offres. Elles ne limitent jamais ta recherche.
-      </p>
+      <p className="mt-1 text-sm text-muted">Scout lit leur page carrière à chaque collecte et met une étoile sur leurs offres.</p>
 
       <AutoTextarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        minRows={3}
+        minRows={2}
         placeholder={"Une entreprise par ligne, ou l'adresse de sa page carrière\nEx. Acme Sport\nhttps://www.acme-sport.fr/carrieres"}
         aria-label="Entreprises à ajouter"
         className="mt-4 w-full resize-none rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
@@ -122,28 +120,27 @@ export function Favorites() {
       {items === null ? (
         <p className="mt-4 text-sm text-muted">Chargement…</p>
       ) : items.length > 0 ? (
-        <ul className="mt-5 divide-y divide-line">
-          {items.map((f) => (
-            <li key={f.company.id} className="flex items-center gap-3 py-2.5">
-              <CompanyLogo name={f.company.name} domain={f.company.domain} brand={f.company.brand} size={32} />
-              <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{f.company.name}</span>
-              {f.company.ats ? (
-                <span className="whitespace-nowrap rounded-full bg-pill px-2.5 py-1 text-xs font-medium text-ink">Page carrière trouvée</span>
-              ) : f.company.careers_platform ? (
-                <span className="whitespace-nowrap rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-muted" title="Scout ne peut pas lire cette plateforme. Ses offres vues sur les moteurs d'emploi restent signalées.">
-                  Offres sur {f.company.careers_platform}
-                </span>
-              ) : (
-                <span className="whitespace-nowrap rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-muted" title="Ses offres vues sur les moteurs d'emploi restent signalées.">
-                  Page carrière introuvable
-                </span>
-              )}
-              <button type="button" onClick={() => remove(f.company.id)} aria-label={`Retirer ${f.company.name}`} className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-pill-solid hover:text-ink">
-                <CloseIcon className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* Compact: one chip per company; a dashed one means its own career page could not be read. */}
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {items.map((f) => (
+              <li
+                key={f.company.id}
+                title={f.company.ats ? "Page carrière lue à chaque collecte" : f.company.careers_platform ? `Offres sur ${f.company.careers_platform} : Scout la cherche sur les moteurs d'emploi` : "Page carrière introuvable : Scout la cherche sur les moteurs d'emploi"}
+                className={`flex items-center gap-2 rounded-full border py-1 pl-1.5 pr-1 ${f.company.ats ? "border-line bg-pill" : "border-dashed border-line"}`}
+              >
+                <CompanyLogo name={f.company.name} domain={f.company.domain} brand={f.company.brand} size={22} />
+                <span className="max-w-[180px] truncate text-sm font-medium">{f.company.name}</span>
+                <button type="button" onClick={() => remove(f.company.id)} aria-label={`Retirer ${f.company.name}`} className="grid h-6 w-6 place-items-center rounded-full text-muted hover:bg-pill-solid hover:text-ink">
+                  <CloseIcon className="h-3 w-3" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {items.some((f) => !f.company.ats) && (
+            <p className="mt-3 text-[13px] text-muted">En pointillé : page carrière introuvable, Scout cherche leurs offres sur les moteurs d&apos;emploi.</p>
+          )}
+        </>
       ) : null}
     </section>
   );

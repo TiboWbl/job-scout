@@ -4,6 +4,8 @@ import { getUser } from "@/lib/supabase/server";
 import { loadFeed } from "@/lib/views/feed";
 import { Feed } from "./feed";
 
+export const metadata = { title: "Offres" };
+
 // ?offre=<id> opens that offer directly (links from Aujourd'hui).
 export default async function OffresPage({ searchParams }: { searchParams: Promise<{ offre?: string }> }) {
   const { offre } = await searchParams;

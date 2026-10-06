@@ -3,6 +3,8 @@ import { DemoSearch } from "@/components/demo-search";
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import { demoContext } from "@/lib/demo-page";
 
+export const metadata = { title: "Ma recherche (démo)" };
+
 export default async function DemoRecherchePage() {
   const { db, userId } = await demoContext();
   const [{ data: profile }, { data: favorites }] = await Promise.all([

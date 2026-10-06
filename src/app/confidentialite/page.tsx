@@ -1,5 +1,5 @@
 
-export const metadata = { title: "Confidentialité · Scout" };
+export const metadata = { title: "Confidentialité" };
 
 // Public page: what Scout keeps, why, who processes it, and how to delete everything.
 export default function PrivacyPage() {

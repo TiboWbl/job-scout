@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CompanyLogo } from "@/components/company-logo";
 import { LevelBadge } from "@/components/level-badge";
-import { LoginButton } from "@/app/login/login-button";
+import { LoginButton } from "@/components/login-button";
 import { getDemoUserId } from "@/lib/demo";
 import { tintStyle } from "@/lib/design/color";
 import type { Level } from "@/lib/domain/offer";
@@ -10,7 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 type Preview = { level: Level; why: string | null; offer: { title: string; company: { name: string; domain: string | null; brand: string | null; accent_color: string | null } } | null };
 
 // Public home: what Scout does in one line, shown with real offers sorted for the demo persona.
-export async function Landing() {
+export async function Landing({ notice = null }: { notice?: "error" | "deleted" | null }) {
   const db = createAdminClient();
   const demoId = await getDemoUserId(db);
   const [previews, offers, boards] = await Promise.all([
@@ -36,9 +36,6 @@ export async function Landing() {
         <p className="font-display text-2xl font-extrabold tracking-tight">
           Scout<span className="text-brand">.</span>
         </p>
-        <Link href="/login" className="btn-soft">
-          Se connecter
-        </Link>
       </header>
 
       <section className="mt-16 grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_1fr]">
@@ -52,7 +49,14 @@ export async function Landing() {
               Voir la démo
             </Link>
             <LoginButton />
-            <p className="text-center text-sm text-muted">Connexion sur invitation.</p>
+            {notice === "error" && <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">La connexion n&apos;a pas abouti. Tu peux réessayer.</p>}
+            {notice === "deleted" && <p className="rounded-xl bg-pill-solid px-4 py-3 text-sm">Ton compte et toutes tes données ont été supprimés.</p>}
+            <p className="text-center text-sm text-muted">
+              Connexion sur invitation ·{" "}
+              <Link href="/confidentialite" className="underline underline-offset-4 hover:text-ink">
+                Confidentialité
+              </Link>
+            </p>
           </div>
         </div>
 
@@ -97,11 +101,6 @@ export async function Landing() {
         </p>
       </section>
 
-      <footer className="mt-16 text-sm text-muted">
-        <Link href="/confidentialite" className="hover:text-ink">
-          Confidentialité
-        </Link>
-      </footer>
     </main>
   );
 }

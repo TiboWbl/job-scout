@@ -51,8 +51,8 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
           <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
             {offer.company.name}
             {favorite && (
-              <span className="rounded-full bg-[var(--accent)] px-1.5 py-px text-[10.5px] font-semibold text-white" title="Une de tes entreprises favorites">
-                Favorite
+              <span className="text-[15px] leading-none text-[#f5a524]" title="Une de tes entreprises favorites" aria-label="Entreprise favorite">
+                ★
               </span>
             )}
           </p>

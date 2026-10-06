@@ -100,7 +100,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         <label htmlFor="search-text" className="font-display text-xl font-bold tracking-tight">
           {mode === "onboarding" ? "Dis-moi ce que tu cherches, avec tes mots" : "Redis-le avec tes mots"}
         </label>
-        <p className="mt-1 text-sm text-muted">Le métier, le lieu, ce qui te plaît, ce que tu veux éviter, où tu en es. Quelques phrases suffisent.</p>
+        {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Le métier, le lieu, ce qui te plaît, ce que tu veux éviter, où tu en es. Quelques phrases suffisent.</p>}
         {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Pas de pression : tu pourras modifier ce texte, ton CV et tes entreprises à tout moment dans Ma recherche.</p>}
         <AutoTextarea
           id="search-text"
@@ -115,7 +115,6 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
           <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
             <span className="font-semibold">Ton CV{savedCv.filename ? ` (${savedCv.filename})` : ""}</span>
             {savedCv.updatedAt ? `, lu le ${new Date(savedCv.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""}. Scout en a retenu : {cvLine(initialCvSummary) || "ton expérience et tes compétences"}.
-            <span className="block text-[13px] text-muted">Le fichier lui-même n&apos;est pas conservé. Pour le changer, utilise « Remplacer mon CV » puis « Réanalyser ».</span>
           </p>
         )}
 
@@ -151,11 +150,15 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
           </button>
         </div>
 
-        <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[13px] leading-relaxed text-muted">
-          <span className="font-semibold text-ink">Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA. </span>
-          Ton CV est lu dans ton navigateur puis envoyé à Scout, qui en retire ton nom, ton email, ton téléphone et ton adresse avant de l&apos;analyser avec une IA (Mistral).
-          Le CV lui-même n&apos;est pas conservé, seulement les compétences et l&apos;expérience qui en sont extraites.
-        </p>
+        {mode === "onboarding" ? (
+          <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[13px] leading-relaxed text-muted">
+            <span className="font-semibold text-ink">Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA. </span>
+            Ton CV est lu dans ton navigateur puis envoyé à Scout, qui en retire ton nom, ton email, ton téléphone et ton adresse avant de l&apos;analyser avec une IA (Mistral).
+            Le CV lui-même n&apos;est pas conservé, seulement les compétences et l&apos;expérience qui en sont extraites.
+          </p>
+        ) : (
+          <p className="mt-3 text-[13px] text-muted">Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA, et le fichier du CV n&apos;est pas conservé.</p>
+        )}
         {error && <p className="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>}
       </section>
 
@@ -173,7 +176,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         <>
           <div>
             <h2 className="font-display text-2xl font-bold tracking-tight">Ce que j&apos;ai compris</h2>
-            <p className="mt-1 text-sm text-muted">Ajuste ce qui ne va pas : chaque puce se retire d&apos;un clic, et on en ajoute avec Entrée.</p>
+            <p className="mt-1 text-sm text-muted">Une puce se retire d&apos;un clic ; Entrée en ajoute une.</p>
             {shownCv && cvLine(shownCv) && (
               <p className="mt-3 rounded-xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
                 <span className="font-semibold">Depuis ton CV : </span>
@@ -193,7 +196,6 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
               </p>
             )}
             {!ready && <p className="text-sm text-muted">Il faut au moins un métier et un lieu.</p>}
-            {ready && mode === "edit" && <p className="text-sm text-muted">Toutes les offres seront réévaluées avec ces critères.</p>}
           </div>
         </>
       )}

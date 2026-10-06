@@ -20,7 +20,7 @@ export function DeleteAccount() {
     }
     // The session belongs to a user that no longer exists: sign out and leave.
     await fetch("/auth/signout", { method: "POST" }).catch(() => null);
-    router.replace("/login?compte=supprime");
+    router.replace("/?compte=supprime");
     router.refresh();
   }
 

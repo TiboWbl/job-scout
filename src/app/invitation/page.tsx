@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 import { isInvited } from "@/lib/access";
 import { getUser } from "@/lib/supabase/server";
 
+export const metadata = { title: "Invitation" };
+
 export const dynamic = "force-dynamic";
 
 export default async function InvitationPage() {
   const { user } = await getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/");
   if (await isInvited(user.email)) redirect("/");
 
   return (
