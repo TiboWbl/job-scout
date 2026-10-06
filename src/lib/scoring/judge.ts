@@ -15,6 +15,9 @@ export type JudgeInput = {
 
 export type Judgement = {
   level: Level;
+  missions: string[];
+  salary: string | null;
+  experience_asked: string | null;
   score_interet: number;
   score_chances: number;
   score_tremplin: number;
@@ -50,6 +53,9 @@ const Item = z.object({
   score_chances: Score,
   score_tremplin: Score,
   pourquoi: z.string().min(1).transform(plain),
+  missions: List,
+  salaire: Text,
+  experience_demandee: Text,
   en_bref: Text,
   points_forts: List,
   points_d_attention: List,
@@ -96,9 +102,12 @@ Scores, entiers de 0 à 100 (jamais sur 10) :
 
 Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel.
 - "pourquoi" : une phrase concrète de 25 mots maximum, sans répéter l'intitulé ni l'entreprise.
+- "missions" : les 2 ou 3 missions principales du poste, 8 mots maximum chacune (ex. « Piloter la roadmap de l'app patient »).
+- "salaire" : le salaire tel qu'il est écrit dans l'offre (ex. « 45-55 k€ brut annuel »), sinon null. N'estime jamais.
+- "experience_demandee" : l'expérience demandée telle que lue dans « profil recherché » ou équivalent, en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "missions", "salaire", "experience_demandee", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -170,6 +179,9 @@ export async function judgeBatch(
     const watch = item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege, ...item.points_d_attention] : item.points_d_attention;
     results.set(id, {
       level,
+      missions: item.missions.slice(0, 3),
+      salary: item.salaire,
+      experience_asked: item.experience_demandee,
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,

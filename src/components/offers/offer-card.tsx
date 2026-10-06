@@ -25,6 +25,10 @@ export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: P
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
   const seenAt = offer.published_at ?? offer.first_seen_at;
   const fresh = isFresh(seenAt);
+  // What the model read in "profil recherché", else what the posting's text states.
+  const experience =
+    item.experience_asked ??
+    (offer.experience_min_years === null ? null : offer.experience_min_years === 0 ? "débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`);
 
   return (
     <article
@@ -56,9 +60,27 @@ export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: P
         <span className="rounded-full bg-pill px-2.5 py-1">{placeLabel(offer.places, offer.location_raw)}</span>
         {offer.remote !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{REMOTE_LABELS[offer.remote]}</span>}
         {offer.contract !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS]}</span>}
+        {item.salary && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{item.salary}</span>}
+        {experience && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">Expérience : {experience}</span>}
       </div>
 
-      {item.why && <p className="line-clamp-2 text-sm leading-normal">{item.why}</p>}
+      {item.missions.length > 0 && (
+        <ul className="space-y-1 text-[13.5px] leading-snug">
+          {item.missions.map((m) => (
+            <li key={m} className="flex gap-2">
+              <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />
+              {m}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {item.why && (
+        <p className="rounded-xl bg-surface/80 px-3 py-2 text-[13.5px] leading-snug">
+          <span className="font-semibold text-[var(--accent)]">Pour toi : </span>
+          {item.why}
+        </p>
+      )}
 
       <div className="mt-auto flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
         <button type="button" onClick={onApply} className="rounded-xl bg-button px-4 py-2 text-[13.5px] font-semibold text-button-ink hover:opacity-90">

@@ -112,7 +112,8 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
 export function keepInScope(scope: Scope): Keep {
   // No profile yet: keep everything rather than nothing.
   if (scope.countries.size === 0) return () => true;
-  return (places) => places.length === 0 || places.some((p) => !p.country || scope.countries.has(p.country));
+  // An explicit country is required: "Remote" alone is usually a US-only posting.
+  return (places) => places.some((p) => p.country !== undefined && scope.countries.has(p.country));
 }
 
 async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep): Promise<SourceReport> {

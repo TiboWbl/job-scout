@@ -8,11 +8,13 @@ import { tintStyle } from "@/lib/design/color";
 import { freshness, placeLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/browser";
 import { CompanyLogo } from "@/components/company-logo";
-import { ArrowIcon, CloseIcon, NopeIcon, SaveIcon } from "@/components/icons";
+import { ArrowIcon, CloseIcon, CollapseIcon, ExpandIcon, NopeIcon, SaveIcon } from "@/components/icons";
 import { NopeMenu } from "./nope-menu";
 
 type Props = {
   item: FeedItem;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onClose: () => void;
   onSave: () => void;
   onNope: (reason: string) => void;
@@ -40,7 +42,7 @@ function toBlocks(text: string): Block[] {
   return blocks;
 }
 
-export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
+export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, onNope, onApply }: Props) {
   const { offer } = item;
   const [description, setDescription] = useState<string | null>(null);
   const [nopeOpen, setNopeOpen] = useState(false);
@@ -77,7 +79,8 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
     ["Lieu", placeLabel(offer.places, offer.location_raw)],
     ["Télétravail", REMOTE_LABELS[offer.remote]],
     ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
-    ["Expérience", offer.experience_min_years === null ? "Non précisée" : offer.experience_min_years === 0 ? "Débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`],
+    ["Expérience demandée", item.experience_asked ?? (offer.experience_min_years === null ? "Non précisée" : offer.experience_min_years === 0 ? "Débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`)],
+    ...(item.salary ? [["Salaire", item.salary]] : []),
     ["Publiée", freshness(seenAt).replace(/^./, (c) => c.toUpperCase())],
   ];
 
@@ -85,18 +88,30 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
     <aside
       style={style}
       aria-label={`Détail de l'offre ${offer.title}`}
-      className="tinted-vars animate-slide-in fixed inset-y-0 right-0 z-40 flex w-full max-w-[480px] flex-col overflow-hidden border-l border-line bg-surface shadow-2xl xl:inset-y-4 xl:right-4 xl:rounded-3xl xl:border"
+      className={`tinted-vars animate-slide-in fixed inset-y-0 right-0 z-40 flex w-full flex-col overflow-hidden border-l border-line bg-surface shadow-2xl xl:inset-y-4 xl:right-4 xl:rounded-3xl xl:border ${expanded ? "md:left-[252px] md:inset-y-4 md:rounded-3xl md:border" : "max-w-[480px]"}`}
     >
       <div className="relative h-[92px] shrink-0 bg-[var(--band)]">
-        <button type="button" onClick={onClose} aria-label="Fermer" className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/80 text-[#17151f] hover:bg-white">
-          <CloseIcon className="h-4 w-4" />
-        </button>
+        <div className="absolute right-4 top-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            aria-label={expanded ? "Réduire" : "Afficher en plein écran"}
+            title={expanded ? "Réduire" : "Plein écran"}
+            className="hidden h-9 w-9 place-items-center rounded-full bg-white/80 text-[#17151f] hover:bg-white md:grid"
+          >
+            {expanded ? <CollapseIcon className="h-4 w-4" /> : <ExpandIcon className="h-4 w-4" />}
+          </button>
+          <button type="button" onClick={onClose} aria-label="Fermer" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-[#17151f] hover:bg-white">
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
         <div className="absolute -bottom-7 left-6">
           <CompanyLogo name={offer.company.name} domain={offer.company.domain} size={60} />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-6 pt-11">
+      <div className={`flex-1 overflow-y-auto px-6 pb-6 pt-11 ${expanded ? "md:px-10" : ""}`}>
+        <div className={expanded ? "mx-auto max-w-3xl" : ""}>
         <div className="flex justify-end">
           <span className="rounded-full border border-[var(--halo)] bg-[var(--tint)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">{LEVEL_LABELS[item.level]}</span>
         </div>
@@ -111,6 +126,13 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
             </div>
           ))}
         </dl>
+
+        {item.missions.length > 0 && (
+          <section className="mt-5">
+            <h3 className="mb-1.5 text-[13px] font-semibold text-muted">Missions principales</h3>
+            <ul className="list-disc space-y-1 pl-4 text-[14.5px] leading-normal">{item.missions.map((m) => <li key={m}>{m}</li>)}</ul>
+          </section>
+        )}
 
         {item.why && (
           <section className="mt-5 rounded-2xl border border-[var(--halo)] bg-[var(--tint)] p-4">
@@ -155,6 +177,7 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
               <p key={i} className="max-w-[62ch] text-[15px] leading-relaxed">{b.text}</p>
             ),
           )}
+        </div>
         </div>
       </div>
 

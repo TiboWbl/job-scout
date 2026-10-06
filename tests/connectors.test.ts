@@ -51,9 +51,9 @@ describe("découverte", () => {
 
 describe("filtre géographique à la collecte", () => {
   const keep = keepInScope({ queries: [], countries: new Set(["FR"]) });
-  it("garde la France et les lieux inconnus, écarte le reste", () => {
+  it("garde la France, écarte le reste et les lieux inconnus", () => {
     expect(keep([{ city: "Paris", country: "FR" }], "hybrid")).toBe(true);
-    expect(keep([], "unknown")).toBe(true);
+    expect(keep([], "remote")).toBe(false);
     expect(keep([{ city: "Boston", country: "US" }], "onsite")).toBe(false);
   });
   it("garde tout tant qu'aucun profil n'existe", () => {

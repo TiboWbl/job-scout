@@ -51,6 +51,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [freshOnly, setFreshOnly] = useState(false);
   const [showStale, setShowStale] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -285,7 +286,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </>
       )}
 
-      {open && <OfferPanel key={open.offer.id} item={open} onClose={() => setOpenId(null)} {...handlers(open)} />}
+      {open && <OfferPanel key={open.offer.id} item={open} expanded={expanded} onToggleExpand={() => setExpanded((v) => !v)} onClose={() => setOpenId(null)} {...handlers(open)} />}
 
       {askApplied && applying && (
         <div className="fixed bottom-6 left-1/2 z-50 w-[min(92vw,460px)] -translate-x-1/2 animate-rise rounded-2xl border border-line bg-surface p-5 shadow-2xl" role="dialog" aria-label="As-tu postulé ?">

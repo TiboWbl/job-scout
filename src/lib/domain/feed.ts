@@ -19,6 +19,9 @@ export type FeedItem = {
   level: Level;
   out_of_zone: boolean;
   excluded_reason: string | null;
+  missions: string[];
+  salary: string | null;
+  experience_asked: string | null;
   score_interet: number | null;
   score_chances: number | null;
   score_tremplin: number | null;
@@ -35,7 +38,7 @@ const OFFER_FIELDS =
   "id, title, location_raw, places, remote, contract, experience_min_years, apply_url, published_at, first_seen_at, archived_at, company:companies(name, domain, accent_color)";
 
 // One shape for every feed query, server-side for the selection and client-side for "Écartées".
-export const SCORE_SELECT = `level, out_of_zone, excluded_reason, score_interet, score_chances, score_tremplin, why, strengths, watch, cv_levers, scored_by, offer:offers(${OFFER_FIELDS})`;
+export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, salary, experience_asked, score_interet, score_chances, score_tremplin, why, strengths, watch, cv_levers, scored_by, offer:offers(${OFFER_FIELDS})`;
 
 export const LEVEL_ORDER: Record<Level, number> = { coeur: 0, solide: 1, tremplin: 2, ecartee: 3 };
 
