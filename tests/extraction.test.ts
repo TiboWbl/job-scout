@@ -3,7 +3,8 @@
 import { config } from "dotenv";
 import { describe, expect, it } from "vitest";
 import { Criteria } from "@/lib/domain/criteria";
-import { interpretSearch, reconcile } from "@/lib/profile/interpret";
+import { flattenLists, interpretSearch, reconcile } from "@/lib/profile/interpret";
+import { CvSummary } from "@/lib/domain/criteria";
 import { SEARCH_TEXT } from "./fixtures/extraction";
 
 config({ path: ".env.local", quiet: true });
@@ -51,6 +52,16 @@ describe("filet de sécurité de l'extraction", () => {
     const none = reconcile(Criteria.parse({ contracts: [] }), "Je cherche un poste, sans alternance.");
     expect(none.contracts).not.toContain("alternance");
     expect(none.contracts).toContain("cdi");
+  });
+});
+
+describe("lecture du CV", () => {
+  it("accepte des éléments de liste renvoyés sous forme d'objets", () => {
+    const raw = { experienceYears: "1", roles: [{ poste: "Product Owner", structure: "startup", duree: "6 mois" }], languages: [{ langue: "Anglais", niveau: "C1" }], skills: ["SQL"] };
+    const cv = CvSummary.parse(flattenLists(raw));
+    expect(cv.roles).toEqual(["Product Owner, startup, 6 mois"]);
+    expect(cv.languages).toEqual(["Anglais, C1"]);
+    expect(cv.experienceYears).toBe(1);
   });
 });
 

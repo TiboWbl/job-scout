@@ -34,15 +34,16 @@ Règles :
 - "openness" : 0 = uniquement le poste idéal, 100 = veut surtout décrocher un premier poste. Place-le d'après les indices du texte (exigence, urgence, ouverture aux passerelles) ; 50 s'il n'y a aucun indice.
 - N'invente rien qui contredise la description. Reprends les termes de métier de la personne.`;
 
-const CV_SYSTEM = `Tu lis un CV dont les données personnelles ont été retirées. Réponds uniquement avec un objet JSON :
+export const CV_SYSTEM = `Tu lis un CV dont les données personnelles ont été retirées. Réponds uniquement avec un objet JSON :
 { "experienceYears": nombre ou null (expérience professionnelle cumulée, stages compris),
   "roles": [postes occupés, avec le type de structure], "skills": [compétences clés, 5 à 12], "languages": [langues avec niveau],
   "education": [diplômes], "highlights": [3 à 5 réalisations concrètes, chiffrées si possible] }
+Chaque élément de liste est une simple chaîne de caractères, jamais un objet (ex. "Product Owner, startup sport connecté, 6 mois").
 N'invente rien.`;
 
 export async function extractCvSummary(redactedCv: string): Promise<CvSummary> {
   const raw = await getLlm().json({ system: CV_SYSTEM, user: redactedCv.slice(0, 12_000), tier: "strong" });
-  const parsed = CvSummary.safeParse(raw);
+  const parsed = CvSummary.safeParse(flattenLists(raw));
   if (!parsed.success) throw new LlmUnavailableError("CV summary did not match the schema");
   return parsed.data;
 }
@@ -65,8 +66,30 @@ function withCvFallbacks(c: Criteria, cv: CvSummary | null): Criteria {
   return c;
 }
 
+// Models often return list items as objects ({poste, entreprise, durée}); a readable string is what we keep.
+function asText(v: unknown): string | null {
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  if (v && typeof v === "object") {
+    const parts = Object.values(v as Record<string, unknown>).map(asText).filter((x): x is string => Boolean(x && x.trim()));
+    return parts.length ? parts.join(", ") : null;
+  }
+  return null;
+}
+
+export function flattenLists(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const r = { ...(raw as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(r)) {
+    if (Array.isArray(value) && key !== "contracts") r[key] = value.map(asText).filter((x): x is string => Boolean(x && x.trim()));
+  }
+  if (typeof r.experienceYears === "string") r.experienceYears = Number.parseFloat(r.experienceYears) || null;
+  return r;
+}
+
 // Repairs the shapes a model gets slightly wrong (country names, numbers as strings) before validation.
-function coerce(raw: unknown): unknown {
+function coerce(input: unknown): unknown {
+  const raw = flattenLists(input);
   if (!raw || typeof raw !== "object") return raw;
   const r = { ...(raw as Record<string, unknown>) };
   const zone = (r.zone ?? {}) as { places?: unknown[]; remoteOk?: unknown };
