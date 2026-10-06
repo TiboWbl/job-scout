@@ -16,6 +16,8 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
   ]);
   // A collection asked for after a change of search, not run yet (it takes about ten minutes).
   const requested = profile?.collect_requested_at ? new Date(profile.collect_requested_at).getTime() : 0;
-  const collecting = requested > Date.now() - 45 * 60_000 && (!lastRun || new Date(lastRun.started_at).getTime() < requested);
+  // eslint-disable-next-line react-hooks/purity -- server component, rendered once per request
+  const now = Date.now();
+  const collecting = requested > now - 45 * 60_000 && (!lastRun || new Date(lastRun.started_at).getTime() < requested);
   return <Feed {...data} collecting={collecting} initialOpenId={offre ?? null} isAdmin={isAdminEmail(user!.email)} />;
 }
