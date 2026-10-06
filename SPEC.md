@@ -91,10 +91,11 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Curseur d'ouverture : « job de rêve uniquement » ↔ « je veux surtout commencer quelque part ».
 - Aperçu en direct de l'effet des critères (« ≈ X offres par semaine avec ces réglages »).
 - Toute modification déclenche le re-scoring automatique des offres actives (profil versionné). « Ma recherche » utilise le même écran que l'onboarding : le texte de départ et le CV y restent modifiables.
-- **Entreprises suivies** :
-  - ajout en collant une entreprise par ligne (le format le plus simple), par URL de page carrière, ou par import CSV à deux colonnes `entreprise,site` (site facultatif), avec un modèle téléchargeable ;
-  - statut affiché par entreprise : « page carrière trouvée (ATS) » ou « introuvable » ;
-  - ces entreprises sont surveillées à chaque collecte, leurs offres portent un badge « Suivie » et elles rejoignent l'annuaire partagé. Elles ne restreignent jamais la recherche.
+- **Mes entreprises favorites** (une seule notion pour « entreprises de rêve » et « entreprises suivies ») :
+  - ajout en collant une entreprise par ligne ou séparées par des virgules, par URL de page carrière, ou par import CSV à deux colonnes `entreprise,site` (site facultatif), avec un modèle téléchargeable ;
+  - pour chaque entrée : rapprochement avec l'annuaire, détection de l'ATS depuis l'URL, depuis la page carrière elle-même (lien ou intégration), ou en testant les adresses probables du nom ; la page trouvée est lue tout de suite ;
+  - statut affiché par entreprise : « Page carrière trouvée » ou « Page carrière introuvable » ; progression visible pendant la recherche ;
+  - ces entreprises sont surveillées à chaque collecte, leurs offres portent un badge « Favorite », l'IA en tient compte dans le score Intérêt, et elles rejoignent l'annuaire partagé. Elles ne restreignent jamais la recherche.
 
 ## Sources et découverte
 
@@ -198,7 +199,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Les offres publiées il y a plus de 60 jours sont masquées par défaut : les pages carrière gardent parfois des offres anciennes.
 - Actions sur chaque offre : **Sauvegarder**, **Pas pour moi** (+ raison en un clic, qui affine le scoring), **Postuler**.
 - Postuler ouvre le site de l'offre dans un nouvel onglet. Au retour sur Scout : « Tu as postulé ? » → un clic l'ajoute au suivi.
-- **Ajouter une offre par URL**, trouvée ailleurs (WTTJ, LinkedIn…), avec repli « coller le texte » si la page est inaccessible. Elle est extraite, scorée et ajoutée au suivi : tout le suivi vit dans Scout.
+- **Ajouter une offre par URL**, trouvée ailleurs (WTTJ, LinkedIn…), depuis le Suivi, avec repli « coller le texte » si la page est inaccessible. Lecture par le connecteur ATS si l'adresse en vient, sinon par la fiche schema.org `JobPosting` de la page, sinon par le LLM sur le texte. Elle est jugée pour la personne et ajoutée au suivi (« À postuler » ou « Postulé ») : tout le suivi vit dans Scout.
   - Diagnostic à chaque ajout : « déjà trouvée par Scout le … », « trouvée mais écartée : règle … » ou « nouvelle pour Scout ».
   - Entreprise inconnue : recherche de sa page carrière, détection de l'ATS, ajout à l'annuaire.
 - **Outil « offre ratée »** : si une offre ajoutée par URL n'avait pas été collectée, le système explique pourquoi (source non couverte, règle d'exclusion, score trop bas) et propose le correctif. C'est l'outil principal pour mesurer et améliorer le rappel.
@@ -208,8 +209,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 ## Suivi des candidatures
 
 - Kanban : À postuler → Postulé → Entretien → Offre → Refusé / Archivé.
-- Par candidature : date, contact, notes, prochaines étapes, dates d'entretien (version du CV utilisée plus tard).
-- Relances suggérées (J+7 par défaut), proposées sur l'écran Aujourd'hui, sans harcèlement.
+- Par candidature : date de candidature, contact, notes, date d'entretien, origine (repérée par Scout ou ajoutée). Version du CV utilisée plus tard.
+- Relance suggérée 7 jours après la candidature, puis 7 jours après la dernière relance (« Une relance peut aider », bouton « J'ai relancé »), sur la carte et sur l'écran Aujourd'hui, sans harcèlement.
 - Récap hebdomadaire positif centré sur les actions (« 4 candidatures envoyées, 1 entretien obtenu »), pas sur les refus.
 
 ## Mon CV : analyse ATS
@@ -253,7 +254,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Mode pause : suspend notifications et relances quand on a besoin de souffler.
 - Notifications sobres : un message Telegram pour un Coup de cœur, sinon un digest quotidien (désactivable). Email optionnel.
 - Responsive mobile, mais pensé d'abord pour un onglet ouvert en permanence sur ordinateur.
-- **Logo** : « Scout. » de la maquette C (texte blanc ou noir, point violet), vectorisé en SVG avec le texte converti en tracés. Déclinaison « S. » (S majuscule et point violet) pour les icônes : favicon 16 et 32, apple-touch-icon 180, icônes 192 et 512, versions claire et sombre. Aux petites tailles, le point est proportionnellement plus gros pour rester visible. Image de partage 1200 × 630 et un PNG 512 du « S. » pour le portfolio.
+- **Logo** (généré par `npm run brand`, fichiers dans `public/brand` et `public/icons`) : « Scout. » de la maquette C (texte blanc ou noir, point violet), vectorisé en SVG avec le texte converti en tracés. Déclinaison « S. » (S majuscule et point violet) pour les icônes : favicon 16 et 32, apple-touch-icon 180, icônes 192 et 512, versions claire et sombre. Aux petites tailles, le point est proportionnellement plus gros pour rester visible. Image de partage 1200 × 630 et un PNG 512 du « S. » pour le portfolio.
 
 ## Multi-utilisateurs, coûts et confidentialité
 

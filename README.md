@@ -12,7 +12,10 @@ La spécification complète est dans [SPEC.md](SPEC.md). Les maquettes de la dir
 - **Tri en deux temps** :
   1. des **portes** déterministes : zone, contrat, séniorité relative à l'expérience, écart d'expérience. Une offre qui en viole une est écartée ou mise à part, jamais compensée par le reste ;
   2. un **LLM** qui lit la description complète, d'abord le profil recherché, et juge le poste réel. Il attribue un niveau (Coup de cœur, Solide, Tremplin, Écartée), un « pourquoi », des points forts et d'attention.
-- **Fil d'offres** avec panneau de détail, raisons « Pas pour moi », vue des offres écartées avec leur raison, et le flux Postuler → « Tu as postulé ? » → **Suivi** (kanban).
+- **Aujourd'hui** : la sélection du jour (finie), les relances à faire, les entretiens à venir, la semaine en chiffres.
+- **Fil d'offres** : cartes avec missions, salaire et expérience demandée, panneau de détail ou plein écran, raisons « Pas pour moi », vue des offres écartées avec leur raison, et le flux Postuler → « Tu as postulé ? » → **Suivi** (kanban, contact, dates, relances).
+- **Offres trouvées ailleurs** (WTTJ, LinkedIn…) ajoutées par URL ou par texte, avec un diagnostic : déjà trouvée, écartée, ou nouvelle pour Scout.
+- **Entreprises favorites** surveillées à chaque collecte, et un **espace admin** en tableau de bord (chiffres agrégés, invitations).
 
 ## Architecture
 
@@ -77,6 +80,7 @@ npm run dev
 |---|---|
 | `npm run collect` | Une passe de collecte complète (comptes agrégés en sortie) |
 | `npm run discover` | Agrandit l'annuaire de pages carrière (`--crawls 3 --names 300`) |
+| `npm run brand` | Régénère le logo, les icônes et l'image de partage |
 | `npm run dry-run` | Collecte réelle + portes du préfiltre en mémoire, sans base, pour contrôler la qualité |
 | `npm test` | Tests unitaires, portes et filet de sécurité des 12 cas de non-régression |
 | `npm run test:llm` | Les 12 cas complets, prompts inclus (nécessite `MISTRAL_API_KEY`) |
