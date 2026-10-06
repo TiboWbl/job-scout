@@ -152,3 +152,54 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
 
   return { scoredNow, remaining: candidates.length + missed + unfinished * BATCH_SIZE, total: offers.length };
 }
+
+// An offer the person added themselves: same gates and judgement, no title pre-sort, right away.
+export async function scoreOffersNow(db: SupabaseClient, userId: string, offerIds: string[]) {
+  const { data: profile, error } = await db.from("profiles").select("criteria, criteria_version, cv_summary").eq("id", userId).single();
+  if (error || !profile) throw error ?? new Error("profile not found");
+  const criteria = Criteria.parse(profile.criteria);
+  const cvParsed = profile.cv_summary ? CvSummary.safeParse(profile.cv_summary) : null;
+  const cv = cvParsed?.success ? cvParsed.data : null;
+  const experienceYears = criteria.experienceYears ?? cv?.experienceYears ?? null;
+  const base = { user_id: userId, criteria_version: profile.criteria_version as number };
+
+  const { data: offers } = await db
+    .from("offers")
+    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, description, company:companies(name)")
+    .in("id", offerIds);
+  const rows: Record<string, unknown>[] = [];
+  const toJudge: { offer: LightOffer & { description: string | null }; outOfZone: boolean; gap: number }[] = [];
+  for (const offer of (offers ?? []) as unknown as (LightOffer & { description: string | null })[]) {
+    const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
+    if (gate.pass) toJudge.push({ offer, outOfZone: gate.outOfZone, gap: gate.experienceGap });
+    else rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
+  }
+  if (toJudge.length > 0) {
+    const { data: favs } = await db.from("favorite_companies").select("company:companies(name)").eq("user_id", userId);
+    const favoriteNames = (favs ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
+    const results = await judgeBatch(
+      toJudge.map(({ offer }) => ({
+        id: offer.id,
+        title: offer.title,
+        company: offer.company?.name ?? "",
+        location: offer.location_raw ?? "",
+        contract: offer.contract,
+        experienceRequired: offer.experience_min_years,
+        description: offer.description ?? "",
+      })),
+      criteria,
+      cv,
+      experienceYears,
+      favoriteNames,
+    );
+    for (const { offer, outOfZone, gap } of toJudge) {
+      const judged = results.get(offer.id);
+      if (judged) rows.push({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...judged, score_chances: Math.min(judged.score_chances, chancesCap(gap)), scored_by: "llm" });
+    }
+  }
+  if (rows.length > 0) {
+    const { error: e } = await db.from("offer_scores").upsert(rows);
+    if (e) throw e;
+  }
+  return rows;
+}

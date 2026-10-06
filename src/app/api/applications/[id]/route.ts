@@ -3,7 +3,15 @@ import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
 import { STAGES } from "@/lib/domain/application";
 
-const Body = z.object({ stage: z.enum(STAGES).optional(), notes: z.string().max(4000).optional() });
+const isoOrNull = z.string().datetime({ offset: true }).nullable().optional();
+const Body = z.object({
+  stage: z.enum(STAGES).optional(),
+  notes: z.string().max(4000).optional(),
+  contact: z.string().max(300).optional(),
+  applied_at: isoOrNull,
+  interview_at: isoOrNull,
+  followed_up_at: isoOrNull,
+});
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUser();

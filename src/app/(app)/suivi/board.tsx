@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { STAGE_LABELS, STAGES, type Application, type Stage } from "@/lib/domain/application";
+import { followUpDue, isUpcoming, STAGE_LABELS, STAGES, type Application, type Stage } from "@/lib/domain/application";
 import { tintStyle } from "@/lib/design/color";
 import { shortDate } from "@/lib/format";
+import { AddOffer } from "@/components/add-offer";
 import { CompanyLogo } from "@/components/company-logo";
 import { ArrowIcon } from "@/components/icons";
 
-export type BoardItem = Application & { domain: string | null; accent: string | null };
+export type BoardItem = Application & { domain: string | null; brand: string | null; accent: string | null };
+type Patch = Partial<Pick<Application, "stage" | "notes" | "contact" | "applied_at" | "interview_at" | "followed_up_at">>;
 
 // Refused and archived share the last column: presented soberly, never front and centre.
 const COLUMNS: { title: string; stages: Stage[] }[] = [
@@ -19,10 +21,21 @@ const COLUMNS: { title: string; stages: Stage[] }[] = [
   { title: "Refusé ou archivé", stages: ["refuse", "archive"] },
 ];
 
+// <input type="date|datetime-local"> speaks local time without zone; the API stores ISO instants.
+const toInput = (iso: string | null, withTime: boolean) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString();
+  return withTime ? local.slice(0, 16) : local.slice(0, 10);
+};
+const fromInput = (value: string) => (value ? new Date(value).toISOString() : null);
+const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
 export function Board({ items: initial }: { items: BoardItem[] }) {
   const [items, setItems] = useState(initial);
+  const [adding, setAdding] = useState(false);
 
-  async function patch(id: string, body: Partial<Pick<Application, "stage" | "notes">>) {
+  async function patch(id: string, body: Patch) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...body } : i)));
     await fetch(`/api/applications/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   }
@@ -37,17 +50,24 @@ export function Board({ items: initial }: { items: BoardItem[] }) {
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">Suivi</h1>
-      <p className="mt-2 text-[15px] text-muted">
-        {items.length === 0
-          ? "Quand tu postules depuis une offre, Scout te propose de l'ajouter ici."
-          : `${sent} candidature${sent > 1 ? "s" : ""} envoyée${sent > 1 ? "s" : ""}${interviews ? `, ${interviews} en entretien ou plus loin` : ""}. Continue comme ça.`}
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-5xl font-extrabold tracking-tight">Suivi</h1>
+          <p className="mt-2 text-[15px] text-muted">
+            {items.length === 0
+              ? "Tes candidatures vivent ici, celles de Scout comme celles trouvées ailleurs."
+              : `${sent} candidature${sent > 1 ? "s" : ""} envoyée${sent > 1 ? "s" : ""}${interviews ? `, ${interviews} en entretien ou plus loin` : ""}. Continue comme ça.`}
+          </p>
+        </div>
+        <button type="button" onClick={() => setAdding(true)} className="rounded-xl bg-button px-4 py-2.5 text-sm font-semibold text-button-ink">
+          Ajouter une offre trouvée ailleurs
+        </button>
+      </div>
 
       {items.length === 0 ? (
-        <Link href="/offres" className="mt-8 inline-block rounded-xl bg-button px-4 py-2.5 text-sm font-semibold text-button-ink">
-          Voir mes offres
-        </Link>
+        <p className="mt-8 max-w-xl text-[15px] leading-relaxed text-muted">
+          Quand tu postules depuis <Link href="/offres" className="font-semibold text-ink underline underline-offset-4">tes offres</Link>, Scout te propose de l&apos;ajouter ici. Pour une offre vue sur WTTJ ou LinkedIn, colle simplement son adresse avec le bouton ci-dessus.
+        </p>
       ) : (
         <div className="mt-8 grid gap-4 overflow-x-auto pb-2 md:grid-cols-5">
           {COLUMNS.map((col) => {
@@ -68,58 +88,108 @@ export function Board({ items: initial }: { items: BoardItem[] }) {
           })}
         </div>
       )}
+
+      {adding && (
+        <AddOffer
+          onClose={() => {
+            setAdding(false);
+            // The server list includes what was just added.
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function Card({ item, onPatch, onRemove }: { item: BoardItem; onPatch: (b: Partial<Pick<Application, "stage" | "notes">>) => void; onRemove: () => void }) {
+function Card({ item, onPatch, onRemove }: { item: BoardItem; onPatch: (b: Patch) => void; onRemove: () => void }) {
   const style = useMemo(() => tintStyle(item.accent), [item.accent]);
   const [notes, setNotes] = useState(item.notes);
+  const [contact, setContact] = useState(item.contact);
   const [open, setOpen] = useState(false);
+  const due = followUpDue(item);
+  const upcoming = isUpcoming(item.interview_at);
 
   return (
     <article style={style} className="tinted rounded-[20px] border border-line p-4">
       <div className="flex items-center gap-3">
-        <CompanyLogo name={item.company} domain={item.domain} size={34} />
+        <CompanyLogo name={item.company} domain={item.domain} brand={item.brand} size={34} />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{item.company}</p>
-          {item.applied_at && <p className="text-[12.5px] text-muted">Postulé le {shortDate(item.applied_at)}</p>}
+          <p className="text-[12.5px] text-muted">
+            {item.applied_at ? `Postulé le ${shortDate(item.applied_at)}` : item.origin === "added" ? "Ajoutée par toi" : "Repérée par Scout"}
+          </p>
         </div>
       </div>
       <h3 className="mt-3 font-display text-base font-bold leading-tight">{item.title}</h3>
-      <select
-        value={item.stage}
-        onChange={(e) => onPatch({ stage: e.target.value as Stage })}
-        aria-label="Étape"
-        className="mt-3 w-full rounded-xl border border-line bg-pill px-3 py-2 text-sm"
-      >
+
+      {upcoming && <p className="mt-2 rounded-xl bg-surface/80 px-3 py-2 text-[13px] font-medium">Entretien {when(item.interview_at!)}</p>}
+      {due && (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-surface/80 px-3 py-2 text-[13px]">
+          <span>Une relance peut aider.</span>
+          <button type="button" onClick={() => onPatch({ followed_up_at: new Date().toISOString() })} className="font-semibold text-[var(--accent)]">
+            J&apos;ai relancé
+          </button>
+        </div>
+      )}
+
+      <select value={item.stage} onChange={(e) => onPatch({ stage: e.target.value as Stage })} aria-label="Étape" className="mt-3 w-full rounded-xl border border-line bg-pill px-3 py-2 text-sm">
         {STAGES.map((s) => (
-          <option key={s} value={s}>{STAGE_LABELS[s]}</option>
+          <option key={s} value={s}>
+            {STAGE_LABELS[s]}
+          </option>
         ))}
       </select>
+
       {open ? (
-        <div className="mt-3">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            onBlur={() => notes !== item.notes && onPatch({ notes })}
-            rows={3}
-            placeholder="Contact, prochaine étape, impressions…"
-            aria-label="Notes"
-            className="w-full rounded-xl border border-line bg-pill p-2.5 text-sm placeholder:text-muted"
-          />
-          <div className="mt-2 flex items-center justify-between text-[13px]">
+        <div className="mt-3 space-y-2.5 text-[13px]">
+          <label className="block">
+            <span className="text-muted">Contact</span>
+            <input
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              onBlur={() => contact !== item.contact && onPatch({ contact })}
+              placeholder="Nom, rôle, email…"
+              className="mt-1 w-full rounded-xl border border-line bg-pill px-2.5 py-2 text-sm placeholder:text-muted"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="text-muted">Candidature</span>
+              <input type="date" value={toInput(item.applied_at, false)} onChange={(e) => onPatch({ applied_at: fromInput(e.target.value) })} className="mt-1 w-full rounded-xl border border-line bg-pill px-2 py-2 text-sm" />
+            </label>
+            <label className="block">
+              <span className="text-muted">Entretien</span>
+              <input type="datetime-local" value={toInput(item.interview_at, true)} onChange={(e) => onPatch({ interview_at: fromInput(e.target.value) })} className="mt-1 w-full rounded-xl border border-line bg-pill px-2 py-2 text-sm" />
+            </label>
+          </div>
+          <label className="block">
+            <span className="text-muted">Notes</span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={() => notes !== item.notes && onPatch({ notes })}
+              rows={3}
+              placeholder="Prochaine étape, impressions…"
+              className="mt-1 w-full rounded-xl border border-line bg-pill p-2.5 text-sm placeholder:text-muted"
+            />
+          </label>
+          <div className="flex items-center justify-between">
             {item.url ? (
               <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-medium text-[var(--accent)]">
                 Voir l&apos;offre <ArrowIcon className="h-3.5 w-3.5" />
               </a>
-            ) : <span />}
-            <button type="button" onClick={onRemove} className="text-muted hover:text-ink">Retirer du suivi</button>
+            ) : (
+              <span />
+            )}
+            <button type="button" onClick={onRemove} className="text-muted hover:text-ink">
+              Retirer du suivi
+            </button>
           </div>
         </div>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="mt-2 text-[13px] font-medium text-muted hover:text-ink">
-          {item.notes ? "Notes et détails" : "Ajouter une note"}
+          {item.notes || item.contact ? "Détails, contact et notes" : "Ajouter contact, dates, notes"}
         </button>
       )}
     </article>
