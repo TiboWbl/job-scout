@@ -192,7 +192,9 @@ const tag = (xml: string, name: string) => decode(xml.match(new RegExp(`<${name}
 const tags = (xml: string, name: string) => [...xml.matchAll(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "g"))].map((m) => m[1]);
 
 export async function teamtailor(board: BoardRef): Promise<NormalizedOffer[]> {
-  const xml = await (await get(`https://${board.token}.teamtailor.com/jobs.rss`)).text();
+  // A token with a dot is a career site on the company's own domain (career.spendesk.com).
+  const host = board.token.includes(".") ? board.token : `${board.token}.teamtailor.com`;
+  const xml = await (await get(`https://${host}/jobs.rss`)).text();
   const company = tag(xml.split("<item>")[0], "title").replace(/\s*[-–|].*$/, "") || board.name;
   return tags(xml, "item").map((item) => {
     const title = tag(item, "title");
@@ -309,6 +311,50 @@ export async function digitalrecruiters(board: BoardRef, keep?: Keep, wanted?: W
       applyUrl: url,
       publishedAt: detail?.republished_at ? new Date(detail.republished_at.replace(" ", "T") + "Z").toISOString() : null,
       imageUrl: image,
+    });
+  }
+  return out;
+}
+
+// Welcome Kit (the Welcome to the Jungle ATS) -------------------------------------------------
+// The public endpoint behind the jobs widget companies embed on their own career page. The board
+// token is the company's organisation reference (case-sensitive), read from one of its job pages.
+
+type WkJob = {
+  reference: string;
+  name: string;
+  description?: string;
+  profile?: string;
+  published_at?: string;
+  office?: { city?: string; district?: string; zip_code?: string; country?: { fr?: string; en?: string } } | null;
+  contract_type?: { fr?: string; en?: string } | null;
+  websites_urls?: { website_reference: string; url: string }[];
+};
+
+export async function welcomekit(board: BoardRef, keep?: Keep): Promise<NormalizedOffer[]> {
+  const data = (await (await get(`https://www.welcomekit.co/api/v1/embed?organization_reference=${encodeURIComponent(board.token)}`)).json()) as { name?: string; jobs?: WkJob[] };
+  const out: NormalizedOffer[] = [];
+  for (const job of data.jobs ?? []) {
+    if (/candidature[s]? spontan/i.test(job.name)) continue;
+    const raw = [job.office?.city, job.office?.country?.en].filter(Boolean).join(", ");
+    const loc = parseLocation(raw, job.name);
+    if (keep && !keep(loc.places, loc.remote)) continue;
+    const description = [htmlToText(job.description ?? ""), htmlToText(job.profile ?? "")].filter(Boolean).join("\n\n");
+    // The company's own career site first, the Welcome to the Jungle page otherwise.
+    const urls = job.websites_urls ?? [];
+    const url = (urls.find((u) => !u.website_reference.startsWith("wttj") && !u.url.includes("/companies/")) ?? urls.find((u) => u.website_reference.startsWith("wttj")) ?? urls[0])?.url;
+    if (!url) continue;
+    out.push({
+      ...base("welcomekit", board, data.name?.trim() || board.name),
+      sourceUrl: url,
+      title: job.name.trim(),
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(job.name, job.contract_type?.fr ?? null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: job.published_at ?? null,
     });
   }
   return out;

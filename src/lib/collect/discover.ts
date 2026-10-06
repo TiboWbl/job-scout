@@ -74,8 +74,8 @@ export async function nameCandidates(db: SupabaseClient, limit: number): Promise
   const candidates: Candidate[] = [];
   // Anonymous postings ("Entreprise non communiquée") have no career page to find.
   const named = (data ?? []).filter((c) => !/non communiqu|confidenti|anonyme/i.test(c.name));
-  // DigitalRecruiters boards are named by their careers domain: never guessed from a name.
-  for (const c of named) for (const token of slugGuesses(c.name)) for (const ats of ATS_LIST.filter((a) => a !== "digitalrecruiters")) candidates.push({ ats, token, via: "name" });
+  // DigitalRecruiters and Welcome Kit boards are named by a domain or a reference: never guessed from a name.
+  for (const c of named) for (const token of slugGuesses(c.name)) for (const ats of ATS_LIST.filter((a) => a !== "digitalrecruiters" && a !== "welcomekit")) candidates.push({ ats, token, via: "name" });
   return { candidates, companyIds: (data ?? []).map((c) => c.id) };
 }
 

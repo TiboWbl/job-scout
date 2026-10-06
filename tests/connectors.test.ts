@@ -1,6 +1,6 @@
 // Connectors read public feeds whose format we do not control: fixtures pin what we rely on.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { personio, teamtailor } from "@/lib/collect/connectors/ats-more";
+import { personio, teamtailor, welcomekit } from "@/lib/collect/connectors/ats-more";
 import { slugGuesses } from "@/lib/collect/discover";
 import { keepInScope } from "@/lib/collect/run";
 
@@ -89,5 +89,47 @@ describe("même entreprise, nom de page carrière différent", async () => {
   it("ignore le suffixe numérique des adresses (Robeaute-1)", () => {
     expect(companyKey("Robeaute-1")).toBe(companyKey("Robeaute"));
     expect(companyKey("1&1")).not.toBe("");
+  });
+});
+
+describe("page carrière reconnue dans une page web", async () => {
+  const { atsFromText } = await import("@/lib/collect/resolve");
+  it("lit la référence Welcome Kit telle quelle (sensible à la casse)", () => {
+    expect(atsFromText(`<div data-job-reference="ACME_x1" data-organization-reference="jJ6jlll"></div>`)).toEqual({ ats: "welcomekit", token: "jJ6jlll" });
+    expect(atsFromText(`new WelcomeKitEmbed('AbzqbMR')`)).toEqual({ ats: "welcomekit", token: "AbzqbMR" });
+  });
+  it("garde les autres plateformes en minuscules", () => {
+    expect(atsFromText("https://jobs.lever.co/Acme-Sport/123")).toEqual({ ats: "lever", token: "acme-sport" });
+  });
+});
+
+describe("Welcome Kit", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("lit les offres du widget public, sans les candidatures spontanées", async () => {
+    serve(
+      JSON.stringify({
+        name: "Entreprise Fictive",
+        jobs: [
+          {
+            reference: "FICT_1",
+            name: "Product Manager Junior",
+            description: "<p>Tu rejoins l'équipe produit.</p>",
+            profile: "<ul><li>0 à 2 ans d'expérience</li></ul>",
+            published_at: "2026-10-01T10:00:00+02:00",
+            office: { city: "Paris", country: { en: "France" } },
+            contract_type: { fr: "CDI" },
+            websites_urls: [
+              { website_reference: "wttj_fr", url: "https://www.welcometothejungle.com/companies/fictive/jobs/pm" },
+              { website_reference: "fictive", url: "https://fictive.welcomekit.co/jobs/pm" },
+            ],
+          },
+          { reference: "FICT_2", name: "Candidature spontanée", office: null, websites_urls: [{ website_reference: "fictive", url: "https://fictive.welcomekit.co/jobs/cs" }] },
+        ],
+      }),
+    );
+    const offers = await welcomekit({ ...board, token: "AbC12xY" });
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({ title: "Product Manager Junior", contract: "cdi", applyUrl: "https://fictive.welcomekit.co/jobs/pm", experienceMinYears: 0 });
+    expect(offers[0].places[0]).toMatchObject({ city: "Paris", country: "FR" });
   });
 });

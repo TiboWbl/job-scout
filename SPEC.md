@@ -112,14 +112,14 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - API Adzuna (branchée le 6 octobre 2026) : recherches croisant les intitulés de chaque profil avec son lieu, offres de moins de 60 jours, 8 recherches × 5 pages par collecte pour rester sous le quota gratuit (~250 appels/jour). Extraits de description seulement.
   - **Jooble** (branché, clé gratuite) : mêmes recherches, 3 pages. **Careerjet** (API d'affichage gratuite) : à brancher. Ces moteurs ne renvoient qu'un extrait de description : l'offre est scorée sur cet extrait et le lien mène à l'annonce complète.
 - **La couverture est le levier n°1 de l'utilité de Scout.** Au 5 octobre 2026, seules 22 entreprises sont lues (environ 1 300 offres). Priorités, intégrées à la phase 2 :
-  1. connecteurs pour 9 ATS à API ou flux publics : Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor (RSS), Personio (XML) et DigitalRecruiters (sites carrière de nombreuses entreprises françaises, dont Decathlon ; fiches détaillées lues seulement pour les intitulés recherchés ; photo propre à chaque annonce) ;
+  1. connecteurs pour 10 ATS à API ou flux publics : Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor (RSS, y compris sur le domaine de l'entreprise), Personio (XML), DigitalRecruiters (sites carrière de nombreuses entreprises françaises, dont Decathlon ; fiches détaillées lues seulement pour les intitulés recherchés ; photo propre à chaque annonce) et Welcome Kit (l'ATS de Welcome to the Jungle, lu par le widget public que les entreprises intègrent à leur propre page carrière ; la référence de l'entreprise se trouve sur son site carrière Welcome Kit) ;
   - favorites sans page carrière lisible recherchées par leur nom sur Adzuna (25 au plus par collecte, une page chacune), en ne gardant que les offres publiées par cette entreprise ;
   2. découverte des pages carrière (`npm run discover`) : adresses vues dans l'index public de Common Crawl, et adresses devinées à partir des noms d'entreprises vus dans les offres des moteurs (« Acme Sport » → `acmesport`, `acme-sport` sur chaque ATS). Une entreprise n'entre dans l'annuaire que si sa page carrière publie au moins une offre dans la zone d'un profil ;
   3. Jooble et Adzuna branchés, Careerjet à brancher.
 - **Pages carrière lues en rotation** : les moins récemment collectées d'abord, dans un budget de temps (le bouton admin tient dans un appel serverless ; la collecte planifiée lit tout). Une page qui répond 404 sort de la rotation. Santé des sources agrégée par ATS.
 - **Filtre géographique à la collecte** : seules les offres situées dans un pays où un profil cherche (ou de lieu inconnu) sont stockées. Les autres ne servent à personne et la base gratuite est limitée à 500 Mo.
   - Requêtes générées à partir de toutes les variantes d'intitulés de tous les profils, avec pagination complète.
-- Pas de LinkedIn, Indeed, Glassdoor, Google Jobs ni Welcome to the Jungle : aucun accès légal et gratuit.
+- Pas de LinkedIn, Indeed, Glassdoor, Google Jobs ni du site Welcome to the Jungle : aucun accès légal et gratuit. Seul le widget public Welcome Kit des entreprises est lu ; une entreprise présente uniquement sur le site WTTJ reste couverte par la recherche par nom sur les moteurs.
 - **Annuaire d'entreprises partagé et auto-enrichi** :
   - Chaque entreprise vue dans une offre, quelle que soit la source, est ajoutée à l'annuaire. Sa page carrière et son ATS sont détectés, puis elle est surveillée en continu.
   - Import en masse possible (CSV, listes d'URL, annuaires sectoriels, incubateurs).
@@ -160,7 +160,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - `pourquoi` (1-2 phrases), `points_forts`, `points_d_attention` ;
   - `leviers_cv` : intitulé à reprendre, compétences à remonter, expérience à mettre en avant.
 - Niveaux, avec des libellés bienveillants :
-  - **Coup de cœur** : le métier visé dans un secteur prioritaire, et à portée : l'expérience minimale demandée ne dépasse pas celle de la personne de plus d'un an (2 ans ou plus d'écart = Solide au mieux).
+  - **Coup de cœur** : le métier visé, avec de vraies chances, dans un secteur prioritaire, chez une entreprise favorite, ou ouvert au niveau de la personne (junior, débutant accepté, pas plus d'années demandées que les siennes). Toujours à portée : 2 ans ou plus d'écart d'expérience = Solide au mieux. Un intitulé qui nomme le métier visé mot pour mot (« Healthcare Product Manager Junior ») est ce métier, sauf piège.
   - **Solide** : le métier visé, autre secteur, bonne entreprise.
   - **Tremplin** : métier passerelle avec un chemin crédible.
   - **Écartée** : avec raison, consultable.
@@ -170,7 +170,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `ministral-14b-2512` pour le scoring comme pour l'analyse de CV et la conversion des critères (modèles réglables par variables d'environnement). File d'attente à une requête toutes les 2,1 s (30/minute) avec nouvel essai sur 429. **Scoring par lots de 8 offres par requête.**
 - Premier tri : progression visible (« 1 190 / 1 249 »), la sélection se remplit au fur et à mesure. Le premier appel n'applique que les portes (instantané) ; les suivants envoient les lots au LLM en parallèle, un départ toutes les 2,1 s, et rendent la main avant 52 s quoi qu'il arrive. Les coupures sont reprises automatiquement.
 - Fiabilité des faits affichés : l'expérience demandée et le contrat sont lus d'abord par un détecteur déterministe (tournures FR/EN courantes) ; le LLM ne peut les compléter qu'en citant la phrase exacte de l'offre, vérifiée mot pour mot. Une expérience ou un contrat ainsi trouvé passe par les mêmes portes. Un salaire n'est affiché que s'il est écrit. Jamais d'information inventée.
-- Le LLM répond à des questions factuelles (métier réel, secteur, piège, deal-breaker) ; le niveau en est déduit par une règle fixe. Le domaine du produit (cloud, IA…) ne change pas le métier. Une offre écartée affiche une raison de 12 mots au plus.
+- Le LLM répond à des questions factuelles (métier réel, secteur, piège, deal-breaker) ; le niveau en est déduit par une règle fixe. Un secteur à éviter ou un deal-breaker n'écarte une offre que si le LLM recopie l'élément exact de la personne qu'elle heurte ; un secteur simplement non prioritaire n'écarte jamais. Le domaine du produit (cloud, IA…) ne change pas le métier. Une offre écartée affiche une raison de 12 mots au plus.
 - **Test de non-régression** automatique, rejoué à chaque modification du prompt. Offres fictives rédigées pour le test, sans nom d'entreprise réel.
   - Préfiltre et pièges :
     1. Offre « Senior Product Manager, 7+ ans » pour un profil junior : écartée par le préfiltre.
@@ -181,7 +181,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
     6. Offre demandant 3 ans d'expérience pour un profil junior : non exclue, score Chances réduit.
   - Niveaux (profil test : PM junior, ~1 an d'XP, Paris, secteurs sport et santé) :
     7. Associate PM dans une healthtech, profil ingénieur demandé, mentorat structuré : **Coup de cœur**.
-    8. Junior PM dans une scale-up ameublement/déco financée, vrai poste produit digital : **Solide**.
+    8. Junior PM dans une scale-up ameublement/déco financée, vrai poste produit digital, 0 à 2 ans demandés : **Coup de cœur** (ouvert aux juniors).
     9. « Junior Product Manager » dans une marque de mode, en réalité développement de collection textile : **Écartée**.
     10. QA Analyst dans un cabinet de conseil produit, passerelle annoncée QA → PO → PM : **Tremplin**.
     11. Customer Experience Specialist chez un fabricant d'objets connectés santé : **Tremplin**, score bas.
@@ -208,7 +208,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - Diagnostic à chaque ajout : « déjà trouvée par Scout le … », « trouvée mais écartée : règle … » ou « nouvelle pour Scout ».
   - Entreprise inconnue : recherche de sa page carrière, détection de l'ATS, ajout à l'annuaire.
 - **Outil « offre ratée »** : si une offre ajoutée par URL n'avait pas été collectée, le système explique pourquoi (source non couverte, règle d'exclusion, score trop bas) et propose le correctif. C'est l'outil principal pour mesurer et améliorer le rappel.
-- Filtres : un sélecteur de niveau à choix unique (Toutes, Coups de cœur, Solides, Tremplins) avec le nombre d'offres et une phrase qui explique le niveau choisi ; des cases combinables (Junior : 2 ans demandés au plus ou annoncée junior, Moins de 48 h, Inclure les +60 jours) ; une recherche par entreprise ou intitulé ; un bouton « Voir les écartées » qui ouvre la vue d'audit, où chaque offre affiche la règle qui l'a écartée.
+- Filtres : un sélecteur de niveau à choix unique (Toutes, Coups de cœur, Solides, Tremplins) avec le nombre d'offres et une phrase qui explique le niveau choisi ; des cases combinables (Junior : 2 ans demandés au plus ou annoncée junior, Moins de 48 h, Inclure les +60 jours) ; une recherche par entreprise ou intitulé, qui couvre aussi les offres hors de la zone (section à part) et, dans « Écartées », toutes les offres écartées de cette entreprise (lues côté serveur), chacune avec sa raison ; une offre située seulement « France » est « lieu à vérifier », jamais hors zone ; un bouton « Voir les écartées » qui ouvre la vue d'audit, où chaque offre affiche la règle qui l'a écartée.
 - Actions secondaires : toujours de vrais boutons, jamais du texte souligné.
 - « Pas pour moi » : une raison en un clic, stockée, puis réinjectée dans le scoring.
 
@@ -329,7 +329,7 @@ Priorité absolue : la pertinence des offres proposées et ne rater aucune offre
    - Expérience lue comme une fourchette (« jusqu'à 2 ans » = 0 à 2 ans ; « 3-6 ans » = 3 à 6 ans), affichée telle quelle.
    - Coup de cœur réservé aux offres à portée : écart d'expérience de 2 ans ou plus = Solide au mieux, jamais Coup de cœur (un junior ne perd pas son temps sur des offres hors d'atteinte présentées comme idéales).
    - Retours sur chaque offre (« Ça me plaît », « Pas pour moi » + raison) réinjectés dans le jugement des offres suivantes.
-   - Aucune offre ratée chez les favorites : connecteur DigitalRecruiters (Decathlon et de nombreuses entreprises françaises), recherche des favorites sans page carrière lisible par leur nom sur les moteurs, offres des favorites jugées sans pré-tri par intitulé.
+   - Aucune offre ratée chez les favorites : connecteurs DigitalRecruiters (Decathlon et de nombreuses entreprises françaises) et Welcome Kit, recherche des favorites sans page carrière lisible par leur nom sur les moteurs, offres des favorites jugées sans pré-tri par intitulé.
    - Descriptions lisibles : texte brut restructuré en sections et listes.
    - Doublons d'entreprise (« Robeaute » / « Robeaute-1 »).
 2. **V2.2 Vitesse** : temps de chargement de chaque page.

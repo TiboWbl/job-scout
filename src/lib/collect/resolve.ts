@@ -20,12 +20,17 @@ const PATTERNS: [Ats, RegExp][] = [
   ["recruitee", /([a-z0-9-]+)\.recruitee\.com/i],
   ["teamtailor", /([a-z0-9-]+)\.teamtailor\.com/i],
   ["personio", /([a-z0-9-]+)\.jobs\.personio\.(?:de|com)/i],
+  // Welcome Kit: the organisation reference in a job page or in the widget a career page embeds.
+  ["welcomekit", /data-organization-reference="([A-Za-z0-9]+)"/],
+  ["welcomekit", /WelcomeKitEmbed\(\s*['"]([A-Za-z0-9]+)['"]/],
 ];
+// Tokens compared in lower case, except references that are case-sensitive.
+const CASE_SENSITIVE: Ats[] = ["welcomekit"];
 
 export function atsFromText(text: string): { ats: Ats; token: string } | null {
   for (const [ats, re] of PATTERNS) {
     for (const m of text.matchAll(new RegExp(re, "gi"))) {
-      const token = decodeURIComponent(m[1]).toLowerCase();
+      const token = CASE_SENSITIVE.includes(ats) ? m[1] : decodeURIComponent(m[1]).toLowerCase();
       if (!NOT_A_COMPANY.has(token)) return { ats, token };
     }
   }
@@ -56,6 +61,25 @@ const PLATFORMS: [string, RegExp][] = [
 async function page(url: string): Promise<{ url: string; html: string } | null> {
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: BROWSER, redirect: "follow" }).catch(() => null);
   return res?.ok ? { url: res.url, html: await res.text().catch(() => "") } : null;
+}
+
+// A Welcome Kit career site lists its jobs; any job page carries the organisation reference.
+const WK_JOB = /href="((?:https:\/\/[a-z0-9-]+\.welcomekit\.co)?\/(?:companies\/[a-z0-9-]+\/)?jobs\/[^"?#]+)"/i;
+export async function welcomeKitBoard(url: string): Promise<{ ats: Ats; token: string } | null> {
+  const p = await page(url);
+  if (!p) return null;
+  // Read the reference itself: the page may also mention other platforms first.
+  const reference = (html: string) => {
+    const token = /data-organization-reference="([A-Za-z0-9]+)"/.exec(html)?.[1] ?? /WelcomeKitEmbed\(\s*['"]([A-Za-z0-9]+)['"]/.exec(html)?.[1];
+    return token ? { ats: "welcomekit" as const, token } : null;
+  };
+  const direct = reference(p.html);
+  if (direct) return direct;
+  // Listings drawn in the browser show no job link: the spontaneous-application page always exists.
+  const job = WK_JOB.exec(p.html)?.[1] ?? "/jobs/candidatures-spontanees";
+  // Answered with a 404 when the company has no open application form, yet still carries the reference.
+  const res = await fetch(new URL(job, p.url).href, { signal: AbortSignal.timeout(TIMEOUT), headers: BROWSER }).catch(() => null);
+  return res ? reference(await res.text().catch(() => "")) : null;
 }
 
 // Light checks, all in parallel: does this ATS have a non-empty board under this slug?
@@ -101,6 +125,12 @@ async function exploreSite(site: string): Promise<{ board: { ats: Ats; token: st
     const board = atsFromText(`${p.url} ${p.html}`);
     if (board) return { board, platform: null, careersUrl: p.url };
   }
+  // A link to a Welcome Kit career site: its reference is one page away.
+  for (const p of pages) {
+    const wk = /https:\/\/[a-z0-9-]+\.welcomekit\.co[^"'\s<]*/i.exec(p.html)?.[0];
+    const board = wk ? await welcomeKitBoard(wk) : null;
+    if (board) return { board, platform: null, careersUrl: wk! };
+  }
   for (const p of pages) {
     const platform = PLATFORMS.find(([, re]) => re.test(`${p.url} ${p.html}`));
     if (platform) return { board: null, platform: platform[0], careersUrl: p.url };
@@ -112,7 +142,10 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry):
   const entry: Entry = typeof input === "string" ? (isUrl(input.trim()) ? { site: input.trim() } : { name: input.trim() }) : input;
   const site = entry.site?.trim() || null;
   const host = site ? new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`).hostname.replace(/^www\./, "") : null;
-  let name = entry.name?.trim() || prettify(host!.split(".")[0]);
+  // Without a name, read it from the address: the board slug ("jobs.lever.co/qonto"), the company of a
+  // shared Welcome Kit site ("…welcomekit.co/companies/lucca"), or the site's own name.
+  const fromUrl = site ? (/welcomekit\.co\/companies\/([a-z0-9-]+)/i.exec(site)?.[1] ?? (/(lever|greenhouse|ashbyhq|smartrecruiters|workable)\./i.test(host!) ? atsFromText(site)?.token : null)) : null;
+  let name = entry.name?.trim() || prettify(fromUrl ?? host!.split(".")[0]);
 
   if (entry.name) {
     const { data: known } = await db.from("companies").select("id, name, ats").eq("name_key", companyKey(entry.name)).maybeSingle();
@@ -121,6 +154,7 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry):
 
   // A board address given directly; otherwise the name and the site are explored side by side.
   let board = site ? atsFromText(site) : null;
+  if (!board && host?.endsWith("welcomekit.co")) board = await welcomeKitBoard(/^https?:\/\//i.test(site!) ? site! : `https://${site}`);
   let platform: string | null = null;
   let careersUrl: string | null = null;
   if (!board) {
@@ -145,7 +179,8 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry):
   const { data: existing } = await db.from("companies").select("id, name").eq("name_key", key).maybeSingle();
   const fields = {
     ...(board ? { ats: board.ats, ats_token: board.token, discovered_via: "user" } : {}),
-    ...(host ? { domain: host } : {}),
+    // A career-platform address (jobs.lever.co, x.welcomekit.co…) is not the company's own domain.
+    ...(host && !/(welcomekit\.co|lever\.co|greenhouse\.io|ashbyhq\.com|smartrecruiters\.com|workable\.com|recruitee\.com|teamtailor\.com|personio\.(de|com))$/.test(host) ? { domain: host } : {}),
     careers_platform: platform,
     careers_url: careersUrl,
     ats_checked_at: new Date().toISOString(),
