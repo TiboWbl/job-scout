@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AutoTextarea } from "@/components/auto-textarea";
 import { CompanyLogo } from "@/components/company-logo";
 import { CloseIcon } from "@/components/icons";
 
@@ -72,13 +73,13 @@ export function Favorites() {
         Les entreprises où tu rêverais de travailler. Scout surveille leur page carrière à chaque collecte et signale leurs offres. Elles ne limitent jamais ta recherche.
       </p>
 
-      <textarea
+      <AutoTextarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        rows={3}
+        minRows={3}
         placeholder={"Une entreprise par ligne, ou l'adresse de sa page carrière\nEx. Acme Sport\nhttps://www.acme-sport.fr/carrieres"}
         aria-label="Entreprises à ajouter"
-        className="mt-4 w-full resize-y rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
+        className="mt-4 w-full resize-none rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => add(parseEntries(draft))} disabled={!draft.trim() || progress !== null} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-40">

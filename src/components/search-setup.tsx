@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { hasMinimumCriteria, type Criteria, type CvSummary } from "@/lib/domain/criteria";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { CriteriaEditor } from "./criteria-editor";
+import { AutoTextarea } from "./auto-textarea";
 import { addFavorites, parseEntries } from "./favorites";
 
 type Props = {
@@ -101,13 +102,13 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         </label>
         <p className="mt-1 text-sm text-muted">Le métier, le lieu, ce qui te plaît, ce que tu veux éviter, où tu en es. Quelques phrases suffisent.</p>
         {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Pas de pression : tu pourras modifier ce texte, ton CV et tes entreprises à tout moment dans Ma recherche.</p>}
-        <textarea
+        <AutoTextarea
           id="search-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={5}
+          minRows={5}
           placeholder="Ex. Je termine mes études et je cherche un premier poste en marketing digital à Lyon, ou en télétravail. J'aimerais une entreprise à impact, et j'évite la grande distribution."
-          className="mt-4 w-full resize-y rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
+          className="mt-4 w-full resize-none rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
         />
 
         {savedCv && !cvName && initialCvSummary && (

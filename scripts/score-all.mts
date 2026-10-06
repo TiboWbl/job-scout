@@ -16,7 +16,7 @@ let unfinished = 0;
 for (const { id } of profiles ?? []) {
   // Same engine as the site, without the serverless time limit: calls until nothing is left.
   for (let call = 0; call < 40; call++) {
-    const progress = await runScoring(db, id, 50_000);
+    const progress = await runScoring(db, id, 50_000, db);
     judged += progress.scoredNow;
     if (progress.remaining === 0) break;
     if (call === 39) unfinished++;

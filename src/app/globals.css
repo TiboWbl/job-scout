@@ -1,16 +1,28 @@
 @import "tailwindcss";
 
-/* Design tokens, taken from the validated direction C mockup (design/mockups/c-density.html). */
+/* Design tokens, direction C "Studio" (design/mockups/c-studio.html): warm cream, a light sidebar,
+   soft pastel tones for what matters today. Every ink/background pair passes WCAG AA. */
 :root {
-  --page: #fbfaf8;
-  --surface: #ffffff;
-  --rail: #17151f;
-  --rail-ink: #cfcbd9;
+  --page: #f6f1e8;
+  --surface: #fffdf9;
+  --rail: #fffdf9;
+  --rail-ink: #544f60;
+  --rail-text: #17151f;
+  --rail-active: #ece6ff;
+  --rail-active-ink: #4a3bc4;
+  --violet-soft: #ece6ff;
+  --violet-ink: #4a3bc4;
+  --mint-soft: #dcf3e8;
+  --mint-ink: #1f6b47;
+  --peach-soft: #ffe6d5;
+  --peach-ink: #a2471a;
+  --sky-soft: #dfeefb;
+  --sky-ink: #1d5f9e;
   --ink: #17151f;
   --muted: #544f60;
   --line: rgba(23, 21, 31, 0.08);
   --pill: rgba(255, 255, 255, 0.75);
-  --pill-solid: #f3f1ee;
+  --pill-solid: #f1ebe1;
   --button: #17151f;
   --button-ink: #ffffff;
   --brand: #6d5bf0;
@@ -28,6 +40,17 @@
     --surface: #17161d;
     --rail: #1b1922;
     --rail-ink: #a9a4b6;
+    --rail-text: #f4f2f7;
+    --rail-active: #2a2545;
+    --rail-active-ink: #d4c9ff;
+    --violet-soft: #2a2545;
+    --violet-ink: #d4c9ff;
+    --mint-soft: #16301f;
+    --mint-ink: #8fdcb4;
+    --peach-soft: #3a2316;
+    --peach-ink: #f5b48c;
+    --sky-soft: #15283a;
+    --sky-ink: #9cc8f0;
     --ink: #f4f2f7;
     --muted: #b9b4c6;
     --line: rgba(255, 255, 255, 0.08);
@@ -50,6 +73,17 @@
   --color-surface: var(--surface);
   --color-rail: var(--rail);
   --color-rail-ink: var(--rail-ink);
+  --color-rail-text: var(--rail-text);
+  --color-rail-active: var(--rail-active);
+  --color-rail-active-ink: var(--rail-active-ink);
+  --color-violet-soft: var(--violet-soft);
+  --color-violet-ink: var(--violet-ink);
+  --color-mint-soft: var(--mint-soft);
+  --color-mint-ink: var(--mint-ink);
+  --color-peach-soft: var(--peach-soft);
+  --color-peach-ink: var(--peach-ink);
+  --color-sky-soft: var(--sky-soft);
+  --color-sky-ink: var(--sky-ink);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);

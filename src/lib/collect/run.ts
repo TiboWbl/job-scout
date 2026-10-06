@@ -105,11 +105,12 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
     if (!parsed.success) continue;
     const c = parsed.data;
     for (const p of c.zone.places) countries.add(p.country);
-    const where = c.zone.places.find((p) => p.kind !== "country")?.label ?? c.zone.places[0]?.label ?? null;
+    const place = c.zone.places.find((p) => p.kind !== "country") ?? c.zone.places[0] ?? null;
+    const where = place?.label ?? null;
     for (const what of [...c.targetRoles, ...c.titleVariants]) {
       const key = `${what.trim().toLowerCase()}|${where ?? ""}`;
       const prev = counts.get(key);
-      counts.set(key, { q: { what: what.trim(), where }, n: (prev?.n ?? 0) + 1 });
+      counts.set(key, { q: { what: what.trim(), where, country: place?.country ?? null }, n: (prev?.n ?? 0) + 1 });
     }
   }
   const queries = [...counts.values()].sort((a, b) => b.n - a.n).slice(0, MAX_GENERATED_QUERIES).map((x) => x.q);

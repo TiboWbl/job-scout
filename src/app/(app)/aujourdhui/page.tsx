@@ -2,12 +2,12 @@ import Link from "next/link";
 import { followUpDue, isUpcoming, type Application } from "@/lib/domain/application";
 import { Criteria } from "@/lib/domain/criteria";
 import { LEVEL_ORDER, SCORE_SELECT, type FeedItem } from "@/lib/domain/feed";
-import { LEVEL_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { isStale } from "@/lib/format";
 import { rank } from "@/lib/scoring/judge";
 import { getUser } from "@/lib/supabase/server";
 import { CompanyLogo } from "@/components/company-logo";
+import { LevelBadge } from "@/components/level-badge";
 
 const SELECTION_SIZE = 6;
 const NEW_HOURS = 72;
@@ -61,111 +61,117 @@ export default async function TodayPage() {
   const pending = Math.max(0, (activeCount.count ?? 0) - (scoredCount.count ?? 0));
   const firstName = profile?.display_name;
 
+  const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+
   return (
-    <div className="max-w-5xl px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">{firstName ? `Bonjour ${firstName}` : "Bonjour"}</h1>
-      <p className="mt-2 text-[15px] text-muted first-letter:uppercase">
-        {new Date(now).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}. Voici ce qui compte aujourd&apos;hui.
-      </p>
+    <div className="px-1 pb-16 pt-3 md:px-2">
+      <p className="text-[15px] font-medium text-muted first-letter:uppercase">{new Date(now).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</p>
+      <h1 className="mt-1 font-display text-5xl font-extrabold tracking-tight">{firstName ? `Salut ${firstName} !` : "Salut !"}</h1>
+      <div className="mt-5 flex flex-wrap gap-2 text-sm font-semibold">
+        <span className="rounded-full bg-violet-soft px-3.5 py-1.5 text-violet-ink">{plural(selection.length, "offre pour toi", "offres pour toi")}</span>
+        {interviews.length > 0 && <span className="rounded-full bg-mint-soft px-3.5 py-1.5 text-mint-ink">{plural(interviews.length, "entretien à venir", "entretiens à venir")}</span>}
+        {followUps.length > 0 && <span className="rounded-full bg-peach-soft px-3.5 py-1.5 text-peach-ink">{plural(followUps.length, "relance", "relances")}</span>}
+      </div>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-3">
-        {[
-          [sentThisWeek, `candidature${sentThisWeek > 1 ? "s" : ""} envoyée${sentThisWeek > 1 ? "s" : ""} cette semaine`],
-          [interviewsThisWeek, `entretien${interviewsThisWeek > 1 ? "s" : ""} cette semaine`],
-          [followUps.length, `relance${followUps.length > 1 ? "s" : ""} à faire`],
-        ].map(([n, label]) => (
-          <div key={label as string} className="rounded-[20px] border border-line bg-surface p-4">
-            <p className="font-display text-3xl font-extrabold">{n}</p>
-            <p className="text-sm text-muted">{label}</p>
+      <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section>
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="font-display text-2xl font-bold">Ta sélection du jour</h2>
+            <Link href="/offres" className="text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline">
+              Toutes mes offres
+            </Link>
           </div>
-        ))}
-      </section>
-
-      <section className="mt-10">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-display text-2xl font-bold">Ta sélection du jour</h2>
-          <Link href="/offres" className="text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline">
-            Toutes mes offres
-          </Link>
-        </div>
-        {pending > 0 && (
-          <p className="mt-2 text-sm text-muted">
-            Scout a encore {pending.toLocaleString("fr-FR")} offres à trier.{" "}
-            <Link href="/offres" className="font-semibold text-ink underline underline-offset-4">
-              Lancer le tri
-            </Link>
-          </p>
-        )}
-        {selection.length === 0 ? (
-          <p className="mt-4 rounded-2xl border border-line bg-surface p-6 text-muted">Rien de nouveau à regarder pour l&apos;instant. Scout continue de chercher pour toi.</p>
-        ) : (
-          <ul className="mt-4 space-y-2.5">
-            {selection.map((r) => (
-              <li key={r.offer.id}>
-                <Link
-                  href={`/offres?offre=${r.offer.id}`}
-                  style={tintStyle(r.offer.company.accent_color)}
-                  className="tinted flex items-center gap-4 rounded-[20px] border border-line p-4 transition-shadow hover:shadow-[0_8px_30px_-12px_rgba(23,21,31,0.25)]"
-                >
-                  <CompanyLogo name={r.offer.company.name} domain={r.offer.company.domain} brand={r.offer.company.brand} size={40} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-[17px] font-bold leading-tight">{r.offer.title}</span>
-                    <span className="block truncate text-sm text-muted">
-                      {r.offer.company.name}
-                      {r.why ? ` · ${r.why}` : ""}
+          {pending > 0 && (
+            <p className="mt-2 text-sm text-muted">
+              Encore {pending.toLocaleString("fr-FR")} offres à trier.{" "}
+              <Link href="/offres" className="font-semibold text-ink underline underline-offset-4">
+                Lancer le tri
+              </Link>
+            </p>
+          )}
+          {selection.length === 0 ? (
+            <p className="mt-4 rounded-2xl bg-surface p-6 text-muted">Rien de nouveau pour l&apos;instant. Scout continue de chercher.</p>
+          ) : (
+            <ul className="mt-4 space-y-2.5">
+              {selection.map((r) => (
+                <li key={r.offer.id}>
+                  <Link
+                    href={`/offres?offre=${r.offer.id}`}
+                    style={tintStyle(r.offer.company.accent_color)}
+                    className="tinted flex items-center gap-4 rounded-[20px] border border-line p-4 transition-shadow hover:shadow-[0_8px_30px_-12px_rgba(23,21,31,0.25)]"
+                  >
+                    <CompanyLogo name={r.offer.company.name} domain={r.offer.company.domain} brand={r.offer.company.brand} size={40} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[17px] font-bold leading-tight">{r.offer.title}</span>
+                      <span className="block truncate text-sm text-muted">
+                        {r.offer.company.name}
+                        {r.why ? ` · ${r.why}` : ""}
+                      </span>
                     </span>
-                  </span>
-                  <span className="hidden whitespace-nowrap rounded-full border border-[var(--halo)] bg-surface/80 px-2.5 py-1 text-xs font-semibold text-[var(--accent)] sm:inline">
-                    {isNew(r) ? "Nouvelle · " : ""}
-                    {LEVEL_LABELS[r.level]}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                    <span className="hidden sm:inline">
+                      <LevelBadge level={r.level} prefix={isNew(r) ? "Nouvelle · " : ""} />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      <div className="mt-10 grid gap-6 md:grid-cols-2">
-        <section>
-          <h2 className="font-display text-2xl font-bold">Relances à faire</h2>
-          {followUps.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Aucune pour l&apos;instant. Scout te le dira une semaine après chaque candidature.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-line rounded-[20px] border border-line bg-surface">
-              {followUps.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <p className="truncate text-[15px] font-medium">{a.title}</p>
-                  <p className="text-sm text-muted">
-                    {a.company} · candidature du {new Date(a.applied_at!).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
-                  </p>
-                </li>
+        <div className="grid content-start gap-4 md:grid-cols-3 xl:grid-cols-1">
+          <section className="rounded-[22px] bg-violet-soft p-5">
+            <h2 className="font-display text-lg font-bold">Relances à faire</h2>
+            {followUps.length === 0 ? (
+              <p className="mt-1 text-sm text-muted">Aucune pour l&apos;instant.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {followUps.map((a) => (
+                  <li key={a.id}>
+                    <Link href="/suivi" className="block rounded-2xl bg-surface px-4 py-3 hover:shadow-sm">
+                      <span className="block truncate text-[15px] font-semibold">{a.company}</span>
+                      <span className="block truncate text-sm text-muted">
+                        Postulé le {new Date(a.applied_at!).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · {a.title}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className="rounded-[22px] bg-mint-soft p-5">
+            <h2 className="font-display text-lg font-bold">Entretiens à venir</h2>
+            {interviews.length === 0 ? (
+              <p className="mt-1 text-sm text-muted">Aucun pour l&apos;instant.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {interviews.map((a) => (
+                  <li key={a.id}>
+                    <Link href="/suivi" className="block rounded-2xl bg-surface px-4 py-3 hover:shadow-sm">
+                      <span className="block truncate text-[15px] font-semibold text-mint-ink">{when(a.interview_at!)}</span>
+                      <span className="block truncate text-sm text-muted">
+                        {a.company} · {a.title}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className="rounded-[22px] bg-peach-soft p-5">
+            <h2 className="font-display text-lg font-bold">Ta semaine</h2>
+            <div className="mt-2 flex gap-6">
+              {[
+                [sentThisWeek, sentThisWeek > 1 ? "envoyées" : "envoyée"],
+                [interviewsThisWeek, interviewsThisWeek > 1 ? "entretiens" : "entretien"],
+              ].map(([n, label]) => (
+                <p key={label as string}>
+                  <span className="block font-display text-3xl font-extrabold text-peach-ink">{n}</span>
+                  <span className="text-sm font-medium text-peach-ink">{label}</span>
+                </p>
               ))}
-            </ul>
-          )}
-        </section>
-        <section>
-          <h2 className="font-display text-2xl font-bold">Entretiens à venir</h2>
-          {interviews.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Aucun de prévu. Ajoute la date dans le Suivi quand tu en décroches un.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-line rounded-[20px] border border-line bg-surface">
-              {interviews.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <p className="truncate text-[15px] font-medium">{a.company}</p>
-                  <p className="text-sm text-muted">
-                    {when(a.interview_at!)} · {a.title}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-          {(followUps.length > 0 || interviews.length > 0) && (
-            <Link href="/suivi" className="mt-3 inline-block text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline">
-              Ouvrir mon suivi
-            </Link>
-          )}
-        </section>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

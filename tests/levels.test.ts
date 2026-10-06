@@ -31,3 +31,18 @@ describe("niveau dérivé des réponses du modèle", () => {
     expect(deriveLevel(facts({ dealBreaker: "Astreintes le week-end." }), open).level).toBe("ecartee");
   });
 });
+
+describe("faits vérifiés dans l'offre (jamais inventés)", async () => {
+  const { verifiedExperience, verifiedSalary } = await import("@/lib/scoring/judge");
+  it("la lecture du texte l'emporte sur l'IA", () => {
+    expect(verifiedExperience("3 ans et plus", 5, "At least 5 years in a product role")).toBe("5 ans et plus");
+  });
+  it("refuse une expérience absente du texte (cas d'un extrait de 500 caractères)", () => {
+    expect(verifiedExperience("3 ans et plus", null, "Product Manager Sales AI, CDI à Paris, rejoins une équipe en croissance.")).toBeNull();
+    expect(verifiedExperience("3 ans et plus", null, "Profil : 3 ans d'expérience minimum en produit.")).toBe("3 ans et plus");
+  });
+  it("garde un salaire seulement s'il est écrit", () => {
+    expect(verifiedSalary("45-55 k€", "Salaire : 45 000 - 55 000 € brut")).toBe("45-55 k€");
+    expect(verifiedSalary("50 k€", "Rémunération attractive selon profil")).toBeNull();
+  });
+});

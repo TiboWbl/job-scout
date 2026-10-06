@@ -14,13 +14,17 @@ export default async function AdminPage() {
   if (!isAdminEmail(user?.email)) notFound();
 
   const db = createAdminClient();
-  const [runs, invitations, stats] = await Promise.all([
-    db.from("collection_runs").select("source, started_at, offers_seen, offers_new, offers_archived, errors, error_sample").order("started_at", { ascending: false }).limit(300),
-    db.from("invitations").select("email").order("created_at", { ascending: false }),
-    dashboardStats(db),
-  ]);
   const fromEnv = (process.env.INVITED_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-  const people = await invitees(db, process.env.ADMIN_EMAIL, fromEnv, (invitations.data ?? []).map((i) => i.email as string));
+  // Everything at once: the slowest block sets the page time, not their sum.
+  const [runs, stats, people] = await Promise.all([
+    db.from("collection_runs").select("source, started_at, offers_seen, offers_new, offers_archived, errors, error_sample").order("started_at", { ascending: false }).limit(300),
+    dashboardStats(db),
+    db
+      .from("invitations")
+      .select("email")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => invitees(db, process.env.ADMIN_EMAIL, fromEnv, (data ?? []).map((i) => i.email as string))),
+  ]);
 
   // Latest run per source, plus the previous one to spot a sudden drop.
   const bySource = new Map<string, Run[]>();

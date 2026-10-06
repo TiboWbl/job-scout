@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
 import { chancesCap, prefilter } from "./prefilter";
+import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
 import { titleRelevance } from "./relevance";
 import { judgeBatch, type JudgeInput } from "./judge";
@@ -39,7 +40,8 @@ async function pages<T>(fetchPage: (from: number, to: number) => PromiseLike<{ d
 }
 
 // Runs as the signed-in user: reads shared offers, writes only this user's scores (RLS).
-export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 45_000): Promise<ScoringProgress> {
+// `service` (service role) lets the engine complete search-engine excerpts before judging them.
+export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 45_000, service: SupabaseClient | null = null): Promise<ScoringProgress> {
   const startedAt = Date.now();
   const { data: profile, error } = await db.from("profiles").select("criteria, criteria_version, cv_summary").eq("id", userId).single();
   if (error || !profile) throw error ?? new Error("profile not found");
@@ -99,10 +101,39 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const { data: favs } = await db.from("favorite_companies").select("company:companies(name)").eq("user_id", userId);
   const favoriteNames = (favs ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
   const descriptions = new Map<string, string>();
+  const excerpts = new Set<string>();
   const toLoad = candidates.slice(0, MAX_BATCHES_PER_CALL * BATCH_SIZE).map((c) => c.offer.id);
+  // Read the full posting behind search-engine excerpts first: judging 500 characters misleads.
+  if (service) await completeOffers(service, toLoad);
+  const fresh = new Map<string, { description: string | null; experience_min_years: number | null; contract: string; archived_at: string | null; sources: string[] }>();
   for (let i = 0; i < toLoad.length; i += 100) {
-    const { data } = await db.from("offers").select("id, description").in("id", toLoad.slice(i, i + 100));
-    for (const d of data ?? []) descriptions.set(d.id, d.description ?? "");
+    const { data } = await db.from("offers").select("id, description, experience_min_years, contract, archived_at, sources").in("id", toLoad.slice(i, i + 100));
+    for (const d of data ?? []) fresh.set(d.id, d);
+  }
+  // Completed offers may now ask for more experience, or be gone: the gates are applied again.
+  const regated: Record<string, unknown>[] = [];
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const c = candidates[i];
+    const f = fresh.get(c.offer.id);
+    if (!f) continue;
+    if (f.archived_at) {
+      candidates.splice(i, 1);
+      continue;
+    }
+    c.offer = { ...c.offer, experience_min_years: f.experience_min_years, contract: f.contract };
+    const gate = prefilter({ ...c.offer, companyName: c.offer.company?.name ?? "" }, criteria, experienceYears);
+    if (!gate.pass) {
+      regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
+      candidates.splice(i, 1);
+      continue;
+    }
+    c.gap = gate.experienceGap;
+    descriptions.set(c.offer.id, f.description ?? "");
+    if (isExcerptOnly({ description: f.description, sources: f.sources })) excerpts.add(c.offer.id);
+  }
+  if (regated.length > 0) {
+    const { error: e } = await db.from("offer_scores").upsert(regated);
+    if (e) throw e;
   }
 
   // Batches start every ~2 s (rate limit) and run side by side; none starts too late to finish
@@ -121,6 +152,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       contract: offer.contract,
       experienceRequired: offer.experience_min_years,
       description: descriptions.get(offer.id) ?? "",
+      excerpt: excerpts.has(offer.id),
     }));
     running.push(
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames).then(async (results) => {

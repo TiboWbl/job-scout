@@ -47,13 +47,13 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-[14px] px-2 py-2 text-left text-white hover:bg-white/10"
+        className="flex w-full items-center gap-2.5 rounded-[14px] px-2 py-2 text-left text-rail-text hover:bg-pill-solid"
       >
         {avatarUrl && !avatarFailed ? (
           // eslint-disable-next-line @next/next/no-img-element -- Google profile photo, external
           <img src={avatarUrl} alt="" width={32} height={32} referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} className="h-8 w-8 rounded-full object-cover" />
         ) : (
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-white/15 text-sm font-semibold">{firstName?.[0]?.toUpperCase() ?? "?"}</span>
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-violet-soft text-sm font-semibold text-violet-ink">{firstName?.[0]?.toUpperCase() ?? "?"}</span>
         )}
         <span className="hidden truncate text-sm font-medium md:block">{firstName ?? "Mon compte"}</span>
       </button>

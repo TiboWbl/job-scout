@@ -11,7 +11,30 @@ export type JudgeInput = {
   contract: string;
   experienceRequired: number | null;
   description: string;
+  // Only a search-engine excerpt could be read: nothing precise may be inferred from it.
+  excerpt?: boolean;
 };
+
+const foldAccents = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const plural = (n: number) => (n > 1 ? "s" : "");
+
+// Facts shown on a card must be in the posting itself. The detector's reading of the text wins; a
+// figure the model gives is kept only if that figure is written in the posting.
+export function verifiedExperience(asked: string | null, required: number | null, description: string): string | null {
+  if (required !== null) return required === 0 ? "Débutant accepté" : `${required} an${plural(required)} et plus`;
+  if (!asked) return null;
+  const text = foldAccents(description);
+  const numbers = asked.match(/\d+/g);
+  if (numbers) return numbers.every((n) => new RegExp(`\\b${n}\\s*\\+?\\s*(ans?|annees?|years?|yrs?)\\b`).test(text)) ? asked : null;
+  return /debutant|premiere experience|jeune diplome|junior|graduate|entry[- ]level|no experience|sans experience/.test(text) ? asked : null;
+}
+
+export function verifiedSalary(salary: string | null, description: string): string | null {
+  if (!salary) return null;
+  const text = description.replace(/[\s\u00a0\u202f]/g, "");
+  const numbers = salary.replace(/[\s\u00a0\u202f]/g, "").match(/\d+/g);
+  return numbers && numbers.every((n) => text.includes(n)) ? salary : null;
+}
 
 export type Judgement = {
   level: Level;
@@ -100,6 +123,8 @@ Scores, entiers de 0 à 100 (jamais sur 10) :
 - score_chances : expérience demandée vs réelle, compétences requises vs CV, langues. Chaque année demandée au-delà de l'expérience de la personne baisse ce score. L'expérience ne change jamais la correspondance.
 - score_tremplin : valeur comme étape de carrière (apprentissage, encadrement, passerelle).
 
+Si "extrait_seulement" est vrai, tu n'as qu'un extrait de l'offre : remplis "missions", "salaire" et "experience_demandee" seulement avec ce qui y est écrit, sinon [] ou null, et commence "points_d_attention" par « Extrait seulement : lis l'offre complète ».
+
 Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel.
 - "pourquoi" : une phrase concrète de 25 mots maximum, sans répéter l'intitulé ni l'entreprise.
 - "missions" : les 2 ou 3 missions principales du poste, 8 mots maximum chacune (ex. « Piloter la roadmap de l'app patient »).
@@ -158,6 +183,7 @@ export async function judgeBatch(
         lieu: o.location,
         contrat: o.contract,
         experience_demandee_detectee: o.experienceRequired,
+        ...(o.excerpt ? { extrait_seulement: true } : {}),
         description: focusedExcerpt(o.description),
       }),
     )
@@ -175,6 +201,7 @@ export async function judgeBatch(
     // Models sometimes echo "1" or "O1" instead of "o1"; the answer order matches the input order.
     const id = shortIds.get(item.id) ?? shortIds.get(`o${item.id.replace(/^o/i, "")}`) ?? (items.length === offers.length ? offers[index].id : undefined);
     if (!id) return;
+    const input = offers.find((o) => o.id === id)!;
     const facts: Facts = { match: item.correspondance, sector: item.secteur, trap: item.piege, dealBreaker: item.deal_breaker, chances: item.score_chances };
     const { level, reason } = deriveLevel(facts, criteria);
     const [interet, chances, tremplin] = to100(item, level);
@@ -182,8 +209,8 @@ export async function judgeBatch(
     results.set(id, {
       level,
       missions: item.missions.slice(0, 3),
-      salary: item.salaire,
-      experience_asked: item.experience_demandee,
+      salary: verifiedSalary(item.salaire, input.description),
+      experience_asked: verifiedExperience(item.experience_demandee, input.experienceRequired, input.description),
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,

@@ -34,6 +34,13 @@ function normalize(j: JoobleJob): NormalizedOffer {
   };
 }
 
+// Jooble serves every country from one API: "Paris" alone returns Paris, Texas. The country is spelled out.
+const COUNTRY_NAMES: Record<string, string> = { FR: "France", BE: "Belgique", CH: "Suisse", LU: "Luxembourg", CA: "Canada", GB: "United Kingdom", DE: "Deutschland", ES: "España", PT: "Portugal", NL: "Nederland", IE: "Ireland", IT: "Italia", US: "United States" };
+const located = (q: SearchQuery) => {
+  const country = q.country ? (COUNTRY_NAMES[q.country] ?? q.country) : "";
+  return [q.where && q.where !== country ? q.where : null, country].filter(Boolean).join(", ") || "France";
+};
+
 export async function fetchJooble(queries: SearchQuery[]): Promise<NormalizedOffer[]> {
   const out = new Map<string, NormalizedOffer>();
   for (const q of queries) {
@@ -41,7 +48,7 @@ export async function fetchJooble(queries: SearchQuery[]): Promise<NormalizedOff
       const res = await fetch(`https://jooble.org/api/${process.env.JOOBLE_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: q.what, location: q.where ?? "France", page: String(page) }),
+        body: JSON.stringify({ keywords: q.what, location: located(q), page: String(page) }),
         signal: AbortSignal.timeout(20_000),
       });
       if (!res.ok) throw new Error(`search HTTP ${res.status}`);

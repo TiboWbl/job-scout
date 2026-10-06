@@ -9,7 +9,8 @@ const SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/fr/search";
 const MAX_PAGES = 5;
 const MAX_DAYS_OLD = 60;
 
-export type SearchQuery = { what: string; where: string | null };
+// `country`: ISO code of the place, so engines that serve several countries search the right one.
+export type SearchQuery = { what: string; where: string | null; country: string | null };
 
 export function isAdzunaConfigured() {
   return Boolean(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY);

@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
-import { LEVEL_LABELS, REMOTE_LABELS } from "@/lib/domain/offer";
+import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { freshness, placeLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/browser";
 import { CompanyLogo } from "@/components/company-logo";
 import { ArrowIcon, CloseIcon, CollapseIcon, ExpandIcon, NopeIcon, SaveIcon } from "@/components/icons";
+import { LevelBadge } from "@/components/level-badge";
 import { NopeMenu } from "./nope-menu";
 
 type Props = {
@@ -128,7 +129,7 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
       <div className={`flex-1 overflow-y-auto px-6 pb-6 pt-11 ${expanded ? "md:px-10" : ""}`}>
         <div className={expanded ? "mx-auto max-w-3xl" : ""}>
         <div className="flex justify-end">
-          <span className="rounded-full border border-[var(--halo)] bg-[var(--tint)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">{LEVEL_LABELS[item.level]}</span>
+          <LevelBadge level={item.level} />
         </div>
         <h2 className="mt-2 font-display text-[28px] font-extrabold leading-[1.1] tracking-tight">{offer.title}</h2>
         <p className="mt-1.5 text-[15px] text-muted">
@@ -186,6 +187,11 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
         <div className="mt-6 space-y-3 border-t border-line pt-5">
           {description === null && <p className="text-sm text-muted">Chargement de l&apos;annonce…</p>}
           {description === "" && <p className="text-sm text-muted">La description complète est sur le site de l&apos;offre.</p>}
+          {description !== null && description !== "" && description.length < 1200 && (
+            <p className="rounded-xl border border-dashed border-line px-3 py-2 text-sm text-muted">
+              Scout n&apos;a pu lire qu&apos;un extrait de cette offre. Lis-la en entier sur son site avant de te décider.
+            </p>
+          )}
           {blocks.map((b, i) =>
             b.kind === "heading" ? (
               <h4 key={i} className="pt-3 font-display text-lg font-bold">{b.text}</h4>

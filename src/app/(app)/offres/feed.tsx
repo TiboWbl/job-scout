@@ -50,6 +50,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [filter, setFilter] = useState<Filter>("all");
   const [freshOnly, setFreshOnly] = useState(false);
   const [showStale, setShowStale] = useState(false);
+  const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const [expanded, setExpanded] = useState(false);
   const favoriteIds = useMemo(() => new Set(favoriteCompanyIds), [favoriteCompanyIds]);
@@ -139,7 +140,13 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
 
   const published = (i: FeedItem) => i.offer.published_at ?? i.offer.first_seen_at;
   const staleCount = main.filter((i) => isStale(published(i))).length;
+  // Search by company or title, accents and case ignored.
+  const fold = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const q = fold(query.trim());
+  const matches = (i: FeedItem) => !q || fold(`${i.offer.title} ${i.offer.company.name} ${i.offer.company.brand ?? ""}`).includes(q);
+
   const shown = main
+    .filter(matches)
     .filter((i) => filter === "all" || filter === "ecartees" || i.level === filter)
     .filter((i) => showStale || !isStale(published(i)))
     .filter((i) => !freshOnly || isFresh(published(i)));
@@ -202,7 +209,15 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </div>
       )}
 
-      <div className="mb-5 mt-5 flex flex-wrap gap-2">
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Rechercher une entreprise ou un intitulé"
+        aria-label="Rechercher une entreprise ou un intitulé"
+        className="mt-5 w-full max-w-md rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
+      />
+      <div className="mb-5 mt-3 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.key}
@@ -254,7 +269,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
 
       {filter === "ecartees" ? (
         <SetAside
-          items={set_aside}
+          items={set_aside.filter(matches)}
           loading={excluded.loading}
           more={!excluded.done && excluded.items.length > 0}
           onMore={() => loadExcluded(excluded.items.length)}

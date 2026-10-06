@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
-import { LEVEL_LABELS, REMOTE_LABELS } from "@/lib/domain/offer";
+import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { freshness, isFresh, placeLabel } from "@/lib/format";
 import { CompanyLogo } from "@/components/company-logo";
 import { NopeIcon, SaveIcon } from "@/components/icons";
+import { LevelBadge } from "@/components/level-badge";
 import { NopeMenu } from "./nope-menu";
 
 type Props = {
@@ -53,8 +54,8 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
             {seenAt ? `Publiée ${freshness(seenAt)}` : ""}
           </p>
         </div>
-        <span className="ml-auto whitespace-nowrap rounded-full border border-[var(--halo)] bg-[var(--tint)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">
-          {LEVEL_LABELS[item.level]}
+        <span className="ml-auto">
+          <LevelBadge level={item.level} />
         </span>
       </header>
 
@@ -69,6 +70,7 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         {offer.remote !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{REMOTE_LABELS[offer.remote]}</span>}
         {offer.contract !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS]}</span>}
         {/* Missing facts are said so, in a dashed chip: worth a look in the posting itself. */}
+        {item.watch[0]?.startsWith("Extrait seulement") && <span className="rounded-full border border-dashed border-line px-2.5 py-1">Extrait seulement</span>}
         {item.salary ? <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{item.salary}</span> : <span className="rounded-full border border-dashed border-line px-2.5 py-1">Salaire non indiqué</span>}
         {experience ? (
           <span className="rounded-full bg-pill px-2.5 py-1 text-ink">Expérience : {experience}</span>
