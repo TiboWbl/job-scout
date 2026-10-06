@@ -95,8 +95,8 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
   }, [onClose]);
 
   const blocks = description ? toBlocks(structureDescription(description)) : [];
-  // What the company does: its own words on its site, otherwise the posting's introduction.
-  const about = offer.company.about ?? (description ? companyIntro(description) : null);
+  // What the company makes or sells (read from its postings), otherwise the posting's own introduction.
+  const about = offer.company.product ?? (description ? companyIntro(description) : null);
   const seenAt = offer.published_at ?? offer.first_seen_at;
   const facts = [
     ["Lieu", placeLabel(offer.places, offer.location_raw)],

@@ -172,7 +172,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames, feedback).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
-          .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts));
+          .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id));
         if (rows.length > 0) {
           const { error: e } = await db.from("offer_scores").upsert(rows);
           if (e) throw e;
@@ -224,8 +224,11 @@ function scoreRow(
   service: SupabaseClient | null,
   knownContract = "unknown",
   wanted: string[] = [],
+  companyId: string | null = null,
 ): Record<string, unknown> {
-  const { experience_years: found, contract_found: contract, ...rest } = judged;
+  const { experience_years: found, contract_found: contract, company_product: product, ...rest } = judged;
+  // The company learns what it does, once, for every offer and everyone.
+  if (service && companyId && product) service.from("companies").update({ product }).eq("id", companyId).is("product", null).then(() => undefined);
   // Same for the contract: an internship found in the text never reaches a CDI-only search.
   if (knownContract === "unknown" && contract) {
     // Query builders only run when awaited or then-ed: started here, without delaying the score.

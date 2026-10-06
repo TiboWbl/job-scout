@@ -9,8 +9,8 @@ import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/fran
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
-import { fillAbout, fillCovers } from "./cover";
-import { enrichCompanies } from "./enrich";
+import { fillCovers, fillOfferImages } from "./cover";
+import { enrichCompanies, guessDomains } from "./enrich";
 import { companyKey, offerKey } from "./normalize";
 
 export type SourceReport = { source: string; seen: number; created: number; archived: number; error?: string };
@@ -73,9 +73,11 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
   if (Date.now() - startedAt < budgetMs) {
     // Who really recruits (group, institution) and a verified domain, before logos are coloured.
     await enrichCompanies(db).catch(() => null);
+    // Employers of offers someone sees, known by name only: their site, checked against their postings.
+    await guessDomains(db, await shownCompanyIds(db)).catch(() => 0);
     await fillCompanyColors(db);
     await fillCovers(db).catch(() => null);
-    await fillAbout(db).catch(() => null);
+    await fillOfferImages(db).catch(() => null);
     await archiveStaleEngineOffers(db);
     await purgeOldDescriptions(db);
   }
@@ -295,6 +297,16 @@ async function fillCompanyColors(db: SupabaseClient) {
     }
     await db.from("companies").update({ accent_color: accent, color_checked_at: new Date().toISOString() }).eq("id", c.id);
   }
+}
+
+async function shownCompanyIds(db: SupabaseClient): Promise<string[]> {
+  const ids = new Set<string>();
+  for (let f = 0; ; f += 1000) {
+    const { data } = await db.from("offer_scores").select("offer:offers(company_id, archived_at)").neq("level", "ecartee").range(f, f + 999);
+    for (const r of (data ?? []) as unknown as { offer: { company_id: string; archived_at: string | null } | null }[]) if (r.offer && !r.offer.archived_at) ids.add(r.offer.company_id);
+    if (!data || data.length < 1000) break;
+  }
+  return [...ids].slice(0, 150);
 }
 
 async function archiveStaleEngineOffers(db: SupabaseClient) {

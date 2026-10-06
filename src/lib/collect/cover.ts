@@ -37,7 +37,12 @@ export async function looksLikePhoto(buffer: Buffer): Promise<boolean> {
 }
 
 export async function findCover(domain: string): Promise<string | null> {
-  const page = await fetch(`https://${domain}`, { headers: BROWSER, redirect: "follow", signal: AbortSignal.timeout(8_000) }).catch(() => null);
+  return photoFromPage(`https://${domain}`);
+}
+
+// The og:image a page publishes, kept only if it is a real photo.
+export async function photoFromPage(pageUrl: string): Promise<string | null> {
+  const page = await fetch(pageUrl, { headers: BROWSER, redirect: "follow", signal: AbortSignal.timeout(8_000) }).catch(() => null);
   if (!page?.ok) return null;
   const url = ogImage(await page.text().catch(() => ""), page.url);
   if (!url) return null;
@@ -48,7 +53,7 @@ export async function findCover(domain: string): Promise<string | null> {
 }
 
 export async function fillCovers(db: SupabaseClient, limit = 100, concurrency = 6) {
-  const { data } = await db.from("companies").select("id, domain").not("domain", "is", null).is("cover_checked_at", null).limit(limit);
+  const { data } = await db.from("companies").select("id, domain, careers_url").not("domain", "is", null).is("cover_checked_at", null).limit(limit);
   const list = data ?? [];
   let next = 0;
   let found = 0;
@@ -56,7 +61,8 @@ export async function fillCovers(db: SupabaseClient, limit = 100, concurrency = 
     Array.from({ length: concurrency }, async () => {
       while (next < list.length) {
         const c = list[next++];
-        const cover = await findCover(c.domain).catch(() => null);
+        // The homepage first, then the careers page, which often shows the team.
+        const cover = (await findCover(c.domain).catch(() => null)) ?? (c.careers_url ? await photoFromPage(c.careers_url).catch(() => null) : null);
         if (cover) found++;
         await db.from("companies").update({ cover_url: cover, cover_checked_at: new Date().toISOString() }).eq("id", c.id);
       }
@@ -99,4 +105,34 @@ export async function fillAbout(db: SupabaseClient, limit = 150, concurrency = 8
     }),
   );
   return { checked: list.length, found };
+}
+
+// A photo for each offer someone sees: the offer's own page often shows the team or the office
+// (Teamtailor, Welcome Kit, career sites). Search-engine redirects are skipped.
+export async function fillOfferImages(db: SupabaseClient, limit = 150, concurrency = 6) {
+  const shown = new Set<string>();
+  for (let f = 0; ; f += 1000) {
+    const { data } = await db.from("offer_scores").select("offer_id").neq("level", "ecartee").range(f, f + 999);
+    for (const r of data ?? []) shown.add(r.offer_id as string);
+    if (!data || data.length < 1000) break;
+  }
+  const ids = [...shown];
+  const list: { id: string; apply_url: string }[] = [];
+  for (let i = 0; i < ids.length && list.length < limit; i += 100) {
+    const { data } = await db.from("offers").select("id, apply_url").in("id", ids.slice(i, i + 100)).is("image_url", null).is("image_checked_at", null).is("archived_at", null);
+    list.push(...((data ?? []) as { id: string; apply_url: string }[]).filter((o) => o.apply_url && !/adzuna|jooble|francetravail/.test(o.apply_url)));
+  }
+  let next = 0;
+  let found = 0;
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (next < Math.min(list.length, limit)) {
+        const o = list[next++];
+        const image = await photoFromPage(o.apply_url).catch(() => null);
+        if (image) found++;
+        await db.from("offers").update({ image_url: image, image_checked_at: new Date().toISOString() }).eq("id", o.id);
+      }
+    }),
+  );
+  return { checked: Math.min(list.length, limit), found };
 }

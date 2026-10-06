@@ -78,6 +78,8 @@ export type Judgement = {
   experience_years: number | null;
   // Contract type read by the model with a verified quote: the engine applies the contract gate with it.
   contract_found: string | null;
+  // What the company makes or sells, from the posting: stored on the company, shown in the offer detail.
+  company_product: string | null;
   score_interet: number;
   score_chances: number;
   score_tremplin: number;
@@ -124,6 +126,7 @@ const Item = z.object({
   contrat: Text,
   citation_contrat: Text,
   en_bref: Text,
+  activite_entreprise: Text,
   points_forts: List,
   points_d_attention: List,
   leviers_cv: List,
@@ -203,9 +206,10 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "experience_demandee" : l'expérience minimale demandée, lue partout dans l'offre (profil recherché, must-haves, requirements, qualifications…), en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
 - "citation_experience" : la phrase exacte de l'offre, recopiée mot pour mot, qui indique cette expérience (ex. « 3+ years in product management »), sinon null.
 - "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
+- "activite_entreprise" : ce que l'entreprise fait concrètement, d'après l'offre : son produit ou service et pour qui, en 20 mots maximum (ex. « Application de suivi de rééducation pour les kinésithérapeutes et leurs patients »). Jamais de slogan, de promesse ni de valeurs ; null si l'offre ne le dit pas.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -325,6 +329,7 @@ export async function judgeBatch(
       experience_asked: experience.label,
       experience_years: experience.years,
       contract_found: verifiedContract(item.contrat, item.citation_contrat, input.description),
+      company_product: item.activite_entreprise && !input.excerpt ? plain(item.activite_entreprise).slice(0, 200) : null,
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,
