@@ -318,23 +318,26 @@ Découpage en phases : à la fin de chacune, tests verts, commit + push, site te
 4. **Automatisation et conformité** : cron GitHub Actions (collecte puis scoring des nouvelles offres), page Confidentialité, suppression du compte, archivage et purge.
 5. **Mode démo et page d'accueil publique.**
 
-Ensuite (backlog, V2), par thème :
+### V2 : une version très améliorée, presque définitive
 
-- **Design** : une passe dédiée (rythme typographique, états vides illustrés, micro-animations, cohérence de toutes les pages) à partir des retours notés et d'exemples WTTJ / Apple fournis par l'utilisateur ; bascule manuelle clair/sombre ; finitions mobile ; raccourci ⌘K.
-- **CV** : analyse ATS (note sur 100 avec le détail par catégorie, vue « Ce que voit un ATS », recommandations concrètes, comparaison à une offre précise, historique des versions).
-- **Pertinence** :
-  - réinjection des « Pas pour moi » et de leur raison dans le scoring ;
-  - dédoublonnage des offres publiées sous des intitulés différents selon la source (ex. la même offre d'Alan, « Product Manager - Sales AI » sur Adzuna et « Product Builder - Sales AI » sur sa page carrière) ;
-  - tri au choix (plus récentes / plus pertinentes).
-- **Couverture** :
-  - Careerjet ; France Travail à retenter (API absente du catalogue en libre-service) ;
-  - connecteurs pour d'autres ATS courants des grands groupes (Workday, SuccessFactors, Taleo) ;
-  - plus de passages de Common Crawl par découverte ;
-  - auto-enrichissement de l'annuaire depuis les entreprises vues dans les offres des moteurs.
-- **Mesure** : page Stats (entonnoir trouvées → sauvegardées → postulées → entretiens → offres, activité par semaine, taux et délai de réponse, répartition par niveau et par source ; actions mises en avant, refus sobres, pas de rouge) ; taux de couverture (part des offres ajoutées par URL que Scout avait déjà trouvées).
-- **Notifications** : Telegram pour un Coup de cœur, digest quotidien désactivable.
-- **Entreprises** : onglet Entreprises (découvrir et suivre des entreprises même sans offre ouverte).
-- **Vitrine** : README vitrine avec lien vers la démo ; vérification de marque Google (logo et nom sur l'écran de connexion, nécessite la page Confidentialité et la page d'accueil publique).
-- **Admin** : premier chargement lent dû au démarrage à froid des fonctions Vercel (plan gratuit) ; à revoir si gênant.
+Priorité absolue : la pertinence des offres proposées et ne rater aucune offre importante, surtout chez les entreprises favorites. Le reste est un bonus. Mêmes règles que la V1 : phases testables, arrêt en fin de phase.
+
+1. **V2.1 Pertinence et couverture**
+   - Expérience lue comme une fourchette (« jusqu'à 2 ans » = 0 à 2 ans ; « 3-6 ans » = 3 à 6 ans), affichée telle quelle.
+   - Coup de cœur réservé aux offres à portée : écart d'expérience de 2 ans ou plus = Solide au mieux, jamais Coup de cœur (un junior ne perd pas son temps sur des offres hors d'atteinte présentées comme idéales).
+   - Retours sur chaque offre (« Ça me plaît », « Pas pour moi » + raison) réinjectés dans le jugement des offres suivantes.
+   - Aucune offre ratée chez les favorites : connecteur DigitalRecruiters (Decathlon et de nombreuses entreprises françaises), recherche des favorites sans page carrière lisible par leur nom sur les moteurs, offres des favorites jugées sans pré-tri par intitulé.
+   - Descriptions lisibles : texte brut restructuré en sections et listes.
+   - Doublons d'entreprise (« Robeaute » / « Robeaute-1 »).
+2. **V2.2 Vitesse** : temps de chargement de chaque page.
+3. **V2.3 Simplicité et finitions** : filtre « Écartées » parmi les filtres, recherche alignée au pixel sur les filtres, couleurs plus marquées, plus de photos, titre d'onglet par page, « Ma recherche » allégée (moins de texte, favorites compactes, pleine largeur), critères modifiables depuis Offres, étoile pour les favorites, plus de page /login ni de « Se connecter » (la page d'accueil suffit), déconnexion vers l'accueil, bannière de démo « rien n'est enregistré », lien Confidentialité de l'accueil, passe sur tout le site pour retirer le superflu.
+4. **V2.4 Suivi et Paramètres** : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
+5. **V2.5 CV** : analyse ATS sur 100 avec recommandations et comparaison à une offre.
+6. **V2.6 Le reste du backlog** :
+   - notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ;
+   - onglet Entreprises ; raccourci ⌘K ;
+   - doublons d'une même offre sous des intitulés différents selon la source ;
+   - Careerjet, France Travail à retenter, Workday et autres ATS des grands groupes ;
+   - vérification de marque Google ; README vitrine.
 
 Hors périmètre (v2) : extension « Ajouter à Scout », signaux de candidature spontanée, aide à la rédaction de messages.
