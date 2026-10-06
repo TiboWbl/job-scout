@@ -18,13 +18,20 @@ export type GateInput = {
 };
 
 export type GateResult =
-  | { pass: true; outOfZone: boolean; notes: string[] }
+  // experienceGap: years asked (in the text or implied by the title) beyond the person's experience.
+  | { pass: true; outOfZone: boolean; experienceGap: number; notes: string[] }
   | { pass: false; reason: string };
 
-// Gap (required − real) at which an offer is excluded rather than scored lower.
-const EXPERIENCE_GAP_EXCLUDE = 5;
-// An intitulé whose implied seniority exceeds real experience by this much is clearly out of reach.
-const TITLE_GAP_EXCLUDE = 3;
+// From this gap on (required − real, in years) an offer is set aside rather than scored lower.
+const EXPERIENCE_GAP_EXCLUDE = 4;
+
+// Chances cap by experience gap: up to 2 years the offer stays, with chances lowered in proportion;
+// at 3 years it stays with low chances.
+export function chancesCap(gap: number): number {
+  if (gap <= 0) return 100;
+  if (gap <= 2) return 100 - gap * 20;
+  return 35;
+}
 
 function norm(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -34,12 +41,10 @@ function plural(n: number) {
   return n > 1 ? "s" : "";
 }
 
+// Gates in reading order: zone, contract, seniority, experience gap, companies avoided.
+// (Sectors to avoid are judged on the real company by the LLM step, also as a gate.)
 export function prefilter(offer: GateInput, criteria: Criteria, experienceYears: number | null): GateResult {
   const notes: string[] = [];
-
-  if (criteria.companiesAvoid.some((c) => norm(c) && norm(offer.companyName).includes(norm(c)))) {
-    return { pass: false, reason: `${offer.companyName} fait partie des entreprises que tu évites.` };
-  }
 
   let outOfZone = false;
   const zone = zoneVerdict(offer, criteria.zone);
@@ -54,16 +59,22 @@ export function prefilter(offer: GateInput, criteria: Criteria, experienceYears:
     return { pass: false, reason: `${CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? offer.contract}, un type de contrat que tu n'as pas retenu.` };
   }
 
+  let experienceGap = 0;
   if (experienceYears !== null) {
     const implied = titleSeniorityYears(offer.title);
-    if (implied - experienceYears >= TITLE_GAP_EXCLUDE) {
+    if (implied - experienceYears >= EXPERIENCE_GAP_EXCLUDE) {
       return { pass: false, reason: `Intitulé trop senior pour ton expérience (${experienceYears} an${plural(experienceYears)}).` };
     }
     const required = offer.experience_min_years;
     if (required !== null && required - experienceYears >= EXPERIENCE_GAP_EXCLUDE) {
       return { pass: false, reason: `${required} an${plural(required)} d'expérience demandé${plural(required)}, ${experienceYears} de ton côté.` };
     }
+    experienceGap = Math.max(0, implied - experienceYears, (required ?? 0) - experienceYears);
   }
 
-  return { pass: true, outOfZone, notes };
+  if (criteria.companiesAvoid.some((c) => norm(c) && norm(offer.companyName).includes(norm(c)))) {
+    return { pass: false, reason: `${offer.companyName} fait partie des entreprises que tu évites.` };
+  }
+
+  return { pass: true, outOfZone, experienceGap, notes };
 }

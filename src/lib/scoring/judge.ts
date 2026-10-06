@@ -50,6 +50,7 @@ const Item = z.object({
   score_chances: Score,
   score_tremplin: Score,
   pourquoi: z.string().min(1).transform(plain),
+  en_bref: Text,
   points_forts: List,
   points_d_attention: List,
   leviers_cv: List,
@@ -83,18 +84,21 @@ const SYSTEM = `Tu es le moteur de tri de Scout, un outil qui aide une personne 
 Pour chaque offre, juge le POSTE RÉEL décrit par les missions, pas l'intitulé. Lis d'abord la partie « profil recherché / qualifications / requirements ».
 
 Réponds à ces questions pour chaque offre :
-- "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience.
+- "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
 - "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ?
-- "piege" : une phrase si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null.
-- "deal_breaker" : une phrase si l'offre heurte un deal-breaker du profil, sinon null.
+- "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null.
+- "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte un deal-breaker du profil, sinon null.
 
 Scores, entiers de 0 à 100 (jamais sur 10) :
 - score_interet : alignement avec ce que la personne cherche (missions, secteur). Bas si "autre" ou piège.
 - score_chances : expérience demandée vs réelle, compétences requises vs CV, langues. Chaque année demandée au-delà de l'expérience de la personne baisse ce score. L'expérience ne change jamais la correspondance.
 - score_tremplin : valeur comme étape de carrière (apprentissage, encadrement, passerelle).
 
-Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel. "pourquoi" : une ou deux phrases concrètes, sans répéter l'intitulé. "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 3 éléments courts.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel.
+- "pourquoi" : une phrase concrète de 25 mots maximum, sans répéter l'intitulé ni l'entreprise.
+- "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
+- "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -173,7 +177,7 @@ export async function judgeBatch(
       strengths: item.points_forts.slice(0, 3),
       watch: watch.slice(0, 3),
       cv_levers: item.leviers_cv.slice(0, 3),
-      excluded_reason: level === "ecartee" ? (reason ?? item.pourquoi) : null,
+      excluded_reason: level === "ecartee" ? (reason ?? (item.en_bref ? plain(item.en_bref) : item.pourquoi)) : null,
     });
   });
   return results;

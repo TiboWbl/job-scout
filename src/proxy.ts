@@ -25,10 +25,10 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // Must run on every request so the session cookie stays fresh.
-  const { data } = await supabase.auth.getUser();
+  // Must run on every request so the session cookie stays fresh (refreshes an expired token).
+  const { data } = await supabase.auth.getClaims();
 
-  if (!data.user && !isPublic && !pathname.startsWith("/api")) {
+  if (!data?.claims && !isPublic && !pathname.startsWith("/api")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return response;

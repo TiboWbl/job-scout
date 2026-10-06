@@ -38,7 +38,7 @@ export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: P
           <p className="truncate text-sm font-semibold">{offer.company.name}</p>
           <p className={`text-[12.5px] ${fresh ? "font-semibold text-[var(--accent)]" : "text-muted"}`}>
             {fresh ? "Nouvelle · " : ""}
-            {freshness(seenAt)}
+            {seenAt ? `Publiée ${freshness(seenAt)}` : ""}
           </p>
         </div>
         <span className="ml-auto whitespace-nowrap rounded-full border border-[var(--halo)] bg-[var(--tint)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">

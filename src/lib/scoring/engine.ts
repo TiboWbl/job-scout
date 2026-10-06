@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
-import { prefilter } from "./prefilter";
+import { chancesCap, prefilter } from "./prefilter";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
 import { titleRelevance } from "./relevance";
 import { judgeBatch, type JudgeInput } from "./judge";
@@ -66,16 +66,16 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
 
   const base = { user_id: userId, criteria_version: version };
   const gateRows: Record<string, unknown>[] = [];
-  const passed: { offer: LightOffer; outOfZone: boolean }[] = [];
+  const passed: { offer: LightOffer; outOfZone: boolean; gap: number }[] = [];
   for (const offer of unscored) {
     const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
-    if (gate.pass) passed.push({ offer, outOfZone: gate.outOfZone });
+    if (gate.pass) passed.push({ offer, outOfZone: gate.outOfZone, gap: gate.experienceGap });
     else gateRows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
   }
 
   // Only offers whose title is close to a role sought or a bridge reach the LLM; the others are
   // set aside with that reason, still visible under "Écartées".
-  const candidates: { offer: LightOffer; outOfZone: boolean; rel: number }[] = [];
+  const candidates: { offer: LightOffer; outOfZone: boolean; gap: number; rel: number }[] = [];
   for (const p of passed) {
     const rel = titleRelevance(p.offer.title, criteria);
     if (rel >= MIN_TITLE_RELEVANCE) candidates.push({ ...p, rel });
@@ -124,7 +124,11 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       judgeBatch(inputs, criteria, cv, experienceYears).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
-          .map(({ offer, outOfZone }) => ({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...results.get(offer.id)!, scored_by: "llm" }));
+          .map(({ offer, outOfZone, gap }) => {
+            const judged = results.get(offer.id)!;
+            // The experience gate keeps its word whatever the model thought of the chances.
+            return { ...base, offer_id: offer.id, out_of_zone: outOfZone, ...judged, score_chances: Math.min(judged.score_chances, chancesCap(gap)), scored_by: "llm" };
+          });
         if (rows.length > 0) {
           const { error: e } = await db.from("offer_scores").upsert(rows);
           if (e) throw e;

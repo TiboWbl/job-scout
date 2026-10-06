@@ -78,7 +78,7 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
     ["Télétravail", REMOTE_LABELS[offer.remote]],
     ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
     ["Expérience", offer.experience_min_years === null ? "Non précisée" : offer.experience_min_years === 0 ? "Débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`],
-    ["Publiée", freshness(seenAt)],
+    ["Publiée", freshness(seenAt).replace(/^./, (c) => c.toUpperCase())],
   ];
 
   return (

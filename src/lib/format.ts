@@ -1,17 +1,22 @@
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
+// "il y a 3 jours", to follow "Publiée".
 export function freshness(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "";
   const diff = now - new Date(iso).getTime();
-  if (diff < HOUR) return "À l'instant";
-  if (diff < DAY) return `Il y a ${Math.floor(diff / HOUR)} h`;
-  if (diff < 2 * DAY) return "Hier";
-  if (diff < 7 * DAY) return `Il y a ${Math.floor(diff / DAY)} jours`;
-  const weeks = Math.floor(diff / (7 * DAY));
-  if (weeks < 5) return weeks === 1 ? "Il y a 1 semaine" : `Il y a ${weeks} semaines`;
+  if (diff < HOUR) return "à l'instant";
+  if (diff < DAY) return `il y a ${Math.floor(diff / HOUR)} h`;
+  if (diff < 2 * DAY) return "hier";
+  if (diff < 31 * DAY) return `il y a ${Math.floor(diff / DAY)} jours`;
   const months = Math.floor(diff / (30 * DAY));
-  return months <= 1 ? "Il y a 1 mois" : `Il y a ${months} mois`;
+  return months <= 1 ? "il y a 1 mois" : `il y a ${months} mois`;
+}
+
+// Career pages sometimes keep old postings online: beyond this age they are hidden by default.
+export const STALE_DAYS = 60;
+export function isStale(iso: string | null | undefined, now = Date.now()) {
+  return Boolean(iso) && now - new Date(iso!).getTime() > STALE_DAYS * DAY;
 }
 
 // "Postuler tôt compte": offers under 48 h get a soft highlight, never an alarm.

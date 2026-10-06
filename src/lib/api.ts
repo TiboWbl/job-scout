@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import type { User } from "@supabase/supabase-js";
-import { getUser } from "@/lib/supabase/server";
+import { getUser, type SessionUser } from "@/lib/supabase/server";
 import { isInvited } from "@/lib/access";
 import { isAdminEmail } from "@/lib/env";
 
-type Authed = { supabase: Awaited<ReturnType<typeof getUser>>["supabase"]; user: User };
+type Authed = { supabase: Awaited<ReturnType<typeof getUser>>["supabase"]; user: SessionUser };
 
 // Every user route goes through here, so nobody uninvited can spend the LLM quota.
 export async function requireUser(): Promise<Authed | NextResponse> {

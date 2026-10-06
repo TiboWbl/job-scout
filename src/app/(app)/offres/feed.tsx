@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isExceptional, LEVEL_ORDER, type FeedItem } from "@/lib/domain/feed";
+import { isExceptional, LEVEL_ORDER, SCORE_SELECT, type FeedItem } from "@/lib/domain/feed";
+import { createClient } from "@/lib/supabase/browser";
 import type { Level } from "@/lib/domain/offer";
 import { rank } from "@/lib/scoring/judge";
-import { isFresh } from "@/lib/format";
+import { isFresh, isStale, STALE_DAYS } from "@/lib/format";
 import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
 
 type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
+
+const EXCLUDED_PAGE = 100;
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "Toutes" },
@@ -20,15 +23,33 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "ecartees", label: "Écartées" },
 ];
 
-type Props = { items: FeedItem[]; openness: number; pending: number; total: number; hasOffers: boolean; isAdmin: boolean };
+type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
 
-export function Feed({ items: initial, openness, pending, total, hasOffers, isAdmin }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, criteriaVersion, hasOffers, isAdmin }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
-  const items = useMemo(() => initial.map((i) => (overrides[i.offer.id] ? { ...i, ...overrides[i.offer.id] } : i)), [initial, overrides]);
+  // "Écartées" can hold thousands of offers: loaded 100 at a time, only when that view is opened.
+  const [excluded, setExcluded] = useState<{ items: FeedItem[]; loading: boolean; done: boolean }>({ items: [], loading: false, done: false });
+  const loadExcluded = useCallback(async (from: number) => {
+    setExcluded((e) => ({ ...e, loading: true }));
+    const { data } = await createClient()
+      .from("offer_scores")
+      .select(SCORE_SELECT)
+      .eq("criteria_version", criteriaVersion)
+      .eq("level", "ecartee")
+      .order("created_at", { ascending: false })
+      .range(from, from + EXCLUDED_PAGE - 1);
+    const rows = ((data ?? []) as unknown as (Omit<FeedItem, "saved" | "dismissed">)[]).filter((r) => r.offer).map((r) => ({ ...r, saved: false, dismissed: false }));
+    setExcluded((e) => ({ items: [...e.items, ...rows], loading: false, done: rows.length < EXCLUDED_PAGE }));
+  }, [criteriaVersion]);
+  const items = useMemo(
+    () => [...initial, ...excluded.items].map((i) => (overrides[i.offer.id] ? { ...i, ...overrides[i.offer.id] } : i)),
+    [initial, excluded.items, overrides],
+  );
   const [filter, setFilter] = useState<Filter>("all");
   const [freshOnly, setFreshOnly] = useState(false);
+  const [showStale, setShowStale] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
@@ -111,9 +132,15 @@ export function Feed({ items: initial, openness, pending, total, hasOffers, isAd
     };
   }, [items, openness]);
 
+  // Model-set-aside offers are counted server-side; dismissed and out-of-zone ones are already here.
+  const excludedTotal = excludedCount + set_aside.filter((i) => i.level !== "ecartee").length;
+
+  const published = (i: FeedItem) => i.offer.published_at ?? i.offer.first_seen_at;
+  const staleCount = main.filter((i) => isStale(published(i))).length;
   const shown = main
     .filter((i) => filter === "all" || filter === "ecartees" || i.level === filter)
-    .filter((i) => !freshOnly || isFresh(i.offer.published_at ?? i.offer.first_seen_at));
+    .filter((i) => showStale || !isStale(published(i)))
+    .filter((i) => !freshOnly || isFresh(published(i)));
   const open = items.find((i) => i.offer.id === openId) ?? null;
 
   const act = useCallback(async (id: string, body: Record<string, unknown>, patch: Partial<FeedItem>) => {
@@ -153,8 +180,8 @@ export function Feed({ items: initial, openness, pending, total, hasOffers, isAd
     <div className={`px-1 pb-16 pt-3 md:px-2 ${open ? "xl:pr-[500px]" : ""}`}>
       <h1 className="font-display text-5xl font-extrabold tracking-tight">Offres</h1>
       <p className="mt-2 text-[15px] text-muted">
-        {main.length > 0
-          ? `${main.length} offre${main.length > 1 ? "s" : ""} pour toi, classées par niveau puis par pertinence.`
+        {main.length - staleCount > 0
+          ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, classées par niveau puis par pertinence.`
           : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
       </p>
 
@@ -178,12 +205,15 @@ export function Feed({ items: initial, openness, pending, total, hasOffers, isAd
           <button
             key={f.key}
             type="button"
-            onClick={() => setFilter(f.key)}
+            onClick={() => {
+              setFilter(f.key);
+              if (f.key === "ecartees" && excluded.items.length === 0 && !excluded.loading && !excluded.done) loadExcluded(0);
+            }}
             aria-pressed={filter === f.key}
             className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-medium ${filter === f.key ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}
           >
             {f.label}
-            {f.key === "ecartees" && set_aside.length > 0 ? ` · ${set_aside.length}` : ""}
+            {f.key === "ecartees" && excludedTotal > 0 ? ` · ${excludedTotal.toLocaleString("fr-FR")}` : ""}
           </button>
         ))}
         {filter !== "ecartees" && (
@@ -194,6 +224,16 @@ export function Feed({ items: initial, openness, pending, total, hasOffers, isAd
             className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-medium ${freshOnly ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}
           >
             Moins de 48 h
+          </button>
+        )}
+        {filter !== "ecartees" && staleCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowStale((v) => !v)}
+            aria-pressed={showStale}
+            className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-medium ${showStale ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}
+          >
+            Plus de {STALE_DAYS} jours · {staleCount}
           </button>
         )}
       </div>
@@ -211,7 +251,13 @@ export function Feed({ items: initial, openness, pending, total, hasOffers, isAd
       )}
 
       {filter === "ecartees" ? (
-        <SetAside items={set_aside} onOpen={(id) => setOpenId(id)} />
+        <SetAside
+          items={set_aside}
+          loading={excluded.loading}
+          more={!excluded.done && excluded.items.length > 0}
+          onMore={() => loadExcluded(excluded.items.length)}
+          onOpen={(id) => setOpenId(id)}
+        />
       ) : (
         <>
           <div className={`grid gap-3.5 ${open ? "sm:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"}`}>
@@ -265,25 +311,31 @@ export function Feed({ items: initial, openness, pending, total, hasOffers, isAd
   );
 }
 
-function SetAside({ items, onOpen }: { items: FeedItem[]; onOpen: (id: string) => void }) {
-  if (items.length === 0) return <p className="rounded-2xl border border-line bg-surface p-6 text-muted">Aucune offre écartée pour l&apos;instant.</p>;
+function SetAside({ items, loading, more, onMore, onOpen }: { items: FeedItem[]; loading: boolean; more: boolean; onMore: () => void; onOpen: (id: string) => void }) {
+  if (items.length === 0)
+    return <p className="rounded-2xl border border-line bg-surface p-6 text-muted">{loading ? "Chargement des offres écartées…" : "Aucune offre écartée pour l'instant."}</p>;
   return (
     <div>
       <p className="mb-4 text-sm text-muted">Chaque offre écartée affiche sa raison. Si une raison te semble fausse, c&apos;est un réglage de Ma recherche à revoir.</p>
       <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-        {items.slice(0, 300).map((i) => (
+        {items.map((i) => (
           <li key={i.offer.id}>
-            <button type="button" onClick={() => onOpen(i.offer.id)} className="flex w-full flex-col gap-0.5 px-4 py-3 text-left hover:bg-pill-solid sm:flex-row sm:items-baseline sm:gap-4">
-              <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+            <button type="button" onClick={() => onOpen(i.offer.id)} className="block w-full px-4 py-3 text-left hover:bg-pill-solid">
+              <span className="block truncate text-[15px] font-medium">
                 {i.offer.title} <span className="font-normal text-muted">· {i.offer.company.name}</span>
               </span>
-              <span className="text-[13px] text-muted sm:max-w-[45%] sm:text-right">
+              <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted">
                 {i.dismissed ? "Tu l'as marquée « Pas pour moi »." : i.level === "ecartee" ? i.excluded_reason : "Hors de ta zone, et pas assez exceptionnelle pour être montrée à part."}
               </span>
             </button>
           </li>
         ))}
       </ul>
+      {more && (
+        <button type="button" onClick={onMore} disabled={loading} className="mt-4 rounded-xl border border-line bg-pill px-4 py-2.5 text-sm font-medium hover:border-ink disabled:opacity-50">
+          {loading ? "Chargement…" : "Afficher plus"}
+        </button>
+      )}
     </div>
   );
 }

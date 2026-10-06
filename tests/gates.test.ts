@@ -91,3 +91,32 @@ describe("contrat, séniorité, expérience", () => {
     expect(prefilter({ ...sixYears, experience_min_years: 3 }, PROFILE, 1).pass).toBe(true);
   });
 });
+
+describe("séniorité et écart d'expérience (portes)", () => {
+  const offer = (title: string, experience_min_years: number | null = null) => ({
+    title,
+    companyName: "Entreprise fictive",
+    places: [{ city: "Paris", country: "FR", region: "IDF" }],
+    remote: "hybrid" as const,
+    remote_scope: [],
+    contract: "cdi",
+    experience_min_years,
+  });
+
+  it("écarte Senior et Lead pour 1 an d'expérience, les garde avec chances basses pour 2 ans", () => {
+    expect(prefilter(offer("Senior Product Manager"), PROFILE, 1).pass).toBe(false);
+    expect(prefilter(offer("Lead Product Manager"), PROFILE, 1).pass).toBe(false);
+    expect(prefilter(offer("Senior Product Manager"), PROFILE, 2)).toMatchObject({ pass: true, experienceGap: 3 });
+  });
+
+  it("garde un écart de 2 ans, écarte un écart de 4 ans", () => {
+    expect(prefilter(offer("Product Manager II"), PROFILE, 1)).toMatchObject({ pass: true, experienceGap: 2 });
+    expect(prefilter(offer("Product Manager", 3), PROFILE, 1)).toMatchObject({ pass: true, experienceGap: 2 });
+    expect(prefilter(offer("Product Manager", 5), PROFILE, 1).pass).toBe(false);
+  });
+
+  it("réduit les chances en proportion de l'écart", async () => {
+    const { chancesCap } = await import("@/lib/scoring/prefilter");
+    expect([0, 1, 2, 3].map(chancesCap)).toEqual([100, 80, 60, 35]);
+  });
+});

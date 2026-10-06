@@ -65,8 +65,9 @@ export function titleSeniorityYears(title: string): number {
   if (/\b(principal|staff|group product manager)\b/.test(n)) return 7;
   // People-management roles need experience whatever the field.
   if (/\b(engineering manager|manager, engineering|manager i+, engineering|people manager|team lead|tech lead)\b/.test(n)) return 5;
-  if (/\b(senior|sr\.?|lead|confirme|confirmee|confirmed|experimente|experimentee|experienced|expert)\b/.test(n)) return 4;
+  if (/\b(senior|sr\.?|lead|expert)\b/.test(n)) return 5;
   // Levelled titles (e.g. "Architect 3", "Engineer III").
-  if (/\b(iii|iv|v)\b|\s[3-5]\s*$|\s[3-5]\s*[-–(]/.test(n)) return 4;
+  if (/\b(iii|iv|v)\b|\s[3-5]\s*$|\s[3-5]\s*[-–(]/.test(n)) return 5;
+  if (/\b(confirme|confirmee|confirmed|experimente|experimentee|experienced|ii)\b|\s2\s*$|\s2\s*[-–(,]/.test(n)) return 3;
   return 0;
 }
