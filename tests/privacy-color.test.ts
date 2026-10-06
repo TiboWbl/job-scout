@@ -31,8 +31,8 @@ describe("couleurs d'entreprise", () => {
       expect(tokens(hex, "dark").pass).toBe(true);
     });
   }
-  it("les fonds restent très clairs en mode clair", () => {
-    expect(contrast(tokens("#f2545b", "light").bg, "#ffffff")).toBeLessThan(1.2);
+  it("les fonds restent clairs en mode clair, sans aplat saturé", () => {
+    expect(contrast(tokens("#f2545b", "light").bg, "#ffffff")).toBeLessThan(1.3);
   });
   it("un logo noir et blanc n'a pas de couleur dominante", () => {
     const px = new Uint8Array(48 * 48 * 4);

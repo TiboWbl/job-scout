@@ -23,7 +23,9 @@ type Props = {
 
 export function OfferCard({ item, favorite = false, selected, onOpen, onSave, onNope, onApply }: Props) {
   const [nopeOpen, setNopeOpen] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const { offer } = item;
+  const cover = !coverFailed ? offer.company.cover_url : null;
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
   const seenAt = offer.published_at ?? offer.first_seen_at;
   const fresh = isFresh(seenAt);
@@ -36,8 +38,13 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
     <article
       style={style}
       onClick={onOpen}
-      className={`tinted group flex cursor-pointer flex-col gap-3 rounded-[22px] border border-line p-[18px] transition-shadow hover:shadow-[0_8px_30px_-12px_rgba(23,21,31,0.25)] ${selected ? "outline outline-2 outline-offset-2 outline-[var(--accent)]" : ""}`}
+      className={`tinted group flex cursor-pointer flex-col gap-3 rounded-[22px] border border-[var(--halo)] p-[18px] transition-shadow hover:shadow-[0_8px_30px_-12px_rgba(23,21,31,0.25)] ${selected ? "outline outline-2 outline-offset-2 outline-[var(--accent)]" : ""}`}
     >
+      {cover && (
+        // The company's own share image, by URL only; hidden if it fails to load.
+        // eslint-disable-next-line @next/next/no-img-element -- external image, referenced not copied
+        <img src={cover} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="-mx-[18px] -mt-[18px] mb-1 h-32 w-[calc(100%+36px)] max-w-none rounded-t-[22px] object-cover" />
+      )}
       <header className="flex items-center gap-3">
         <CompanyLogo name={offer.company.name} domain={offer.company.domain} brand={offer.company.brand} />
         <div className="min-w-0">

@@ -116,8 +116,8 @@ export function AddOffer({ onClose }: { onClose: () => void }) {
                 />
               </label>
             ) : (
-              <button type="button" onClick={() => setNeedText(true)} className="text-[13px] text-muted underline underline-offset-4 hover:text-ink">
-                Pas d&apos;adresse ? Coller le texte de l&apos;offre
+              <button type="button" onClick={() => setNeedText(true)} className="btn-soft">
+                Coller le texte de l&apos;offre
               </button>
             )}
             <label className="flex items-center gap-2.5 text-sm">

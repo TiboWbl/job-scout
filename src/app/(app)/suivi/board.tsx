@@ -65,9 +65,12 @@ export function Board({ items: initial }: { items: BoardItem[] }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-8 max-w-xl text-[15px] leading-relaxed text-muted">
-          Quand tu postules depuis <Link href="/offres" className="font-semibold text-ink underline underline-offset-4">tes offres</Link>, Scout te propose de l&apos;ajouter ici. Pour une offre vue sur WTTJ ou LinkedIn, colle simplement son adresse avec le bouton ci-dessus.
-        </p>
+        <div className="mt-8 flex flex-wrap items-center gap-3 text-[15px] text-muted">
+          Rien pour l&apos;instant : postule depuis tes offres, ou ajoute une offre vue ailleurs.
+          <Link href="/offres" className="btn-soft">
+            Voir mes offres
+          </Link>
+        </div>
       ) : (
         <div className="mt-8 grid gap-4 overflow-x-auto pb-2 md:grid-cols-5">
           {COLUMNS.map((col) => {

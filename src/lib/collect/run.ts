@@ -7,6 +7,7 @@ import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/fran
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
+import { fillCovers } from "./cover";
 import { enrichCompanies } from "./enrich";
 import { companyKey, dedupKey } from "./normalize";
 
@@ -68,6 +69,7 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
     // Who really recruits (group, institution) and a verified domain, before logos are coloured.
     await enrichCompanies(db).catch(() => null);
     await fillCompanyColors(db);
+    await fillCovers(db).catch(() => null);
     await archiveStaleEngineOffers(db);
     await purgeOldDescriptions(db);
   }

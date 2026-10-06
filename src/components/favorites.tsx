@@ -99,8 +99,8 @@ export function Favorites() {
         <button type="button" onClick={() => fileRef.current?.click()} disabled={progress !== null} className="rounded-xl border border-line bg-pill px-4 py-2.5 text-sm font-medium hover:border-ink">
           Importer un CSV
         </button>
-        <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`} download="scout-entreprises.csv" className="px-2 text-sm text-muted underline underline-offset-4 hover:text-ink">
-          Modèle CSV (entreprise, site facultatif)
+        <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`} download="scout-entreprises.csv" className="btn-soft">
+          Télécharger le modèle CSV
         </a>
       </div>
 

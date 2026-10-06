@@ -6,16 +6,11 @@ export const metadata = { title: "Confidentialité · Scout" };
 export default function PrivacyPage() {
   const contact = process.env.CONTACT_EMAIL;
   return (
-    <main className="mx-auto max-w-2xl px-5 py-12 md:py-16">
-      <div className="flex items-center justify-between gap-4">
-        <Link href="/" className="font-display text-2xl font-extrabold tracking-tight">
-          Scout<span className="text-brand">.</span>
-        </Link>
-        <Link href="/" className="rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium hover:border-ink">
-          ← Retour à Scout
-        </Link>
-      </div>
-      <h1 className="mt-8 font-display text-4xl font-extrabold tracking-tight">Confidentialité</h1>
+    <div className="max-w-2xl px-1 pb-16 pt-3 md:px-2">
+      <Link href="/" className="btn-soft">
+        ← Retour à Scout
+      </Link>
+      <h1 className="mt-6 font-display text-5xl font-extrabold tracking-tight">Confidentialité</h1>
       <p className="mt-3 text-lg leading-relaxed text-muted">
         Scout est un projet personnel, gratuit et non commercial, ouvert sur invitation. Il garde le strict nécessaire pour trier les offres pour toi et suivre ta recherche. Rien n&apos;est vendu, partagé avec d&apos;autres utilisateurs ou utilisé pour de la publicité.
       </p>
@@ -59,7 +54,7 @@ export default function PrivacyPage() {
         <section>
           <h2>Combien de temps, et comment tout supprimer</h2>
           <p className="mt-2">
-            Tes données restent tant que ton compte existe. Dans « Ma recherche », le bouton « Supprimer mon compte » efface aussitôt et définitivement ta recherche, le résumé de ton CV, tes offres, ton suivi et tes favorites. Tu peux aussi modifier ta recherche et remplacer ton CV à tout moment.
+            Tes données restent tant que ton compte existe. Dans « Ma recherche », le bouton « Supprimer mon compte » efface aussitôt et définitivement ta recherche, le résumé de ton CV, tes offres, ton suivi et tes favorites. Ton invitation reste valable si tu veux revenir. Tu peux aussi modifier ta recherche et remplacer ton CV à tout moment.
           </p>
         </section>
 
@@ -77,6 +72,6 @@ export default function PrivacyPage() {
           </p>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

@@ -52,7 +52,7 @@ export function Invitations({ people }: { people: Invitee[] }) {
             <span className="min-w-0 flex-1 truncate font-medium">{p.email}</span>
             <span className={p.lastSignIn ? "text-ink" : "text-muted"}>{seen(p.lastSignIn)}</span>
             {p.via === "admin page" ? (
-              <button type="button" disabled={busy} onClick={() => call("DELETE", p.email)} className="text-muted underline-offset-4 hover:text-ink hover:underline">
+              <button type="button" disabled={busy} onClick={() => call("DELETE", p.email)} className="btn-soft py-1.5">
                 Retirer
               </button>
             ) : (

@@ -103,7 +103,7 @@ export function tokens(accentHex: string | null | undefined, mode: Mode): Tokens
   const s = Math.min(raw, 0.8);
   const surfaces =
     mode === "light"
-      ? { bg: hslToHex(h, s * 0.45, 0.955), band: hslToHex(h, s * 0.5, 0.915), halo: hslToHex(h, s * 0.55, 0.86) }
+      ? { bg: hslToHex(h, s * 0.6, 0.935), band: hslToHex(h, s * 0.65, 0.885), halo: hslToHex(h, s * 0.7, 0.82) }
       : { bg: hslToHex(h, s * 0.28, 0.135), band: hslToHex(h, s * 0.32, 0.18), halo: hslToHex(h, s * 0.4, 0.28) };
   // A real brand colour keeps enough saturation to read as colour; the neutral fallback stays grey.
   const accentS = color ? Math.max(s, 0.35) : s;

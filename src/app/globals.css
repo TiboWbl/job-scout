@@ -163,3 +163,8 @@ body {
     cursor: pointer;
   }
 }
+
+/* Secondary action: a real button, never underlined text. */
+@utility btn-soft {
+  @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink;
+}

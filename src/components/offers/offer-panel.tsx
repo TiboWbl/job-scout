@@ -47,6 +47,7 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
   const { offer } = item;
   const [description, setDescription] = useState<string | null>(null);
   const [nopeOpen, setNopeOpen] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
 
   useEffect(() => {
@@ -106,7 +107,11 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
           : "tinted-vars animate-slide-in fixed inset-y-0 right-0 z-40 flex w-full max-w-[480px] flex-col overflow-hidden border-l border-line bg-surface shadow-2xl xl:inset-y-4 xl:right-4 xl:rounded-3xl xl:border"
       }
     >
-      <div className="relative h-[92px] shrink-0 bg-[var(--band)]">
+      <div className={`relative shrink-0 bg-[var(--band)] ${offer.company.cover_url && !coverFailed ? "h-44" : "h-[92px]"}`}>
+        {offer.company.cover_url && !coverFailed && (
+          // eslint-disable-next-line @next/next/no-img-element -- external image, referenced not copied
+          <img src={offer.company.cover_url} alt="" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
+        )}
         <div className="absolute right-4 top-4 flex gap-2">
           <button
             type="button"

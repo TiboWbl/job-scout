@@ -204,7 +204,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - Diagnostic à chaque ajout : « déjà trouvée par Scout le … », « trouvée mais écartée : règle … » ou « nouvelle pour Scout ».
   - Entreprise inconnue : recherche de sa page carrière, détection de l'ATS, ajout à l'annuaire.
 - **Outil « offre ratée »** : si une offre ajoutée par URL n'avait pas été collectée, le système explique pourquoi (source non couverte, règle d'exclusion, score trop bas) et propose le correctif. C'est l'outil principal pour mesurer et améliorer le rappel.
-- Filtres simples (niveau, fraîcheur) et vue « Écartées » pour auditer : chaque offre y est affichée avec la règle qui l'a écartée.
+- Filtres : un sélecteur de niveau à choix unique (Toutes, Coups de cœur, Solides, Tremplins) avec le nombre d'offres et une phrase qui explique le niveau choisi ; des cases combinables (Junior : 2 ans demandés au plus ou annoncée junior, Moins de 48 h, Inclure les +60 jours) ; une recherche par entreprise ou intitulé ; un bouton « Voir les écartées » qui ouvre la vue d'audit, où chaque offre affiche la règle qui l'a écartée.
+- Actions secondaires : toujours de vrais boutons, jamais du texte souligné.
 - « Pas pour moi » : une raison en un clic, stockée, puis réinjectée dans le scoring.
 
 ## Suivi des candidatures
@@ -231,7 +232,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 - Ambiance de référence : Welcome to the Jungle (aéré, typographie éditoriale, cartes qui respirent) et le portfolio de l'auteur (inspiration Apple). S'en inspirer sans copier.
 - **Direction retenue : C « Studio »** (maquettes dans `design/mockups/`), avec ces règles :
-  - **Couleur calme** : la couleur de l'entreprise sert d'accent (fond très clair, bandeau, halo du logo), jamais en aplat saturé. Elle est éclaircie et désaturée automatiquement : fond de carte autour de 90-95 % de luminosité en mode clair.
+  - **Couleur calme** : la couleur de l'entreprise sert d'accent (fond très clair, bandeau, halo du logo), jamais en aplat saturé. Elle est éclaircie et désaturée automatiquement : fond de carte autour de 93 % de luminosité en mode clair, bordure dans la couleur de l'entreprise (couleurs assumées, jamais d'aplat saturé).
   - La couleur est extraite du logo une fois, à la collecte, et stockée avec l'entreprise.
   - **Contraste vérifié automatiquement** (WCAG AA : 4,5:1 pour le texte, 3:1 pour les éléments graphiques) pour chaque carte, en mode clair et sombre. La couleur d'accent du texte est assombrie ou éclaircie jusqu'à passer le seuil.
   - Logo noir et blanc ou couleur introuvable : teinte neutre de repli.
@@ -240,7 +241,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Processus : direction retenue → validation du fil à pleine densité (15 cartes, clair et sombre) et d'une fiche offre longue → design system formalisé → interface.
 - Palette douce, beaucoup d'espace, coins arrondis, mode clair et sombre, micro-animations discrètes.
 - Logos d'entreprise partout, via logo.dev ou Brandfetch. Pas de `logo.clearbit.com` (fermé).
-- **Photos** : jamais sur les cartes du fil. Uniquement dans le panneau entreprise, et seulement si l'image de partage (og:image) passe les contrôles :
+- **Photos** (demande de l'utilisateur : plus vivant, plus humain) : l'image de partage (og:image) du site de l'entreprise, référencée par URL et jamais copiée, en haut des cartes du fil et dans le bandeau du panneau, seulement si elle passe les contrôles (assez grande, format paysage, pas un logo sur fond uni) :
   - pas de texte posé par-dessus une image de partage ;
   - une image qui n'est qu'un logo est rejetée et remplacée par un visuel généré à partir de la couleur de l'entreprise.
   - **Jamais de carte vide ou grise.** Jamais d'images récupérées sur des plateformes tierces sans droit.
@@ -268,7 +269,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - tableau de bord sobre, avec graphiques, utile pour suivre le produit et le présenter en entretien : offres actives et nouvelles par jour, entreprises dans l'annuaire et leur origine, sources et leur santé, utilisateurs actifs, offres triées par l'IA, répartition des niveaux, candidatures suivies (agrégées, jamais nominatives).
 - **Barre latérale** : en bas, la photo du compte Google et le prénom ; un clic ouvre un petit menu (Admin pour l'admin, Se déconnecter).
 - **Jamais d'attente muette** : toute opération en arrière-plan (analyse, tri, ajout, collecte, import) montre une progression ou un indicateur de chargement.
-- RGPD : page publique « Confidentialité » (`/confidentialite` : données gardées, usage de Mistral sans nom ni coordonnées, sous-traitants, cookie unique, droits ; contact par la variable facultative `CONTACT_EMAIL`) et suppression complète du compte en deux clics dans « Ma recherche » (l'utilisateur est supprimé, tout ce qui lui est rattaché suit en cascade, l'invitation est effacée). Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
+- RGPD : page publique « Confidentialité » (`/confidentialite` : données gardées, usage de Mistral sans nom ni coordonnées, sous-traitants, cookie unique, droits ; contact par la variable facultative `CONTACT_EMAIL`) et suppression complète du compte en deux clics dans « Ma recherche » (l'utilisateur est supprimé et tout ce qui lui est rattaché suit en cascade ; l'invitation reste valable, l'admin peut la retirer). Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
 - Clés API en variables d'environnement (et secrets GitHub), jamais dans le code.
 
 ## Repo public

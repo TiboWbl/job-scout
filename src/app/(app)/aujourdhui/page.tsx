@@ -77,14 +77,14 @@ export default async function TodayPage() {
         <section>
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="font-display text-2xl font-bold">Ta sélection du jour</h2>
-            <Link href="/offres" className="text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline">
+            <Link href="/offres" className="btn-soft">
               Toutes mes offres
             </Link>
           </div>
           {pending > 0 && (
-            <p className="mt-2 text-sm text-muted">
-              Encore {pending.toLocaleString("fr-FR")} offres à trier.{" "}
-              <Link href="/offres" className="font-semibold text-ink underline underline-offset-4">
+            <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
+              Encore {pending.toLocaleString("fr-FR")} offres à trier.
+              <Link href="/offres" className="btn-soft">
                 Lancer le tri
               </Link>
             </p>

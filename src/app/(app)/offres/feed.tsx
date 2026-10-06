@@ -15,13 +15,41 @@ type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
 
 const EXCLUDED_PAGE = 100;
 
-const FILTERS: { key: Filter; label: string }[] = [
+const LEVEL_FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "Toutes" },
   { key: "coeur", label: "Coups de cœur" },
   { key: "solide", label: "Solides" },
   { key: "tremplin", label: "Tremplins" },
-  { key: "ecartees", label: "Écartées" },
 ];
+
+// What each level means for the person, in one short line.
+const LEVEL_HELP: Partial<Record<Filter, string>> = {
+  coeur: "Le métier que tu vises, dans un secteur que tu préfères, avec de vraies chances.",
+  solide: "Le métier que tu vises, dans un autre secteur ou avec moins de chances.",
+  tremplin: "Un poste proche qui peut te mener au métier que tu vises.",
+};
+
+// Junior: 2 years asked at most, or announced as such in the title or the requirements.
+const JUNIOR_WORDS = /\b(junior|jr|associate|graduate|entry[- ]level|d[ée]butant|premi[eè]re exp[ée]rience|jeune dipl[oô]m)/i;
+const isJunior = (i: FeedItem) =>
+  (i.offer.experience_min_years !== null && i.offer.experience_min_years <= 2) || JUNIOR_WORDS.test(i.offer.title) || JUNIOR_WORDS.test(i.experience_asked ?? "");
+
+function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={on}
+      onClick={onClick}
+      className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium ${on ? "border-transparent bg-violet-soft text-violet-ink" : "border-line bg-surface text-muted hover:text-ink"}`}
+    >
+      <span aria-hidden className={`grid h-4 w-4 place-items-center rounded-[5px] border text-[11px] leading-none ${on ? "border-violet-ink bg-violet-ink text-surface" : "border-line"}`}>
+        {on ? "✓" : ""}
+      </span>
+      {children}
+    </button>
+  );
+}
 
 type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
 
@@ -49,6 +77,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   );
   const [filter, setFilter] = useState<Filter>("all");
   const [freshOnly, setFreshOnly] = useState(false);
+  const [juniorOnly, setJuniorOnly] = useState(false);
   const [showStale, setShowStale] = useState(false);
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
@@ -149,7 +178,15 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     .filter(matches)
     .filter((i) => filter === "all" || filter === "ecartees" || i.level === filter)
     .filter((i) => showStale || !isStale(published(i)))
-    .filter((i) => !freshOnly || isFresh(published(i)));
+    .filter((i) => !freshOnly || isFresh(published(i)))
+    .filter((i) => !juniorOnly || isJunior(i));
+  // Counts per level follow the refinements, so each option says what it would show.
+  const refined = main.filter(matches).filter((i) => (showStale || !isStale(published(i))) && (!freshOnly || isFresh(published(i))) && (!juniorOnly || isJunior(i)));
+  const levelCount = (key: Filter) => (key === "all" ? refined.length : refined.filter((i) => i.level === key).length);
+  const openExcluded = () => {
+    setFilter("ecartees");
+    if (excluded.items.length === 0 && !excluded.loading && !excluded.done) loadExcluded(0);
+  };
   const open = items.find((i) => i.offer.id === openId) ?? null;
 
   const act = useCallback(async (id: string, body: Record<string, unknown>, patch: Partial<FeedItem>) => {
@@ -209,51 +246,62 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </div>
       )}
 
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Rechercher une entreprise ou un intitulé"
-        aria-label="Rechercher une entreprise ou un intitulé"
-        className="mt-5 w-full max-w-md rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
-      />
-      <div className="mb-5 mt-3 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => {
-              setFilter(f.key);
-              if (f.key === "ecartees" && excluded.items.length === 0 && !excluded.loading && !excluded.done) loadExcluded(0);
-            }}
-            aria-pressed={filter === f.key}
-            className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-medium ${filter === f.key ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}
-          >
-            {f.label}
-            {f.key === "ecartees" && excludedTotal > 0 ? ` · ${excludedTotal.toLocaleString("fr-FR")}` : ""}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher une entreprise ou un intitulé"
+          aria-label="Rechercher une entreprise ou un intitulé"
+          className="w-full max-w-sm rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
+        />
+        {filter === "ecartees" ? (
+          <button type="button" onClick={() => setFilter("all")} className="btn-soft">
+            ← Retour à ma sélection
           </button>
-        ))}
-        {filter !== "ecartees" && (
-          <button
-            type="button"
-            onClick={() => setFreshOnly((v) => !v)}
-            aria-pressed={freshOnly}
-            className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-medium ${freshOnly ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}
-          >
-            Moins de 48 h
-          </button>
-        )}
-        {filter !== "ecartees" && staleCount > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowStale((v) => !v)}
-            aria-pressed={showStale}
-            className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-medium ${showStale ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}
-          >
-            Plus de {STALE_DAYS} jours · {staleCount}
-          </button>
+        ) : (
+          excludedTotal > 0 && (
+            <button type="button" onClick={openExcluded} className="btn-soft sm:ml-auto">
+              Voir les écartées · {excludedTotal.toLocaleString("fr-FR")}
+            </button>
+          )
         )}
       </div>
+
+      {filter !== "ecartees" && (
+        <div className="mb-5 mt-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-wrap rounded-xl border border-line bg-surface p-1">
+              {LEVEL_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={filter === f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-button text-button-ink" : "text-muted hover:text-ink"}`}
+                >
+                  {f.label} <span className={filter === f.key ? "opacity-70" : "opacity-60"}>{levelCount(f.key)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2" aria-label="Affiner">
+              <Toggle on={juniorOnly} onClick={() => setJuniorOnly((v) => !v)}>
+                Junior (2 ans max)
+              </Toggle>
+              <Toggle on={freshOnly} onClick={() => setFreshOnly((v) => !v)}>
+                Moins de 48 h
+              </Toggle>
+              {staleCount > 0 && (
+                <Toggle on={showStale} onClick={() => setShowStale((v) => !v)}>
+                  Inclure les +{STALE_DAYS} jours
+                </Toggle>
+              )}
+            </div>
+          </div>
+          {LEVEL_HELP[filter] && <p className="mt-2.5 text-sm text-muted">{LEVEL_HELP[filter]}</p>}
+        </div>
+      )}
 
       {!hasOffers && (
         <div className="rounded-3xl border border-line bg-surface p-8">
@@ -283,10 +331,12 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             ))}
           </div>
           {hasOffers && shown.length === 0 && !progress && (
-            <p className="rounded-2xl border border-line bg-surface p-6 text-muted">
-              Rien dans ce filtre pour l&apos;instant. Tu peux élargir ta recherche depuis{" "}
-              <Link href="/recherche" className="font-semibold text-ink underline underline-offset-4">Ma recherche</Link>.
-            </p>
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
+              Rien ici pour l&apos;instant.
+              <Link href="/recherche" className="btn-soft">
+                Élargir ma recherche
+              </Link>
+            </div>
           )}
           {outOfZone.length > 0 && filter === "all" && (
             <section className="mt-12">
