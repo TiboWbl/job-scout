@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user } = await getUser();
   if (!user) redirect("/login");
-  if (!(await isInvited(user.email))) redirect("/invitation");
-  const { data: profile } = await supabase.from("profiles").select("display_name, onboarded_at").eq("id", user.id).single();
+  // Both checks at once: every tab waits for them.
+  const [invited, { data: profile }] = await Promise.all([isInvited(user.email), supabase.from("profiles").select("display_name, onboarded_at").eq("id", user.id).single()]);
+  if (!invited) redirect("/invitation");
   if (!profile?.onboarded_at) redirect("/onboarding");
 
   return (

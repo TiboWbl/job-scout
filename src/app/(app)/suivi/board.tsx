@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { followUpDue, isUpcoming, STAGE_LABELS, STAGES, type Application, type Stage } from "@/lib/domain/application";
 import { tintStyle } from "@/lib/design/color";
@@ -33,6 +34,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "
 
 // demo: moves and notes work during the visit, nothing is saved; adding an offer is explained instead.
 export function Board({ items: initial, demo = false, base = "" }: { items: BoardItem[]; demo?: boolean; base?: string }) {
+  const router = useRouter();
   const [items, setItems] = useState(initial);
   const [adding, setAdding] = useState(false);
   const [demoNote, setDemoNote] = useState(false);
@@ -41,12 +43,15 @@ export function Board({ items: initial, demo = false, base = "" }: { items: Boar
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...body } : i)));
     if (demo) return;
     await fetch(`/api/applications/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    // Other tabs kept in the browser cache (Aujourd'hui) must see the change.
+    router.refresh();
   }
 
   async function remove(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
     if (demo) return;
     await fetch(`/api/applications/${id}`, { method: "DELETE" });
+    router.refresh();
   }
 
   const sent = items.filter((i) => i.stage !== "a_postuler").length;

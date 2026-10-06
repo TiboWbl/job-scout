@@ -37,6 +37,22 @@ const isJunior = (i: FeedItem) =>
   JUNIOR_WORDS.test(i.offer.title) ||
   (i.offer.experience_min_years === null && i.offer.experience_level !== "experienced" && JUNIOR_WORDS.test(i.experience_asked ?? ""));
 
+// Cards are drawn a screenful at a time: the page opens at once even with a hundred offers.
+const BATCH = 24;
+
+// Draws more cards when the end of the list comes into view.
+function MoreOnScroll({ onMore }: { onMore: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && onMore(), { rootMargin: "800px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onMore]);
+  return <div ref={ref} aria-hidden className="h-px" />;
+}
+
 function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -83,6 +99,15 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [juniorOnly, setJuniorOnly] = useState(false);
   const [showStale, setShowStale] = useState(false);
   const [query, setQuery] = useState("");
+  const [drawn, setDrawn] = useState(BATCH);
+  const drawMore = useCallback(() => setDrawn((n) => n + BATCH), []);
+  // A new filter or search starts again from the top of its list.
+  const listKey = `${filter}|${query}|${freshOnly}|${juniorOnly}|${showStale}`;
+  const [lastKey, setLastKey] = useState(listKey);
+  if (lastKey !== listKey) {
+    setLastKey(listKey);
+    setDrawn(BATCH);
+  }
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const favoriteIds = useMemo(() => new Set(favoriteCompanyIds), [favoriteCompanyIds]);
   const [applying, setApplying] = useState<FeedItem | null>(null);
@@ -212,7 +237,9 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
     if (demo) return;
     await fetch(`/api/offers/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  }, [demo]);
+    // Aujourd'hui and Suivi, kept in the browser cache, must see the change.
+    router.refresh();
+  }, [demo, router]);
 
   const handlers = (item: FeedItem) => ({
     onOpen: () => setOpenId(item.offer.id),
@@ -241,6 +268,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
       body: JSON.stringify({ offerId: offer.id, title: offer.title, company: offer.company.name, url: offer.apply_url, stage: "postule" }),
     });
     setToast(res.ok ? "Candidature ajoutée au suivi. Bonne chance !" : "L'ajout au suivi n'a pas marché, réessaie depuis l'offre.");
+    if (res.ok) router.refresh();
   }
 
   return (
@@ -348,10 +376,11 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
-            {shown.map((item) => (
+            {shown.slice(0, drawn).map((item) => (
               <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
             ))}
           </div>
+          {shown.length > drawn && <MoreOnScroll onMore={drawMore} />}
           {hasOffers && shown.length === 0 && !progress && (
             q ? (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
@@ -369,7 +398,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
               </div>
             )
           )}
-          {shownElsewhere.length > 0 && (filter === "all" || q) && (
+          {shownElsewhere.length > 0 && (filter === "all" || q) && shown.length <= drawn && (
             <section className="mt-12">
               <h2 className="font-display text-2xl font-bold">Hors de ta zone</h2>
               <p className="mt-1 text-sm text-muted">{q ? "Elles correspondent à ta recherche, mais ailleurs que là où tu cherches." : "Gardées à part parce que tout le reste correspond très bien."}</p>

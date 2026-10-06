@@ -332,7 +332,7 @@ Priorité absolue : la pertinence des offres proposées et ne rater aucune offre
    - Aucune offre ratée chez les favorites : connecteurs DigitalRecruiters (Decathlon et de nombreuses entreprises françaises) et Welcome Kit, recherche des favorites sans page carrière lisible par leur nom sur les moteurs, offres des favorites jugées sans pré-tri par intitulé.
    - Descriptions lisibles : texte brut restructuré en sections et listes.
    - Doublons d'entreprise (« Robeaute » / « Robeaute-1 »).
-2. **V2.2 Vitesse** : temps de chargement de chaque page.
+2. **V2.2 Vitesse** (faite) : onglets visités gardés 30 s dans le navigateur (rafraîchis après chaque action), cartes des offres dessinées par 24 au fil du défilement (page Offres de 638 à 300 Ko), vérifications d'accès en parallèle à chaque page.
 3. **V2.3 Simplicité et finitions** : filtre « Écartées » parmi les filtres, recherche alignée au pixel sur les filtres, couleurs plus marquées, plus de photos, titre d'onglet par page, « Ma recherche » allégée (moins de texte, favorites compactes, pleine largeur), critères modifiables depuis Offres, étoile pour les favorites, plus de page /login ni de « Se connecter » (la page d'accueil suffit), déconnexion vers l'accueil, bannière de démo « rien n'est enregistré », lien Confidentialité de l'accueil, passe sur tout le site pour retirer le superflu.
 4. **V2.4 Suivi et Paramètres** : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
 5. **V2.5 CV** : analyse ATS sur 100 avec recommandations et comparaison à une offre.

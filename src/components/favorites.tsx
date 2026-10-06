@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AutoTextarea } from "@/components/auto-textarea";
 import { CompanyLogo } from "@/components/company-logo";
@@ -36,6 +37,7 @@ export async function addFavorites(entries: Entry[], onProgress: (done: number) 
 }
 
 export function Favorites() {
+  const router = useRouter();
   const [items, setItems] = useState<Favorite[] | null>(null);
   const [draft, setDraft] = useState("");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -59,11 +61,13 @@ export function Favorites() {
     setProgress(null);
     setDraft("");
     await load();
+    router.refresh();
   }
 
   async function remove(id: string) {
     setItems((list) => list?.filter((f) => f.company.id !== id) ?? null);
     await fetch("/api/favorites", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: id }) });
+    router.refresh();
   }
 
   return (
