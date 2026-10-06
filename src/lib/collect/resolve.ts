@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ATS_LIST, type Ats } from "./connectors/ats";
 import { slugGuesses } from "./discover";
+import { jobLinks } from "./connectors/site";
+import { fromJsonLd } from "./jsonld";
 import { companyKey } from "./normalize";
 import { collectBoard, keepInScope, scopeFromProfiles } from "./run";
 
@@ -130,6 +132,13 @@ async function exploreSite(site: string): Promise<{ board: { ats: Ats; token: st
     const wk = /https:\/\/[a-z0-9-]+\.welcomekit\.co[^"'\s<]*/i.exec(p.html)?.[0];
     const board = wk ? await welcomeKitBoard(wk) : null;
     if (board) return { board, platform: null, careersUrl: wk! };
+  }
+  // No known platform: the company's own site, readable when its job pages carry a JobPosting.
+  for (const p of pages) {
+    if (p !== home && !/career|carri|job|recrut|emploi|rejoindre|join|talent|offre/i.test(p.url)) continue;
+    const links = jobLinks(p.html, p.url);
+    const sample = links.length > 0 ? await page(links[0].url) : null;
+    if (sample && fromJsonLd(sample.html, sample.url)) return { board: { ats: "site", token: p.url }, platform: null, careersUrl: p.url };
   }
   for (const p of pages) {
     const platform = PLATFORMS.find(([, re]) => re.test(`${p.url} ${p.html}`));

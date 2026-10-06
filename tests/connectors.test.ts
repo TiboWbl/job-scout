@@ -133,3 +133,14 @@ describe("Welcome Kit", () => {
     expect(offers[0].places[0]).toMatchObject({ city: "Paris", country: "FR" });
   });
 });
+
+describe("site carrière propre", async () => {
+  const { jobLinks } = await import("@/lib/collect/connectors/site");
+  it("garde les liens d'offres de l'entreprise, pas la navigation", () => {
+    const own = `<a href="/fr/carrieres">Carrières</a><a href="/fr/carrieres/product-manager-junior-paris">Product Manager <b>Junior</b></a>
+      <a href="https://autre-site.fr/jobs/product-manager-x">Ailleurs</a>`;
+    expect(jobLinks(own, "https://exemple.fr/fr/carrieres")).toEqual([{ url: "https://exemple.fr/fr/carrieres/product-manager-junior-paris", label: "Product Manager Junior" }]);
+    const shared = `<a href="/companies/autre/jobs/designer-paris">Autre</a><a href="/companies/fictive/jobs/data-analyst_paris?o=1">Data Analyst</a>`;
+    expect(jobLinks(shared, "https://exemple.fr/companies/fictive")).toEqual([{ url: "https://exemple.fr/companies/fictive/jobs/data-analyst_paris", label: "Data Analyst" }]);
+  });
+});
