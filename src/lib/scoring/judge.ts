@@ -19,6 +19,8 @@ export type JudgeInput = {
   excerpt?: boolean;
   // One of the person's favourite companies.
   favorite?: boolean;
+  // The title itself is close to a role sought or a bridge (false: read only because it is a favourite).
+  titleMatch?: boolean;
 };
 
 const foldAccents = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -108,7 +110,9 @@ const Item = z.object({
   piege: Text,
   deal_breaker: Text,
   deal_breaker_concerne: Text,
+  citation_deal_breaker: Text,
   secteur_evite_concerne: Text,
+  citation_secteur: Text,
   score_interet: Score,
   score_chances: Score,
   score_tremplin: Score,
@@ -168,10 +172,10 @@ const SYSTEM = `Tu es le moteur de tri de Scout, un outil qui aide une personne 
 Pour chaque offre, juge le POSTE RÉEL décrit par les missions, pas l'intitulé. Lis d'abord la partie « profil recherché / qualifications / requirements ».
 
 Réponds à ces questions pour chaque offre :
-- "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
-- "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne". Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter".
+- "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
+- "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne", et dans "citation_secteur" la phrase exacte de l'offre qui le montre. Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter".
 - "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null Un secteur non prioritaire n'est jamais un piège.
-- "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte clairement un deal-breaker du profil, sinon null ; recopie ce deal-breaker mot pour mot dans "deal_breaker_concerne". Un secteur non prioritaire n'est jamais un deal-breaker.
+- "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte clairement un deal-breaker du profil, sinon null ; recopie ce deal-breaker mot pour mot dans "deal_breaker_concerne", et dans "citation_deal_breaker" la phrase exacte de l'offre qui le prouve. Sans phrase de l'offre qui le prouve, ce n'est pas un deal-breaker. Un secteur non prioritaire n'est jamais un deal-breaker.
 
 Scores, entiers de 0 à 100 (jamais sur 10) :
 - score_interet : alignement avec ce que la personne cherche (missions, secteur). Bas si "autre" ou piège. Plus haut si l'entreprise fait partie de ses entreprises favorites. Tiens compte de ses retours : rapproche-toi des offres qu'elle a appréciées, éloigne-toi de celles qu'elle a écartées et de leurs raisons.
@@ -189,7 +193,7 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "piege", "deal_breaker", "deal_breaker_concerne", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -268,15 +272,23 @@ export async function judgeBatch(
     const input = offers.find((o) => o.id === id)!;
     const experience = verifiedExperience(item.experience_demandee, input.experienceRequired, input.description, item.citation_experience);
     // A title that names the role sought, with no trap, is that role: the model sometimes files it as a bridge.
-    const match = item.correspondance === "passerelle" && !item.piege && namesTargetRole(input.title, criteria) ? "metier_vise" : item.correspondance;
+    // A bridge must show in the title: at a favourite, any role was read, and "close to the product" is not a bridge.
+    const match =
+      item.correspondance === "passerelle" && !item.piege && namesTargetRole(input.title, criteria)
+        ? "metier_vise"
+        : item.correspondance === "passerelle" && input.titleMatch === false
+          ? "autre"
+          : item.correspondance;
     const asked = input.experienceRequired ?? experience.years;
     const reach =
       (asked !== null && asked <= (experienceYears ?? 0)) ||
       input.experienceLevel === "junior" ||
       JUNIOR.test(foldAccents(input.title)) ||
       (asked === null && input.experienceLevel !== "experienced" && experience.label !== null && !/\d/.test(experience.label));
-    const sector = item.secteur === "a_eviter" && !namedItem(item.secteur_evite_concerne, criteria.sectorsAvoid) ? "autre" : item.secteur;
-    const dealBreaker = item.deal_breaker && namedItem(item.deal_breaker_concerne, criteria.dealBreakers) ? item.deal_breaker : null;
+    // Exclusions need both the person's own item and the posting's words proving it.
+    const quoted = (q: string | null) => Boolean(q && q.trim().length >= 8 && squash(input.description).includes(squash(q)));
+    const sector = item.secteur === "a_eviter" && !(namedItem(item.secteur_evite_concerne, criteria.sectorsAvoid) && quoted(item.citation_secteur)) ? "autre" : item.secteur;
+    const dealBreaker = item.deal_breaker && namedItem(item.deal_breaker_concerne, criteria.dealBreakers) && quoted(item.citation_deal_breaker) ? item.deal_breaker : null;
     const facts: Facts = { match, sector, trap: item.piege, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };
     const { level, reason } = deriveLevel(facts, criteria);
     const [interet, chances, tremplin] = to100(item, level);

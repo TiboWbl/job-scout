@@ -11,7 +11,8 @@ const BATCH_SIZE = 8;
 // A batch of 8 takes ~20-25 s on the free model; with 2.1 s between starts, ~12 fit in one call.
 const BATCH_DURATION_MS = 30_000;
 const MAX_BATCHES_PER_CALL = 12;
-const MIN_TITLE_RELEVANCE = 3;
+// A role sought (even half named) or a full bridge: half a bridge ("FP&A Analyst" for "Product Analyst") is not enough.
+const MIN_TITLE_RELEVANCE = 5;
 // Offers of favourite companies skip the title pre-sort, judged after the closest titles.
 const FAVORITE_RELEVANCE = 1;
 const HARD_STOP_MS = 52_000;
@@ -84,11 +85,11 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
 
   // Only offers whose title is close to a role sought or a bridge reach the LLM; the others are
   // set aside with that reason, still visible under "Écartées".
-  const candidates: { offer: LightOffer; outOfZone: boolean; gap: number; rel: number }[] = [];
+  const candidates: { offer: LightOffer; outOfZone: boolean; gap: number; rel: number; titleMatch: boolean }[] = [];
   for (const p of passed) {
     const rel = titleRelevance(p.offer.title, criteria);
     // A favourite company's offers are always read: a good role there may carry an unexpected title.
-    if (rel >= MIN_TITLE_RELEVANCE || (favoriteIds.has(p.offer.company_id) && p.offer.has_description)) candidates.push({ ...p, rel: Math.max(rel, FAVORITE_RELEVANCE) });
+    if (rel >= MIN_TITLE_RELEVANCE || (favoriteIds.has(p.offer.company_id) && p.offer.has_description)) candidates.push({ ...p, rel: Math.max(rel, FAVORITE_RELEVANCE), titleMatch: rel >= MIN_TITLE_RELEVANCE });
     else
       gateRows.push({
         ...base,
@@ -153,6 +154,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const running: Promise<void>[] = [];
   while (candidates.length > 0 && running.length < MAX_BATCHES_PER_CALL && Date.now() - startedAt < budgetMs - BATCH_DURATION_MS) {
     const batch = candidates.splice(0, BATCH_SIZE);
+    const batchTitle = new Map(batch.map((c) => [c.offer.id, c.titleMatch]));
     const inputs: JudgeInput[] = batch.map(({ offer }) => ({
       id: offer.id,
       title: offer.title,
@@ -164,6 +166,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       description: descriptions.get(offer.id) ?? "",
       excerpt: excerpts.has(offer.id),
       favorite: favoriteIds.has(offer.company_id),
+      titleMatch: batchTitle.get(offer.id),
     }));
     running.push(
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames, feedback).then(async (results) => {

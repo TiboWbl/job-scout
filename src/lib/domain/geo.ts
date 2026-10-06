@@ -64,6 +64,32 @@ export const REGION_LABELS: Record<string, string> = {
   NOR: "Normandie", CVL: "Centre-Val de Loire", BFC: "Bourgogne-Franche-Comté", COR: "Corse",
 };
 
+// Region names as sources write them, French and English, matched hyphen-insensitively.
+const REGION_ALIASES: [RegExp, string][] = [
+  [/\b(ile de france|idf|region parisienne)\b/, "IDF"],
+  [/\bauvergne( rhone alpes)?\b|\brhone alpes\b/, "ARA"],
+  [/\bprovence( alpes cote d ?azur)?\b|\bpaca\b|\bcote d ?azur\b/, "PAC"],
+  [/\boccitanie\b|\boccitania\b/, "OCC"],
+  [/\bnouvelle aquitaine\b|\baquitaine\b/, "NAQ"],
+  [/\bhauts de france\b|\bnord pas de calais\b/, "HDF"],
+  [/\bpays de (la )?loire\b/, "PDL"],
+  [/\bbretagne\b|\bbrittany\b/, "BRE"],
+  [/\bgrand est\b|\balsace\b|\blorraine\b/, "GES"],
+  [/\bnormandie\b|\bnormandy\b/, "NOR"],
+  // "Centre" alone as a field, never "centre-ville" or "Paris Centre".
+  [/\bcentre val de loire\b|(^|, ?)centre(,|$)/, "CVL"],
+  [/\bbourgogne( franche comte)?\b|\bburgundy\b|\bfranche comte\b/, "BFC"],
+  [/\bcorse\b|\bcorsica\b/, "COR"],
+];
+// French départements (first two digits of a postcode) by region.
+const DEPARTMENTS: Record<string, string> = Object.fromEntries(
+  Object.entries({
+    IDF: "75 77 78 91 92 93 94 95", ARA: "01 03 07 15 26 38 42 43 63 69 73 74", PAC: "04 05 06 13 83 84", OCC: "09 11 12 30 31 32 34 46 48 65 66 81 82",
+    NAQ: "16 17 19 23 24 33 40 47 64 79 86 87", HDF: "02 59 60 62 80", PDL: "44 49 53 72 85", BRE: "22 29 35 56", GES: "08 10 51 52 54 55 57 67 68 88",
+    NOR: "14 27 50 61 76", CVL: "18 28 36 37 41 45", BFC: "21 25 39 58 70 71 89 90", COR: "20",
+  }).flatMap(([region, codes]) => codes.split(" ").map((d) => [d, region])),
+);
+
 const EU = new Set(["FR", "DE", "ES", "PT", "NL", "BE", "IT", "IE", "LU", "PL", "SE", "DK", "AT", "CZ", "RO", "GR", "FI"]);
 const US_STATES = /\b(NY|MA|CA|WA|TX|IL|CO|GA|FL|DC|NJ|PA|OR|VA|NC|MN|AZ|UT)\b/;
 
@@ -71,7 +97,9 @@ function norm(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 }
 
-const CITY_INDEX = new Map(Object.entries(CITIES).map(([k, v]) => [norm(k), v] as const));
+// Hyphens and spaces alike: "Aix en Provence" is "aix-en-provence".
+const flat = (s: string) => norm(s).replace(/[-'’]/g, " ").replace(/\s+/g, " ");
+const CITY_INDEX = new Map(Object.entries(CITIES).map(([k, v]) => [flat(k), v] as const));
 const COUNTRY_INDEX = new Map(Object.entries(COUNTRY_ALIASES).map(([k, v]) => [norm(k), v] as const));
 
 function findCountry(text: string): string | undefined {
@@ -98,7 +126,7 @@ function qualifiedCountry(segment: string, n: string): string | undefined {
 }
 
 function parseSegment(segment: string): Place | null {
-  const n = norm(segment);
+  const n = flat(segment);
   if (!n) return null;
   for (const [city, [country, region]] of CITY_INDEX) {
     if (new RegExp(`(^|[^a-z])${city}($|[^a-z])`).test(n)) {
@@ -108,8 +136,14 @@ function parseSegment(segment: string): Place | null {
       return { city: name, country, region };
     }
   }
-  if (/ile[- ]de[- ]france|idf\b|region parisienne/.test(n)) return { region: "IDF", country: "FR" };
   const country = findCountry(segment);
+  if (!country || country === "FR") {
+    // A French postcode names its département, hence its region ("92130 Issy", "59000 Lille").
+    const postcode = /\b(\d{5})\b/.exec(segment)?.[1];
+    const department = postcode ? DEPARTMENTS[postcode.startsWith("20") ? "20" : postcode.slice(0, 2)] : undefined;
+    if (department) return { region: department, country: "FR" };
+    for (const [re, region] of REGION_ALIASES) if (re.test(n)) return { region, country: "FR" };
+  }
   return country ? { country } : null;
 }
 
@@ -151,7 +185,7 @@ function placeMatches(offerPlace: Place, zonePlace: ZonePlace) {
   if (!offerPlace.country || offerPlace.country !== zonePlace.country) return false;
   if (zonePlace.kind === "country") return true;
   if (zonePlace.kind === "region") return offerPlace.region === regionCode(zonePlace.label) || norm(offerPlace.region ?? "") === norm(zonePlace.label);
-  return Boolean(offerPlace.city) && norm(offerPlace.city!) === norm(zonePlace.label);
+  return Boolean(offerPlace.city) && flat(offerPlace.city!) === flat(zonePlace.label);
 }
 
 function regionCode(label: string) {

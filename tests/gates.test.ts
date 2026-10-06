@@ -195,3 +195,17 @@ describe("expérience écrite en toutes lettres", async () => {
     expect(r.pass && r.experienceGap).toBe(2);
   });
 });
+
+describe("lieux français moins connus", () => {
+  it("lit la région, le code postal et les villes à tirets ou à espaces", () => {
+    expect(zoneVerdict(offerAt("Niort, Nouvelle-Aquitaine, France"), PARIS)).toBe("out");
+    expect(zoneVerdict(offerAt("Vannes, Brittany, France"), PARIS)).toBe("out");
+    expect(zoneVerdict(offerAt("AIX EN PROVENCE, FR-U, France"), PARIS)).toBe("out");
+    expect(zoneVerdict(offerAt("Ormes, Centre, France"), PARIS)).toBe("out");
+    expect(parseLocation("4 rue Langevin, 59000 Lille, France").places[0]).toMatchObject({ country: "FR", region: "HDF" });
+    expect(parseLocation("12 rue X, 92130 Ville Inconnue").places[0]).toMatchObject({ region: "IDF" });
+    expect(zoneVerdict(offerAt("Paris Centre"), PARIS)).toBe("in");
+    const idf = { places: [{ label: "Île-de-France", kind: "region" as const, country: "FR" }], remoteOk: false };
+    expect(zoneVerdict(offerAt("12 rue X, 92130 Ville Inconnue"), idf)).toBe("in");
+  });
+});
