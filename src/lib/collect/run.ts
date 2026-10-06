@@ -12,7 +12,7 @@ import { companyKey, dedupKey } from "./normalize";
 export type SourceReport = { source: string; seen: number; created: number; archived: number; error?: string };
 
 const MAX_GENERATED_QUERIES = 8;
-const COLOR_BATCH = 40;
+const COLOR_BATCH = 150;
 const RETENTION_DAYS = 60;
 const BOARD_CONCURRENCY = 6;
 
@@ -250,11 +250,11 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
 }
 
 async function fillCompanyColors(db: SupabaseClient) {
-  const { data } = await db.from("companies").select("id, domain").not("domain", "is", null).is("color_checked_at", null).limit(COLOR_BATCH);
+  const { data } = await db.from("companies").select("id, name, domain").is("color_checked_at", null).limit(COLOR_BATCH);
   for (const c of data ?? []) {
     let accent: string | null = null;
     try {
-      accent = await extractAccent(c.domain);
+      accent = await extractAccent(c.domain, c.name);
     } catch {
       accent = null;
     }

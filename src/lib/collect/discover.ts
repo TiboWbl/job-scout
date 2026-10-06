@@ -24,7 +24,7 @@ const CC_DOMAINS: { ats: Ats; domain: string; slug: RegExp }[] = [
 ];
 const NOT_A_COMPANY = new Set(["www", "api", "embed", "v1", "app", "career", "careers", "jobs", "oauth", "static", "assets", "j", "widget", "login"]);
 
-async function fetchText(url: string, timeoutMs = 120_000, tries = 3): Promise<string> {
+async function fetchText(url: string, timeoutMs = 60_000, tries = 2): Promise<string> {
   for (let i = 0; ; i++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });

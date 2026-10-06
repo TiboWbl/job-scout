@@ -2,8 +2,8 @@ import sharp from "sharp";
 import { dominantColor, logoUrl } from "@/lib/design/color";
 
 // Downloads the logo only to read its pixels; nothing but the resulting hex is kept.
-export async function extractAccent(domain: string): Promise<string | null> {
-  const url = logoUrl(domain, 64);
+export async function extractAccent(domain: string | null, name: string): Promise<string | null> {
+  const url = logoUrl(domain, 64, name);
   if (!url) return null;
   const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) return null;

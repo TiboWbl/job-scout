@@ -6,7 +6,7 @@ import { logoUrl } from "@/lib/design/color";
 // Logo on a white tile with a soft halo in the company accent (the `.tinted` parent sets --halo).
 export function CompanyLogo({ name, domain, size = 40 }: { name: string; domain: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
-  const src = logoUrl(domain);
+  const src = logoUrl(domain, 128, name);
   const radius = Math.round(size * 0.3);
   return (
     <span
