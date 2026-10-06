@@ -48,6 +48,9 @@ describe("filet de sécurité de l'extraction", () => {
     const mixed = reconcile(Criteria.parse({ targetRoles: ["Product Manager"], titleVariants: ["Associate Product Manager", "Product Owner Junior", "Product Analyst"], bridgeRoles: ["Product Owner orienté discovery", "Product Analyst"] }), SEARCH_TEXT);
     expect(mixed.titleVariants).toEqual(["Associate Product Manager"]);
   });
+  it("garde l'expérience écrite par la personne plutôt que celle déduite du CV", () => {
+    expect(reconcile(Criteria.parse({ experienceYears: 2 }), SEARCH_TEXT).experienceYears).toBe(1);
+  });
   it("garde l'exclusion quand aucun contrat n'est demandé", () => {
     const none = reconcile(Criteria.parse({ contracts: [] }), "Je cherche un poste, sans alternance.");
     expect(none.contracts).not.toContain("alternance");

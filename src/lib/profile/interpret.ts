@@ -17,7 +17,7 @@ Réponds uniquement avec un objet JSON de cette forme :
   "zone": { "places": [{ "label": "nom du lieu", "kind": "city" | "region" | "country", "country": "code ISO à 2 lettres" }], "remoteOk": true si le télétravail complet depuis son pays lui convient },
   "outOfZone": "never" | "exceptional" | "yes",
   "contracts": contrats souhaités parmi ["cdi","cdd","stage","alternance","freelance"],
-  "experienceYears": années d'expérience professionnelle cumulée telles que la personne les décrit (stages compris), nombre ou null,
+  "experienceYears": années d'expérience professionnelle cumulée telles que la personne les décrit (stages compris), nombre ou null. Si la description donne ce chiffre, il prime sur le CV,
   "languages": [langues avec niveau],
   "availability": disponibilité en quelques mots ou null,
   "companiesAvoid": [entreprises que la personne ne veut pas voir],
@@ -177,6 +177,10 @@ export function reconcile(c: Criteria, text: string): Criteria {
   out.contracts = out.contracts.filter((x) => !excluded.has(x));
   // An empty list means "every contract": keep the exclusions meaningful.
   if (out.contracts.length === 0 && excluded.size > 0) out.contracts = CONTRACTS.filter((x) => !excluded.has(x));
+
+  // What the person writes beats what was inferred from the CV: "environ 1 an d'expérience".
+  const years = t.match(/(\d+(?:[.,]\d+)?)\s*(?:ans?|annees?)\s+(?:d'experience|d'xp|d'exp)/);
+  if (years) out.experienceYears = Number.parseFloat(years[1].replace(",", "."));
 
   if (/(etranger|international|hors de france|autre pays)[^.]{0,80}exceptionn|exceptionn[^.]{0,80}(etranger|international|hors de france)/.test(t)) out.outOfZone = "exceptional";
 
