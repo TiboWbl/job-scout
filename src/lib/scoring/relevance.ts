@@ -53,3 +53,16 @@ export function relevance(title: string, description: string, criteria: Criteria
   score += best([...criteria.sectorsPriority, ...criteria.sectorsOk], 0, 1.5);
   return score;
 }
+
+// Title-only match against the roles sought and bridges. Deciding which offers reach the LLM on the
+// description would send nearly everything: "work closely with product managers" is everywhere.
+// "QA avec évolution vers le produit" is searched as "QA": qualifiers never appear in job titles.
+const core = (phrase: string) => phrase.split(/\s+(?:orient[ée]e?s?|avec|en|pour|vers|dans|with|towards)\s/i)[0].replace(/\s*\(.*$/, "");
+
+export function titleRelevance(title: string, criteria: Criteria): number {
+  const titleTokens = new Set(tokens(title));
+  let top = 0;
+  for (const p of [...criteria.targetRoles, ...criteria.titleVariants]) top = Math.max(top, phraseScore(core(p), titleTokens, "").title * 10);
+  for (const p of criteria.bridgeRoles) top = Math.max(top, phraseScore(core(p), titleTokens, "").title * 6);
+  return top;
+}

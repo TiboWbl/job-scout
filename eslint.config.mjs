@@ -13,7 +13,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     // Static design mockups, not application code.
-    "design/**",
+    "design/**", "scripts/_*",
   ]),
 ]);
 

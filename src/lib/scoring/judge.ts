@@ -36,7 +36,9 @@ type Match = (typeof MATCHES)[number];
 type Sector = (typeof SECTORS)[number];
 
 const Score = z.coerce.number().min(0).max(100);
-const List = z.array(z.string()).nullish().transform((v) => v ?? []);
+// Plain text only: the cards render text, and models like to add **bold**.
+const plain = (v: string) => v.replace(/\*\*|__|`/g, "").replace(/^\s*[-*•]\s+/, "").trim();
+const List = z.array(z.string()).nullish().transform((v) => (v ?? []).map(plain).filter(Boolean));
 const Text = z.string().nullish().transform((v) => (v && v.trim() && !/^(null|aucun|non|none)$/i.test(v.trim()) ? v.trim() : null));
 const Item = z.object({
   id: z.union([z.string(), z.number()]).transform((v) => String(v).trim()),
@@ -47,7 +49,7 @@ const Item = z.object({
   score_interet: Score,
   score_chances: Score,
   score_tremplin: Score,
-  pourquoi: z.string().min(1),
+  pourquoi: z.string().min(1).transform(plain),
   points_forts: List,
   points_d_attention: List,
   leviers_cv: List,
@@ -91,7 +93,7 @@ Scores, entiers de 0 à 100 (jamais sur 10) :
 - score_chances : expérience demandée vs réelle, compétences requises vs CV, langues. Chaque année demandée au-delà de l'expérience de la personne baisse ce score. L'expérience ne change jamais la correspondance.
 - score_tremplin : valeur comme étape de carrière (apprentissage, encadrement, passerelle).
 
-Rédige en français, tutoiement, ton bienveillant et factuel. "pourquoi" : une ou deux phrases concrètes, sans répéter l'intitulé. "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 3 éléments courts.
+Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel. "pourquoi" : une ou deux phrases concrètes, sans répéter l'intitulé. "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 3 éléments courts.
 Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;

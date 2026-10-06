@@ -10,24 +10,24 @@ export interface LlmProvider {
 }
 
 // Free plan: ministral-14b allows 30 requests/minute. Overridable when the plan or model changes.
-const MIN_INTERVAL_MS = Number(process.env.LLM_MIN_INTERVAL_MS) || 2100;
+export const MIN_INTERVAL_MS = Number(process.env.LLM_MIN_INTERVAL_MS) || 2100;
 const MAX_RETRIES = 5;
 // The free plan currently rate-limits mistral-small/medium to zero; ministral-14b is the most capable model it serves.
 const DEFAULT_MODEL = "ministral-14b-2512";
 
-let queue: Promise<unknown> = Promise.resolve();
+let queue: Promise<void> = Promise.resolve();
 let lastCallAt = 0;
 
-// Serialises calls inside this process so the rate limit holds even when batches run concurrently.
+// Spaces request starts inside this process to respect the per-minute limit. Requests then run
+// side by side: one answer takes ~20 s, waiting for it before the next start would waste the quota.
 function throttled<T>(task: () => Promise<T>): Promise<T> {
-  const run = queue.then(async () => {
+  const slot = queue.then(async () => {
     const wait = lastCallAt + MIN_INTERVAL_MS - Date.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     lastCallAt = Date.now();
-    return task();
   });
-  queue = run.catch(() => undefined);
-  return run;
+  queue = slot;
+  return slot.then(task);
 }
 
 class MistralProvider implements LlmProvider {

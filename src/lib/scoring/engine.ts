@@ -2,10 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
 import { prefilter } from "./prefilter";
-import { relevance } from "./relevance";
+import { MIN_INTERVAL_MS } from "@/lib/llm";
+import { titleRelevance } from "./relevance";
 import { judgeBatch, type JudgeInput } from "./judge";
 
 const BATCH_SIZE = 8;
+// A batch of 8 takes ~20-25 s on the free model; with 2.1 s between starts, ~12 fit in one call.
+const BATCH_DURATION_MS = 30_000;
+const MAX_BATCHES_PER_CALL = 12;
+const MIN_TITLE_RELEVANCE = 3;
+const HARD_STOP_MS = 52_000;
 const PAGE = 1000;
 
 type LightOffer = {
@@ -67,23 +73,18 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     else gateRows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
   }
 
-  const descriptions = new Map<string, string>();
-  for (let i = 0; i < passed.length; i += 150) {
-    const ids = passed.slice(i, i + 150).map((p) => p.offer.id);
-    const { data } = await db.from("offers").select("id, description").in("id", ids);
-    for (const d of data ?? []) descriptions.set(d.id, d.description ?? "");
-  }
-
+  // Only offers whose title is close to a role sought or a bridge reach the LLM; the others are
+  // set aside with that reason, still visible under "Écartées".
   const candidates: { offer: LightOffer; outOfZone: boolean; rel: number }[] = [];
   for (const p of passed) {
-    const rel = relevance(p.offer.title, descriptions.get(p.offer.id) ?? "", criteria);
-    if (rel > 0) candidates.push({ ...p, rel });
+    const rel = titleRelevance(p.offer.title, criteria);
+    if (rel >= MIN_TITLE_RELEVANCE) candidates.push({ ...p, rel });
     else
       gateRows.push({
         ...base,
         offer_id: p.offer.id,
         level: "ecartee",
-        excluded_reason: "Ni l'intitulé ni la description ne parlent de tes métiers cibles ou passerelles.",
+        excluded_reason: "L'intitulé ne correspond à aucun de tes métiers ni de tes passerelles.",
         scored_by: "prefilter",
       });
   }
@@ -91,11 +92,24 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     const { error: e } = await db.from("offer_scores").upsert(gateRows.slice(i, i + 500));
     if (e) throw e;
   }
+  // The gates take a second: report them at once so progress moves before the slower LLM part.
+  if (gateRows.length > 0) return { scoredNow: gateRows.length, remaining: candidates.length, total: offers.length };
 
   candidates.sort((a, b) => b.rel - a.rel);
+  const descriptions = new Map<string, string>();
+  const toLoad = candidates.slice(0, MAX_BATCHES_PER_CALL * BATCH_SIZE).map((c) => c.offer.id);
+  for (let i = 0; i < toLoad.length; i += 100) {
+    const { data } = await db.from("offers").select("id, description").in("id", toLoad.slice(i, i + 100));
+    for (const d of data ?? []) descriptions.set(d.id, d.description ?? "");
+  }
+
+  // Batches start every ~2 s (rate limit) and run side by side; none starts too late to finish
+  // within the serverless time limit.
   let scoredNow = 0;
   let missed = 0;
-  while (candidates.length > 0 && Date.now() - startedAt < budgetMs) {
+  let finished = 0;
+  const running: Promise<void>[] = [];
+  while (candidates.length > 0 && running.length < MAX_BATCHES_PER_CALL && Date.now() - startedAt < budgetMs - BATCH_DURATION_MS) {
     const batch = candidates.splice(0, BATCH_SIZE);
     const inputs: JudgeInput[] = batch.map(({ offer }) => ({
       id: offer.id,
@@ -106,20 +120,29 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       experienceRequired: offer.experience_min_years,
       description: descriptions.get(offer.id) ?? "",
     }));
-    const results = await judgeBatch(inputs, criteria, cv, experienceYears);
-    if (results.size === 0) {
-      candidates.unshift(...batch);
-      break;
-    }
-    const rows = batch
-      .filter(({ offer }) => results.has(offer.id))
-      .map(({ offer, outOfZone }) => ({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...results.get(offer.id)!, scored_by: "llm" }));
-    const { error: e } = await db.from("offer_scores").upsert(rows);
-    if (e) throw e;
-    scoredNow += rows.length;
-    // Offers the model skipped stay unscored and are picked up again by the next call.
-    missed += batch.length - rows.length;
+    running.push(
+      judgeBatch(inputs, criteria, cv, experienceYears).then(async (results) => {
+        const rows = batch
+          .filter(({ offer }) => results.has(offer.id))
+          .map(({ offer, outOfZone }) => ({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...results.get(offer.id)!, scored_by: "llm" }));
+        if (rows.length > 0) {
+          const { error: e } = await db.from("offer_scores").upsert(rows);
+          if (e) throw e;
+        }
+        scoredNow += rows.length;
+        // Offers the model skipped stay unscored and are picked up again by the next call.
+        missed += batch.length - rows.length;
+      }).finally(() => finished++),
+    );
+    // Launch at the queue's pace, so the time check above reflects when the batch really starts.
+    await new Promise((r) => setTimeout(r, MIN_INTERVAL_MS));
   }
+  // Hard stop before the platform limit: unfinished batches are simply scored again next call.
+  const all = Promise.allSettled(running);
+  const settled = await Promise.race([all, new Promise<null>((r) => setTimeout(() => r(null), Math.max(0, startedAt + HARD_STOP_MS - Date.now())))]);
+  const failures = settled ? settled.filter((r): r is PromiseRejectedResult => r.status === "rejected") : [];
+  if (failures.length > 0 && scoredNow === 0) throw failures[0].reason;
+  const unfinished = running.length - finished + failures.length;
 
-  return { scoredNow, remaining: candidates.length + missed, total: offers.length };
+  return { scoredNow, remaining: candidates.length + missed + unfinished * BATCH_SIZE, total: offers.length };
 }

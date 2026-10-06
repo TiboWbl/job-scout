@@ -48,6 +48,7 @@ export default async function OffresPage() {
       items={items}
       openness={criteria.openness}
       pending={pending}
+      total={activeCount.count ?? 0}
       hasOffers={(activeCount.count ?? 0) > 0}
       isAdmin={isAdminEmail(user!.email)}
     />

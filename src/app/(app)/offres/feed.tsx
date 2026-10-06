@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isExceptional, LEVEL_ORDER, type FeedItem } from "@/lib/domain/feed";
 import type { Level } from "@/lib/domain/offer";
 import { rank } from "@/lib/scoring/judge";
@@ -20,9 +20,9 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "ecartees", label: "Écartées" },
 ];
 
-type Props = { items: FeedItem[]; openness: number; pending: number; hasOffers: boolean; isAdmin: boolean };
+type Props = { items: FeedItem[]; openness: number; pending: number; total: number; hasOffers: boolean; isAdmin: boolean };
 
-export function Feed({ items: initial, openness, pending, hasOffers, isAdmin }: Props) {
+export function Feed({ items: initial, openness, pending, total, hasOffers, isAdmin }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -33,41 +33,53 @@ export function Feed({ items: initial, openness, pending, hasOffers, isAdmin }: 
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ remaining: number; error?: string } | null>(pending > 0 ? { remaining: pending } : null);
+  const [progress, setProgress] = useState<{ remaining: number; note?: string } | null>(pending > 0 ? { remaining: pending } : null);
 
   // Score what's left in successive calls (each one fits in a serverless time budget), refreshing as results land.
+  // Interruptions are retried on their own: the person never has to reload.
+  // Started once per visit: refreshing the server data must not start a second loop.
+  const initialPending = useRef(pending);
   useEffect(() => {
-    if (pending <= 0) return;
+    if (initialPending.current <= 0) return;
     let cancelled = false;
+    const abort = new AbortController();
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     (async () => {
-      let remaining = pending;
-      for (let attempt = 0; attempt < 60 && !cancelled; attempt++) {
-        const res = await fetch("/api/score", { method: "POST" }).catch(() => null);
+      let remaining = initialPending.current;
+      let failures = 0;
+      let idle = 0;
+      for (let call = 0; call < 120 && !cancelled && remaining > 0; call++) {
+        const res = await fetch("/api/score", { method: "POST", signal: abort.signal }).catch(() => null);
+        if (cancelled) return;
         if (!res?.ok) {
           const body = (await res?.json().catch(() => null)) as { error?: string; retry?: boolean } | null;
-          if (cancelled) return;
-          if (!body?.retry) {
-            setProgress({ remaining, error: "Le classement s'est interrompu. Recharge la page pour reprendre." });
+          failures++;
+          // The model is unreachable: say so and keep trying, never fall back to a rough guess.
+          const delay = body?.retry ? 30_000 : Math.min(5_000 * failures, 30_000);
+          setProgress({ remaining, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
+          if (failures >= 10) {
+            setProgress({ remaining, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
             return;
           }
-          // The model is unreachable: say so and try again shortly, never fall back to a rough guess.
-          setProgress({ remaining, error: `${body.error} Nouvel essai dans 30 secondes.` });
-          await new Promise((r) => setTimeout(r, 30_000));
+          await wait(delay);
           continue;
         }
+        failures = 0;
         const data = (await res.json()) as { remaining: number; scoredNow: number };
         if (cancelled) return;
         remaining = data.remaining;
+        idle = data.scoredNow === 0 ? idle + 1 : 0;
         setProgress({ remaining });
         router.refresh();
-        if (data.remaining === 0 || data.scoredNow === 0) break;
+        if (idle >= 3) break;
       }
       if (!cancelled) setProgress(null);
     })();
     return () => {
       cancelled = true;
+      abort.abort();
     };
-  }, [pending, router]);
+  }, [router]);
 
   // Back on the tab after opening an offer: ask, once, whether the person applied.
   useEffect(() => {
@@ -147,9 +159,17 @@ export function Feed({ items: initial, openness, pending, hasOffers, isAdmin }: 
       </p>
 
       {progress && (
-        <div className="mt-5 flex items-center gap-3 rounded-2xl bg-brand-soft px-4 py-3 text-sm" role="status">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" aria-hidden="true" />
-          {progress.error ?? `Scout lit les offres pour toi. Encore environ ${progress.remaining} à parcourir, la sélection se complète au fur et à mesure.`}
+        <div className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
+            <p className="font-semibold">
+              Scout trie les offres pour toi : {Math.max(0, total - progress.remaining).toLocaleString("fr-FR")} / {total.toLocaleString("fr-FR")}
+            </p>
+          </div>
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
+            <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${total ? Math.round((100 * (total - progress.remaining)) / total) : 0}%` }} />
+          </div>
+          <p className="mt-2 text-muted">{progress.note ?? "Garde cette page ouverte : ta sélection se complète au fur et à mesure."}</p>
         </div>
       )}
 
