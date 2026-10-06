@@ -34,7 +34,7 @@ Dernière mise à jour : 5 octobre 2026.
 
 | Besoin | Service | Limite à respecter |
 |---|---|---|
-| Front + API | Vercel Hobby | Usage non commercial ; pas de Vercel Cron (1/jour max) |
+| Front + API | Vercel Hobby, fonctions à Paris (`cdg1`, à côté de la base) | Usage non commercial ; pas de Vercel Cron (1/jour max) ; 60 s max par appel |
 | Base, auth, stockage CV | Supabase Free | 500 Mo de base, 1 Go de stockage ; projet mis en pause après 7 jours sans activité (évité par la collecte planifiée) |
 | Collecte et scoring planifiés | GitHub Actions, 2 à 3 fois par jour | Illimité si le repo est public ; 2 000 min/mois si privé |
 | LLM | Mistral, plan gratuit | Sur ce plan, seuls les modèles `ministral` sont servis (`mistral-small`/`medium` limités à 0 requête, `mistral-large` exclu) : `ministral-14b-2512`, 30 requêtes/minute ; désactiver l'usage des données pour l'entraînement dans la console (Admin > Privacy) |
@@ -106,13 +106,14 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - Détection automatique de l'ATS à partir de l'URL de la page carrière ; repli sur un scraping simple de la page carrière de l'entreprise si aucun flux public n'existe.
 - **Agrégateurs officiels** (facultatifs : sans clés, la source est ignorée) :
   - API France Travail (Offres d'emploi v2) : le connecteur est prêt, mais au 5 octobre 2026 l'API n'apparaît plus dans le catalogue en libre-service de francetravail.io (seule « Dépôt d'offres d'emploi en alternance » existe, en accès conditionné). Une application sans API rattachée est refusée à l'authentification ;
-  - API Adzuna : inscription bloquée par le reCAPTCHA du formulaire le 5 octobre 2026, à retenter.
-  - Moteurs d'offres avec API gratuite et légale, à brancher : **Jooble** (clé gratuite sur demande) et **Careerjet** (API d'affichage gratuite). Ils ne renvoient qu'un extrait de description : l'offre est scorée sur cet extrait et le lien mène à l'annonce complète.
+  - API Adzuna (branchée le 6 octobre 2026) : recherches croisant les intitulés de chaque profil avec son lieu, offres de moins de 60 jours, 8 recherches × 5 pages par collecte pour rester sous le quota gratuit (~250 appels/jour). Extraits de description seulement.
+  - **Jooble** (branché, clé gratuite) : mêmes recherches, 3 pages. **Careerjet** (API d'affichage gratuite) : à brancher. Ces moteurs ne renvoient qu'un extrait de description : l'offre est scorée sur cet extrait et le lien mène à l'annonce complète.
 - **La couverture est le levier n°1 de l'utilité de Scout.** Au 5 octobre 2026, seules 22 entreprises sont lues (environ 1 300 offres). Priorités, intégrées à la phase 2 :
-  1. connecteurs supplémentaires pour les ATS à API publique les plus répandus en France (SmartRecruiters, Workable, Recruitee, Personio, Teamtailor) ;
-  2. découverte massive des pages carrière via l'index public de Common Crawl (adresses `boards.greenhouse.io/…`, `jobs.lever.co/…`, `jobs.ashbyhq.com/…`, etc.), en ne gardant que les entreprises qui publient des offres en France : objectif plusieurs milliers d'entreprises ;
-  3. Jooble et Careerjet ;
-  4. Adzuna à retenter depuis un autre réseau.
+  1. connecteurs pour 8 ATS à API ou flux publics : Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor (RSS) et Personio (XML) ;
+  2. découverte des pages carrière (`npm run discover`) : adresses vues dans l'index public de Common Crawl, et adresses devinées à partir des noms d'entreprises vus dans les offres des moteurs (« Acme Sport » → `acmesport`, `acme-sport` sur chaque ATS). Une entreprise n'entre dans l'annuaire que si sa page carrière publie au moins une offre dans la zone d'un profil ;
+  3. Jooble et Adzuna branchés, Careerjet à brancher.
+- **Pages carrière lues en rotation** : les moins récemment collectées d'abord, dans un budget de temps (le bouton admin tient dans un appel serverless ; la collecte planifiée lit tout). Une page qui répond 404 sort de la rotation. Santé des sources agrégée par ATS.
+- **Filtre géographique à la collecte** : seules les offres situées dans un pays où un profil cherche (ou de lieu inconnu) sont stockées. Les autres ne servent à personne et la base gratuite est limitée à 500 Mo.
   - Requêtes générées à partir de toutes les variantes d'intitulés de tous les profils, avec pagination complète.
 - Pas de LinkedIn, Indeed, Glassdoor, Google Jobs ni Welcome to the Jungle : aucun accès légal et gratuit.
 - **Annuaire d'entreprises partagé et auto-enrichi** :
@@ -141,7 +142,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
      - 3 ans : offre gardée, score Chances bas ;
      - ≥ 4 ans : offre écartée.
   5. **Secteurs et entreprises à éviter.**
-- Pas d'exigence de mot-clé exact dans le titre.
+- Après les portes, seules les offres dont l'intitulé est proche d'un métier visé, d'un intitulé équivalent ou d'une passerelle partent au LLM. Les autres sont écartées avec cette raison (consultable). Juger sur la description enverrait presque tout : « travailler avec les product managers » figure dans d'innombrables offres.
 - Pas d'embeddings au départ (aucun fournisseur gratuit retenu) : le préfiltre et une file d'attente plafonnée suffisent. À réévaluer si le volume l'exige.
 - Le LLM lit la description complète et juge le **poste réel**, pas l'intitulé. Il lit **en priorité « Profil recherché » / « Qualifications »** pour estimer les chances. Il détecte les pièges : intitulé trompeur, poste commercial déguisé, missions sans rapport avec le titre.
 - Sortie JSON validée par un schéma :
@@ -160,7 +161,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Le curseur d'ouverture pondère le classement entre Intérêt, Chances et Tremplin.
 - Cache par couple (offre, version du profil).
 - **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `ministral-14b-2512` pour le scoring comme pour l'analyse de CV et la conversion des critères (modèles réglables par variables d'environnement). File d'attente à une requête toutes les 2,1 s (30/minute) avec nouvel essai sur 429. **Scoring par lots de 8 offres par requête.**
-- Premier tri : progression visible (« 340 / 1 249 offres lues »), la sélection se remplit au fur et à mesure.
+- Premier tri : progression visible (« 1 190 / 1 249 »), la sélection se remplit au fur et à mesure. Le premier appel n'applique que les portes (instantané) ; les suivants envoient les lots au LLM en parallèle, un départ toutes les 2,1 s, et rendent la main avant 52 s quoi qu'il arrive. Les coupures sont reprises automatiquement.
+- Le LLM répond à des questions factuelles (métier réel, secteur, piège, deal-breaker) ; le niveau en est déduit par une règle fixe. Le domaine du produit (cloud, IA…) ne change pas le métier. Une offre écartée affiche une raison de 12 mots au plus.
 - **Test de non-régression** automatique, rejoué à chaque modification du prompt. Offres fictives rédigées pour le test, sans nom d'entreprise réel.
   - Préfiltre et pièges :
     1. Offre « Senior Product Manager, 7+ ans » pour un profil junior : écartée par le préfiltre.
