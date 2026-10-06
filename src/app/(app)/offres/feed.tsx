@@ -7,9 +7,10 @@ import { isExceptional, isStaleOffer, LEVEL_ORDER, type FeedItem } from "@/lib/d
 import { createClient } from "@/lib/supabase/browser";
 import type { Level } from "@/lib/domain/offer";
 import { rank } from "@/lib/scoring/judge";
-import { isFresh, STALE_DAYS } from "@/lib/format";
+import { isFresh, placeLabel, STALE_DAYS } from "@/lib/format";
 import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
+import { CompanyLogo } from "@/components/company-logo";
 import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
 
 type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
@@ -294,14 +295,16 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">Offres</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-5xl font-extrabold tracking-tight">Offres</h1>
+        <Link href={`${base}/recherche`} className="btn-soft">
+          Modifier ma recherche
+        </Link>
+      </div>
       <p className="mt-2 text-[15px] text-muted">
         {main.length - staleCount > 0
           ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
-          : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}{" "}
-        <Link href={`${base}/recherche`} className="font-medium text-ink underline underline-offset-4 hover:text-brand">
-          Modifier ma recherche
-        </Link>
+          : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
       </p>
 
       {collecting && (
@@ -326,7 +329,8 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
       )}
 
       <div className="mb-5 mt-5">
-        {/* The search takes exactly the width of the level selector under it. */}
+        {/* The search takes exactly the width of the level selector under it; refinements sit on the selector's line. */}
+        <div className="flex flex-wrap items-end gap-3">
         <div className="inline-flex max-w-full flex-col gap-3">
           <input
             type="search"
@@ -353,7 +357,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
           </div>
         </div>
         {filter !== "ecartees" && (
-          <div className="mt-3 flex flex-wrap gap-2" aria-label="Affiner">
+          <div className="flex flex-wrap gap-2" aria-label="Affiner">
             <Toggle on={juniorOnly} onClick={() => setJuniorOnly((v) => !v)}>
               Junior (2 ans max)
             </Toggle>
@@ -367,6 +371,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             )}
           </div>
         )}
+        </div>
         {LEVEL_HELP[filter] && <p className="mt-2.5 text-sm text-muted">{LEVEL_HELP[filter]}</p>}
       </div>
 
@@ -465,6 +470,22 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   );
 }
 
+// Why an offer is out of the selection, as a short label the person recognises at a glance.
+const ASIDE_KINDS: [RegExp, string, string][] = [
+  [/type de contrat|stage ou alternance/i, "Contrat", "bg-peach-soft text-peach-ink"],
+  [/exp[ée]rience|trop senior/i, "Expérience", "bg-violet-soft text-violet-ink"],
+  [/zone|lieu/i, "Lieu", "bg-sky-soft text-sky-ink"],
+  [/intitul[ée] ne correspond/i, "Métier éloigné", "bg-pill-solid text-ink"],
+  [/secteur|entreprises que tu [ée]vites/i, "Secteur", "bg-mint-soft text-mint-ink"],
+];
+function asideKind(i: FeedItem): { label: string; tone: string; reason: string } {
+  if (i.dismissed) return { label: "Ton choix", tone: "bg-pill-solid text-ink", reason: "Tu l'as marquée « Pas pour moi »." };
+  if (i.level !== "ecartee") return { label: "Lieu", tone: "bg-sky-soft text-sky-ink", reason: "Hors de ta zone, et pas assez exceptionnelle pour être montrée à part." };
+  const reason = i.excluded_reason ?? "Ne correspond pas à ta recherche.";
+  const kind = ASIDE_KINDS.find(([re]) => re.test(reason));
+  return kind ? { label: kind[1], tone: kind[2], reason } : { label: "Contenu du poste", tone: "bg-warn-soft text-warn", reason };
+}
+
 function SetAside({ items, loading, more, searching, onMore, onOpen }: { items: FeedItem[]; loading: boolean; more: boolean; searching: boolean; onMore: () => void; onOpen: (id: string) => void }) {
   if (items.length === 0)
     return (
@@ -474,22 +495,34 @@ function SetAside({ items, loading, more, searching, onMore, onOpen }: { items: 
     );
   return (
     <div>
-      <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-        {items.map((i) => (
-          <li key={i.offer.id}>
-            <button type="button" onClick={() => onOpen(i.offer.id)} className="block w-full px-4 py-3 text-left hover:bg-pill-solid">
-              <span className="block truncate text-[15px] font-medium">
-                {i.offer.title} <span className="font-normal text-muted">· {i.offer.company.name}</span>
-              </span>
-              <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted">
-                {i.dismissed ? "Tu l'as marquée « Pas pour moi »." : i.level === "ecartee" ? i.excluded_reason : "Hors de ta zone, et pas assez exceptionnelle pour être montrée à part."}
-              </span>
-            </button>
-          </li>
-        ))}
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+        {items.map((i) => {
+          const kind = asideKind(i);
+          const place = placeLabel(i.offer.places, i.offer.location_raw);
+          return (
+            <li key={i.offer.id}>
+              <button type="button" onClick={() => onOpen(i.offer.id)} className="flex h-full w-full flex-col gap-3 rounded-2xl border border-line bg-surface p-4 text-left hover:border-ink">
+                <span className="flex items-center gap-3">
+                  <CompanyLogo name={i.offer.company.name} domain={i.offer.company.domain} brand={i.offer.company.brand} size={36} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-semibold">{i.offer.title}</span>
+                    <span className="block truncate text-[13px] text-muted">
+                      {i.offer.company.name}
+                      {place ? ` · ${place}` : ""}
+                    </span>
+                  </span>
+                </span>
+                <span className="flex items-start gap-2 text-[13.5px] leading-snug">
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${kind.tone}`}>{kind.label}</span>
+                  <span className="line-clamp-2 text-muted">{kind.reason}</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {more && (
-        <button type="button" onClick={onMore} disabled={loading} className="mt-4 rounded-xl border border-line bg-pill px-4 py-2.5 text-sm font-medium hover:border-ink disabled:opacity-50">
+        <button type="button" onClick={onMore} disabled={loading} className="btn-soft mt-4 disabled:opacity-50">
           {loading ? "Chargement…" : "Afficher plus"}
         </button>
       )}

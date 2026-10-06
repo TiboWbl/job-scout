@@ -71,7 +71,7 @@ export function Favorites() {
   }
 
   return (
-    <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+    <section className="rounded-[22px] bg-peach-soft p-5 md:p-6">
       <h2 className="font-display text-xl font-bold tracking-tight">Mes entreprises favorites</h2>
       <p className="mt-1 text-sm text-muted">Scout lit leur page carrière à chaque collecte et met une étoile sur leurs offres.</p>
 
@@ -127,7 +127,7 @@ export function Favorites() {
               <li
                 key={f.company.id}
                 title={f.company.ats ? "Page carrière lue à chaque collecte" : f.company.careers_platform ? `Offres sur ${f.company.careers_platform} : Scout la cherche sur les moteurs d'emploi` : "Page carrière introuvable : Scout la cherche sur les moteurs d'emploi"}
-                className={`flex items-center gap-2 rounded-full border py-1 pl-1.5 pr-1 ${f.company.ats ? "border-line bg-pill" : "border-dashed border-line"}`}
+                className={`flex items-center gap-2 rounded-full border py-1 pl-1.5 pr-1 ${f.company.ats ? "border-transparent bg-surface shadow-sm" : "border-dashed border-ink/25"}`}
               >
                 <CompanyLogo name={f.company.name} domain={f.company.domain} brand={f.company.brand} size={22} />
                 <span className="max-w-[180px] truncate text-sm font-medium">{f.company.name}</span>

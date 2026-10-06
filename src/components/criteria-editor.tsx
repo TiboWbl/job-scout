@@ -7,9 +7,12 @@ import { CloseIcon } from "@/components/icons";
 
 const COUNTRY_LABELS: Record<string, string> = { FR: "France", BE: "Belgique", CH: "Suisse", LU: "Luxembourg", CA: "Canada", GB: "Royaume-Uni", US: "États-Unis", DE: "Allemagne", ES: "Espagne", PT: "Portugal", NL: "Pays-Bas", IE: "Irlande", IT: "Italie" };
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+// Each block has its own soft colour, in light and dark mode alike: the page reads as sections, not a form.
+const TONES = { violet: "bg-violet-soft", sky: "bg-sky-soft", mint: "bg-mint-soft", peach: "bg-peach-soft" } as const;
+
+function Section({ title, hint, tone = "violet", children }: { title: string; hint?: string; tone?: keyof typeof TONES; children: React.ReactNode }) {
   return (
-    <section className="rounded-[22px] border border-line bg-surface p-5">
+    <section className={`rounded-[22px] p-5 ${TONES[tone]}`}>
       <h3 className="font-display text-lg font-bold tracking-tight">{title}</h3>
       {hint && <p className="mt-0.5 text-sm text-muted">{hint}</p>}
       <div className="mt-3">{children}</div>
@@ -27,7 +30,7 @@ function Chips({ values, onChange, placeholder, label }: { values: string[]; onC
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {values.map((v) => (
-        <span key={v} className="flex items-center gap-1 rounded-full bg-brand-soft py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium">
+        <span key={v} className="flex items-center gap-1 rounded-full bg-surface py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium shadow-sm">
           {v}
           <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`Retirer ${v}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-black/10">
             <CloseIcon className="h-3 w-3" />
@@ -76,7 +79,7 @@ function Places({ value, onChange }: { value: ZonePlace[]; onChange: (v: ZonePla
     <div>
       <div className="flex flex-wrap items-center gap-1.5">
         {value.map((p) => (
-          <span key={p.label} className="flex items-center gap-1 rounded-full bg-brand-soft py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium">
+          <span key={p.label} className="flex items-center gap-1 rounded-full bg-surface py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium shadow-sm">
             {p.label}
             <span className="text-muted">· {kindLabel[p.kind]}</span>
             <button type="button" onClick={() => onChange(value.filter((x) => x.label !== p.label))} aria-label={`Retirer ${p.label}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-black/10">
@@ -117,7 +120,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
 
   return (
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-      <Section title="Métier visé" hint="Les intitulés équivalents servent à trouver les offres, même formulées autrement.">
+      <Section tone="violet" title="Métier visé" hint="Les intitulés équivalents servent à trouver les offres, même formulées autrement.">
         <Chips values={value.targetRoles} onChange={(v) => set("targetRoles", v)} placeholder="Ajouter un métier" label="Ajouter un métier visé" />
         <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Intitulés équivalents</p>
         <Chips values={value.titleVariants} onChange={(v) => set("titleVariants", v)} placeholder="Ajouter un intitulé" label="Ajouter un intitulé équivalent" />
@@ -125,7 +128,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         <Chips values={value.bridgeRoles} onChange={(v) => set("bridgeRoles", v)} placeholder="Ajouter une passerelle" label="Ajouter un métier passerelle" />
       </Section>
 
-      <Section title="Zone" hint="Les offres hors de cette zone ne se mélangent jamais à ta sélection.">
+      <Section tone="sky" title="Zone" hint="Les offres hors de cette zone ne se mélangent jamais à ta sélection.">
         <Places value={value.zone.places} onChange={(places) => set("zone", { ...value.zone, places })} />
         <label className="mt-4 flex items-center gap-2.5 text-sm">
           <input type="checkbox" checked={value.zone.remoteOk} onChange={(e) => set("zone", { ...value.zone, remoteOk: e.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />
@@ -139,7 +142,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         </div>
       </Section>
 
-      <Section title="Secteurs">
+      <Section tone="mint" title="Secteurs">
         <p className="mb-2 text-[13px] font-medium text-muted">Prioritaires</p>
         <Chips values={value.sectorsPriority} onChange={(v) => set("sectorsPriority", v)} placeholder="Ajouter un secteur" label="Ajouter un secteur prioritaire" />
         <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Acceptés</p>
@@ -161,7 +164,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         )}
       </Section>
 
-      <Section title="Contrat et expérience">
+      <Section tone="peach" title="Contrat et expérience">
         <div className="flex flex-wrap gap-2">
           {CONTRACTS.map((c) => (
             <Toggle
@@ -197,7 +200,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         </label>
       </Section>
 
-      <Section title="Ouverture" hint="Pondère le classement entre ce qui te plaît le plus et tes chances d'être retenu·e.">
+      <Section tone="violet" title="Ouverture" hint="Pondère le classement entre ce qui te plaît le plus et tes chances d'être retenu·e.">
         <input
           type="range"
           min={0}
@@ -213,7 +216,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         </div>
       </Section>
 
-      <Section title="Langues et entreprises">
+      <Section tone="sky" title="Langues et entreprises">
         <p className="mb-2 text-[13px] font-medium text-muted">Langues</p>
         <Chips values={value.languages} onChange={(v) => set("languages", v)} placeholder="Ajouter une langue" label="Ajouter une langue" />
         <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Entreprises exclues</p>

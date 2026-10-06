@@ -51,12 +51,12 @@ export async function Landing({ notice = null }: { notice?: "error" | "deleted" 
             <LoginButton />
             {notice === "error" && <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">La connexion n&apos;a pas abouti. Tu peux réessayer.</p>}
             {notice === "deleted" && <p className="rounded-xl bg-pill-solid px-4 py-3 text-sm">Ton compte et toutes tes données ont été supprimés.</p>}
-            <p className="text-center text-sm text-muted">
-              Connexion sur invitation ·{" "}
-              <Link href="/confidentialite" className="underline underline-offset-4 hover:text-ink">
+            <div className="flex items-center justify-center gap-3 text-sm text-muted">
+              Connexion sur invitation
+              <Link href="/confidentialite" className="btn-soft py-1.5">
                 Confidentialité
               </Link>
-            </p>
+            </div>
           </div>
         </div>
 
