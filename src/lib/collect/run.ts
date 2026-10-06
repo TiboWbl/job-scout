@@ -7,6 +7,7 @@ import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/fran
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
+import { enrichCompanies } from "./enrich";
 import { companyKey, dedupKey } from "./normalize";
 
 export type SourceReport = { source: string; seen: number; created: number; archived: number; error?: string };
@@ -61,6 +62,8 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
   for (const r of reports) log(`${r.source}: ${r.seen} vues, ${r.created} nouvelles, ${r.archived} archivées${r.error ? " (erreur)" : ""}`);
 
   if (Date.now() - startedAt < budgetMs) {
+    // Who really recruits (group, institution) and a verified domain, before logos are coloured.
+    await enrichCompanies(db).catch(() => null);
     await fillCompanyColors(db);
     await purgeOldDescriptions(db);
   }
@@ -251,11 +254,11 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
 }
 
 async function fillCompanyColors(db: SupabaseClient) {
-  const { data } = await db.from("companies").select("id, name, domain").is("color_checked_at", null).limit(COLOR_BATCH);
+  const { data } = await db.from("companies").select("id, name, domain, brand").is("color_checked_at", null).limit(COLOR_BATCH);
   for (const c of data ?? []) {
     let accent: string | null = null;
     try {
-      accent = await extractAccent(c.domain, c.name);
+      accent = await extractAccent(c.domain, c.brand ?? c.name);
     } catch {
       accent = null;
     }

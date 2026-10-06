@@ -67,6 +67,16 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
     };
   }, [offer.id]);
 
+  // The page behind must not scroll while the offer fills the screen.
+  useEffect(() => {
+    if (!expanded) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [expanded]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -80,15 +90,20 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
     ["Télétravail", REMOTE_LABELS[offer.remote]],
     ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
     ["Expérience demandée", item.experience_asked ?? (offer.experience_min_years === null ? "Non précisée" : offer.experience_min_years === 0 ? "Débutant accepté" : `${offer.experience_min_years} an${offer.experience_min_years > 1 ? "s" : ""} min.`)],
-    ...(item.salary ? [["Salaire", item.salary]] : []),
+    ["Salaire", item.salary ?? "Non indiqué"],
     ["Publiée", freshness(seenAt).replace(/^./, (c) => c.toUpperCase())],
   ];
 
-  return (
+  const panel = (
     <aside
       style={style}
       aria-label={`Détail de l'offre ${offer.title}`}
-      className={`tinted-vars animate-slide-in fixed inset-y-0 right-0 z-40 flex w-full flex-col overflow-hidden border-l border-line bg-surface shadow-2xl xl:inset-y-4 xl:right-4 xl:rounded-3xl xl:border ${expanded ? "md:left-[252px] md:inset-y-4 md:rounded-3xl md:border" : "max-w-[480px]"}`}
+      onClick={(e) => e.stopPropagation()}
+      className={
+        expanded
+          ? "tinted-vars animate-rise flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl"
+          : "tinted-vars animate-slide-in fixed inset-y-0 right-0 z-40 flex w-full max-w-[480px] flex-col overflow-hidden border-l border-line bg-surface shadow-2xl xl:inset-y-4 xl:right-4 xl:rounded-3xl xl:border"
+      }
     >
       <div className="relative h-[92px] shrink-0 bg-[var(--band)]">
         <div className="absolute right-4 top-4 flex gap-2">
@@ -106,7 +121,7 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
           </button>
         </div>
         <div className="absolute -bottom-7 left-6">
-          <CompanyLogo name={offer.company.name} domain={offer.company.domain} size={60} />
+          <CompanyLogo name={offer.company.name} domain={offer.company.domain} brand={offer.company.brand} size={60} />
         </div>
       </div>
 
@@ -116,7 +131,10 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
           <span className="rounded-full border border-[var(--halo)] bg-[var(--tint)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">{LEVEL_LABELS[item.level]}</span>
         </div>
         <h2 className="mt-2 font-display text-[28px] font-extrabold leading-[1.1] tracking-tight">{offer.title}</h2>
-        <p className="mt-1.5 text-[15px] text-muted">{offer.company.name}</p>
+        <p className="mt-1.5 text-[15px] text-muted">
+          {offer.company.name}
+          {offer.company.brand && ` · ${offer.company.brand}`}
+        </p>
 
         <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {facts.map(([label, value]) => (
@@ -199,5 +217,13 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
         </button>
       </footer>
     </aside>
+  );
+
+  if (!expanded) return panel;
+  // Full screen: a dialog over the content area (the sidebar stays visible); a click beside it or Escape closes it.
+  return (
+    <div role="dialog" aria-modal="true" onClick={onClose} className="fixed inset-0 z-40 flex justify-center bg-[#17151f]/45 p-4 backdrop-blur-sm md:left-[252px] md:p-6">
+      {panel}
+    </div>
   );
 }

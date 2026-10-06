@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { logoUrl } from "@/lib/design/color";
 
 // Logo on a white tile with a soft halo in the company accent (the `.tinted` parent sets --halo).
-export function CompanyLogo({ name, domain, size = 40 }: { name: string; domain: string | null; size?: number }) {
+export function CompanyLogo({ name, domain, brand = null, size = 40 }: { name: string; domain: string | null; brand?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
-  const src = logoUrl(domain, 128, name);
+  const img = useRef<HTMLImageElement>(null);
+  // An image can fail before hydration, when onError is not attached yet: check once mounted.
+  useEffect(() => {
+    if (img.current?.complete && img.current.naturalWidth === 0) setFailed(true);
+  }, []);
+  // The recruiting brand's logo when the employer belongs to a group or an institution.
+  const src = logoUrl(domain, 128, brand ?? name);
   const radius = Math.round(size * 0.3);
   return (
     <span
@@ -15,7 +21,7 @@ export function CompanyLogo({ name, domain, size = 40 }: { name: string; domain:
     >
       {src && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- external logo CDN, no optimisation needed
-        <img src={src} alt="" width={size * 0.75} height={size * 0.75} className="object-contain" style={{ width: size * 0.75, height: size * 0.75 }} onError={() => setFailed(true)} />
+        <img ref={img} src={src} alt="" width={size * 0.75} height={size * 0.75} className="object-contain" style={{ width: size * 0.75, height: size * 0.75 }} onError={() => setFailed(true)} />
       ) : (
         <span className="font-display font-bold text-[#17151f]" style={{ fontSize: size * 0.42 }} aria-hidden="true">
           {name.trim()[0]?.toUpperCase() ?? "?"}

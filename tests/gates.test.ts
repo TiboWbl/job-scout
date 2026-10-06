@@ -20,6 +20,13 @@ describe("zone", () => {
     expect(parseLocation("Paris, Paris, France").places[0]).toMatchObject({ city: "Paris", country: "FR", region: "IDF" });
   });
 
+  it("ne confond pas Paris (Texas, Ontario) avec Paris", () => {
+    expect(parseLocation("Paris, TX").places[0]).toMatchObject({ city: "Paris", country: "US" });
+    expect(parseLocation("Paris, Texas, United States").places[0]).toMatchObject({ country: "US" });
+    expect(parseLocation("Paris, ON, Canada").places[0]).toMatchObject({ country: "CA" });
+    expect(parseLocation("Paris, Île-de-France, France").places[0]).toMatchObject({ country: "FR", region: "IDF" });
+  });
+
   it("garde Paris, écarte New York et Boston", () => {
     expect(zoneVerdict(offerAt("Paris offices"), PARIS)).toBe("in");
     expect(zoneVerdict(offerAt("New York, New York, USA"), PARIS)).toBe("out");

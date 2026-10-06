@@ -37,7 +37,7 @@ export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: P
       className={`tinted group flex cursor-pointer flex-col gap-3 rounded-[22px] border border-line p-[18px] transition-shadow hover:shadow-[0_8px_30px_-12px_rgba(23,21,31,0.25)] ${selected ? "outline outline-2 outline-offset-2 outline-[var(--accent)]" : ""}`}
     >
       <header className="flex items-center gap-3">
-        <CompanyLogo name={offer.company.name} domain={offer.company.domain} />
+        <CompanyLogo name={offer.company.name} domain={offer.company.domain} brand={offer.company.brand} />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{offer.company.name}</p>
           <p className={`text-[12.5px] ${fresh ? "font-semibold text-[var(--accent)]" : "text-muted"}`}>
@@ -60,8 +60,13 @@ export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: P
         <span className="rounded-full bg-pill px-2.5 py-1">{placeLabel(offer.places, offer.location_raw)}</span>
         {offer.remote !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{REMOTE_LABELS[offer.remote]}</span>}
         {offer.contract !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS]}</span>}
-        {item.salary && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{item.salary}</span>}
-        {experience && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">Expérience : {experience}</span>}
+        {/* Missing facts are said so, in a dashed chip: worth a look in the posting itself. */}
+        {item.salary ? <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{item.salary}</span> : <span className="rounded-full border border-dashed border-line px-2.5 py-1">Salaire non indiqué</span>}
+        {experience ? (
+          <span className="rounded-full bg-pill px-2.5 py-1 text-ink">Expérience : {experience}</span>
+        ) : (
+          <span className="rounded-full border border-dashed border-line px-2.5 py-1">Expérience non précisée</span>
+        )}
       </div>
 
       {item.missions.length > 0 && (

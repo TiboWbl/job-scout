@@ -85,12 +85,27 @@ function findCountry(text: string): string | undefined {
   return undefined;
 }
 
+// Many cities share a name ("Paris, TX", "London, ON"): a state, province or country written after
+// the city wins over the best-known city of that name.
+const STATE_CODES = "AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC";
+const US_STATE_NAMES = "alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york state|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington state|west virginia|wisconsin|wyoming";
+const CA_PROVINCES = "ON|QC|BC|AB|MB|SK|NS|NB|NL|PE";
+
+function qualifiedCountry(segment: string, n: string): string | undefined {
+  if (new RegExp(`,\\s*(${STATE_CODES})\\b`).test(segment) || new RegExp(`(^|[^a-z])(${US_STATE_NAMES})($|[^a-z])`).test(n)) return "US";
+  if (new RegExp(`,\\s*(${CA_PROVINCES})\\b`).test(segment)) return "CA";
+  return findCountry(segment) ?? undefined;
+}
+
 function parseSegment(segment: string): Place | null {
   const n = norm(segment);
   if (!n) return null;
   for (const [city, [country, region]] of CITY_INDEX) {
     if (new RegExp(`(^|[^a-z])${city}($|[^a-z])`).test(n)) {
-      return { city: city.replace(/(^|[\s-])\S/g, (m) => m.toUpperCase()), country, region };
+      const name = city.replace(/(^|[\s-])\S/g, (m) => m.toUpperCase());
+      const stated = qualifiedCountry(segment, n);
+      if (stated && stated !== country) return { city: name, country: stated };
+      return { city: name, country, region };
     }
   }
   if (/ile[- ]de[- ]france|idf\b|region parisienne/.test(n)) return { region: "IDF", country: "FR" };
