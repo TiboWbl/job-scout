@@ -49,6 +49,16 @@ describe("secteur évité et deal-breaker nommés par la personne", async () => 
   });
 });
 
+describe("preuve d'un secteur évité ou d'un deal-breaker", async () => {
+  const { proves } = await import("@/lib/scoring/judge");
+  it("la phrase de l'offre doit nommer le sujet de l'élément", () => {
+    expect(proves("Jeu vidéo", "Nous éditons des jeux vidéo mobiles")).toBe(true);
+    expect(proves("Produit non digital (collection textile, retail)", "Tu développeras la collection textile automne-hiver")).toBe(true);
+    expect(proves("Produit non digital (collection textile, retail)", "Tu piloteras notre produit digital B2B")).toBe(false);
+    expect(proves("Paris sportifs et jeux d'argent", "Basé à Paris, dans nos bureaux du 9e")).toBe(false);
+  });
+});
+
 describe("intitulé qui nomme le métier visé", async () => {
   const { namesTargetRole } = await import("@/lib/scoring/relevance");
   const pm = Criteria.parse({ targetRoles: ["Product Manager"], titleVariants: ["PM", "Associate Product Manager"] });

@@ -145,6 +145,18 @@ export function namedItem(cited: string | null, items: string[]): boolean {
   });
 }
 
+// The posting's sentence must name what the person's item is about: "jeu vidéo" needs "jeu" or "vidéo",
+// "Produit non digital (collection textile, retail)" needs "collection", "textile" or "retail".
+const GENERIC_WORDS = new Set(["produit", "produits", "digital", "digitaux", "numerique", "secteur", "secteurs", "poste", "postes", "non", "sans", "pas", "orientation", "et", "de", "des", "du", "la", "le", "les", "en", "ou", "paris", "equipe", "equipes", "structure", "structurees"]);
+export function proves(item: string, quote: string | null): boolean {
+  if (!quote) return false;
+  const words = fold(item).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
+  const q = fold(quote).replace(/_/g, " ");
+  return words.some((w) => q.includes(w.replace(/s$/, "")));
+}
+// "Postes sans orientation discovery": an absence no sentence can prove. It lowers interest, never excludes.
+const NEGATIVE = /\b(sans|pas de|non|aucun)\b/;
+
 // Constraints are gates, not averages: any one of them sets the level on its own.
 export function deriveLevel(f: Facts, criteria: Criteria): { level: Level; reason: string | null } {
   if (f.dealBreaker) return { level: "ecartee", reason: f.dealBreaker };
@@ -172,9 +184,9 @@ const SYSTEM = `Tu es le moteur de tri de Scout, un outil qui aide une personne 
 Pour chaque offre, juge le POSTE RÉEL décrit par les missions, pas l'intitulé. Lis d'abord la partie « profil recherché / qualifications / requirements ».
 
 Réponds à ces questions pour chaque offre :
-- "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
+- "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
 - "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne", et dans "citation_secteur" la phrase exacte de l'offre qui le montre. Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter".
-- "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null Un secteur non prioritaire n'est jamais un piège.
+- "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null. Le secteur, le type de clients (B2B, B2C), la technologie (IA, data, crypto) ou le niveau technique ne sont jamais un piège : un Product Manager B2B ou IA reste un Product Manager.
 - "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte clairement un deal-breaker du profil, sinon null ; recopie ce deal-breaker mot pour mot dans "deal_breaker_concerne", et dans "citation_deal_breaker" la phrase exacte de l'offre qui le prouve. Sans phrase de l'offre qui le prouve, ce n'est pas un deal-breaker. Un secteur non prioritaire n'est jamais un deal-breaker.
 
 Scores, entiers de 0 à 100 (jamais sur 10) :
@@ -272,27 +284,38 @@ export async function judgeBatch(
     const input = offers.find((o) => o.id === id)!;
     const experience = verifiedExperience(item.experience_demandee, input.experienceRequired, input.description, item.citation_experience);
     // A title that names the role sought, with no trap, is that role: the model sometimes files it as a bridge.
-    // A bridge must show in the title: at a favourite, any role was read, and "close to the product" is not a bridge.
+    // Exclusions need both the person's own item and the posting's words proving it.
+    const quoted = (q: string | null) => Boolean(q && q.trim().length >= 8 && squash(input.description).includes(squash(q)));
+    const avoided = criteria.sectorsAvoid.find((x) => namedItem(item.secteur_evite_concerne, [x]));
+    const sector = item.secteur === "a_eviter" && !(avoided && quoted(item.citation_secteur) && proves(avoided, item.citation_secteur)) ? "autre" : item.secteur;
+    // A title naming the role sought is that role. A role read only because the company is a favourite
+    // is a bridge only in a preferred sector (close to the product and its users there).
     const match =
       item.correspondance === "passerelle" && !item.piege && namesTargetRole(input.title, criteria)
         ? "metier_vise"
-        : item.correspondance === "passerelle" && input.titleMatch === false
+        : item.correspondance === "passerelle" && input.titleMatch === false && sector !== "prioritaire"
           ? "autre"
-          : item.correspondance;
+          : // Only a search-engine excerpt: too little to rule out an offer whose title is the role sought.
+            item.correspondance === "autre" && input.excerpt && !item.piege && namesTargetRole(input.title, criteria)
+            ? "metier_vise"
+            : item.correspondance;
     const asked = input.experienceRequired ?? experience.years;
     const reach =
       (asked !== null && asked <= (experienceYears ?? 0)) ||
       input.experienceLevel === "junior" ||
       JUNIOR.test(foldAccents(input.title)) ||
       (asked === null && input.experienceLevel !== "experienced" && experience.label !== null && !/\d/.test(experience.label));
-    // Exclusions need both the person's own item and the posting's words proving it.
-    const quoted = (q: string | null) => Boolean(q && q.trim().length >= 8 && squash(input.description).includes(squash(q)));
-    const sector = item.secteur === "a_eviter" && !(namedItem(item.secteur_evite_concerne, criteria.sectorsAvoid) && quoted(item.citation_secteur)) ? "autre" : item.secteur;
-    const dealBreaker = item.deal_breaker && namedItem(item.deal_breaker_concerne, criteria.dealBreakers) && quoted(item.citation_deal_breaker) ? item.deal_breaker : null;
+    const breaker = criteria.dealBreakers.find((x) => namedItem(item.deal_breaker_concerne, [x]));
+    const dealBreaker =
+      item.deal_breaker && breaker && quoted(item.citation_deal_breaker) && !NEGATIVE.test(fold(breaker).replace(/_/g, " ")) && proves(breaker, item.citation_deal_breaker)
+        ? item.deal_breaker
+        : null;
     const facts: Facts = { match, sector, trap: item.piege, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };
     const { level, reason } = deriveLevel(facts, criteria);
     const [interet, chances, tremplin] = to100(item, level);
-    const watch = item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege, ...item.points_d_attention] : item.points_d_attention;
+    // A deal-breaker the posting does not prove stays visible as something to check.
+    const unproven = item.deal_breaker && !dealBreaker ? [`À vérifier : ${item.deal_breaker}`] : [];
+    const watch = [...(item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege] : []), ...unproven, ...item.points_d_attention];
     results.set(id, {
       level,
       missions: item.missions.slice(0, 3),
