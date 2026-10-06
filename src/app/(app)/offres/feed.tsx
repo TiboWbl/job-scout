@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isExceptional, LEVEL_ORDER, SCORE_SELECT, type FeedItem } from "@/lib/domain/feed";
+import { isExceptional, LEVEL_ORDER, type FeedItem } from "@/lib/domain/feed";
 import { createClient } from "@/lib/supabase/browser";
 import type { Level } from "@/lib/domain/offer";
 import { rank } from "@/lib/scoring/judge";
 import { isFresh, isStale, STALE_DAYS } from "@/lib/format";
 import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
+import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
 
 type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
 
-const EXCLUDED_PAGE = 100;
 
 const LEVEL_FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "Toutes" },
@@ -24,8 +24,8 @@ const LEVEL_FILTERS: { key: Filter; label: string }[] = [
 
 // What each level means for the person, in one short line.
 const LEVEL_HELP: Partial<Record<Filter, string>> = {
-  coeur: "Le métier que tu vises, dans un secteur que tu préfères, avec de vraies chances.",
-  solide: "Le métier que tu vises, dans un autre secteur ou avec moins de chances.",
+  coeur: "Le métier que tu vises, à ta portée : dans un secteur que tu préfères, chez une favorite ou ouvert aux juniors.",
+  solide: "Le métier que tu vises, avec moins de chances ou dans un autre secteur.",
   tremplin: "Un poste proche qui peut te mener au métier que tu vises.",
 };
 
@@ -62,19 +62,14 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
   // "Écartées" can hold thousands of offers: loaded 100 at a time, only when that view is opened.
   const [excluded, setExcluded] = useState<{ items: FeedItem[]; loading: boolean; done: boolean }>({ items: [], loading: false, done: false });
-  const loadExcluded = useCallback(async (from: number) => {
-    setExcluded((e) => ({ ...e, loading: true }));
-    const { data } = demo
-      ? ((await fetch(`/api/demo/excluded?from=${from}`).then((r) => r.json()).catch(() => ({ data: [] }))) as { data: unknown[] })
-      : await createClient()
-          .from("offer_scores")
-          .select(SCORE_SELECT)
-          .eq("criteria_version", criteriaVersion)
-          .eq("level", "ecartee")
-          .order("created_at", { ascending: false })
-          .range(from, from + EXCLUDED_PAGE - 1);
+  // With a search, the server looks through all of them (a company has hundreds), not only those loaded.
+  const loadExcluded = useCallback(async (from: number, search: string) => {
+    setExcluded((e) => ({ items: from === 0 ? [] : e.items, loading: true, done: false }));
+    const data = demo
+      ? ((await fetch(`/api/demo/excluded?from=${from}&q=${encodeURIComponent(search)}`).then((r) => r.json()).catch(() => ({ data: [] }))) as { data: unknown[] }).data
+      : await loadExcludedPage(createClient(), { version: criteriaVersion, from, search });
     const rows = ((data ?? []) as unknown as (Omit<FeedItem, "saved" | "dismissed">)[]).filter((r) => r.offer).map((r) => ({ ...r, saved: false, dismissed: false }));
-    setExcluded((e) => ({ items: [...e.items, ...rows], loading: false, done: rows.length < EXCLUDED_PAGE }));
+    setExcluded((e) => ({ items: from === 0 ? rows : [...e.items, ...rows], loading: false, done: rows.length < EXCLUDED_PAGE }));
   }, [criteriaVersion, demo]);
   const items = useMemo(
     () => [...initial, ...excluded.items].map((i) => (overrides[i.offer.id] ? { ...i, ...overrides[i.offer.id] } : i)),
@@ -158,7 +153,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     return () => clearTimeout(t);
   }, [toast]);
 
-  const { main, outOfZone, set_aside } = useMemo(() => {
+  const { main, outOfZone, elsewhere, set_aside } = useMemo(() => {
     // Within a level, the newest first (applying early matters); fit breaks ties.
     const day = (i: FeedItem) => Math.floor(new Date(i.offer.published_at ?? i.offer.first_seen_at).getTime() / 86_400_000);
     const byRank = (a: FeedItem, b: FeedItem) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || day(b) - day(a) || rank(b, openness) - rank(a, openness);
@@ -166,6 +161,8 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     return {
       main: visible.filter((i) => i.level !== "ecartee" && !i.out_of_zone).sort(byRank),
       outOfZone: visible.filter((i) => i.level !== "ecartee" && i.out_of_zone && isExceptional(i)).sort(byRank),
+      // A search looks everywhere: an offer outside the zone is still the one the person may be looking for.
+      elsewhere: visible.filter((i) => i.level !== "ecartee" && i.out_of_zone).sort(byRank),
       set_aside: items.filter((i) => i.dismissed || i.level === "ecartee" || (i.out_of_zone && !isExceptional(i))),
     };
   }, [items, openness]);
@@ -189,10 +186,22 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   // Counts per level follow the refinements, so each option says what it would show.
   const refined = main.filter(matches).filter((i) => (showStale || !isStale(published(i))) && (!freshOnly || isFresh(published(i))) && (!juniorOnly || isJunior(i)));
   const levelCount = (key: Filter) => (key === "all" ? refined.length : refined.filter((i) => i.level === key).length);
+  const shownElsewhere = q ? elsewhere.filter(matches) : outOfZone;
+  const searched = useRef(query.trim());
   const openExcluded = () => {
     setFilter("ecartees");
-    if (excluded.items.length === 0 && !excluded.loading && !excluded.done) loadExcluded(0);
+    searched.current = query.trim();
+    loadExcluded(0, query.trim());
   };
+  // In "Écartées", a new search reloads from the server once typing pauses.
+  useEffect(() => {
+    if (filter !== "ecartees" || searched.current === query.trim()) return;
+    const t = setTimeout(() => {
+      searched.current = query.trim();
+      loadExcluded(0, query.trim());
+    }, 350);
+    return () => clearTimeout(t);
+  }, [filter, query, loadExcluded]);
   const open = items.find((i) => i.offer.id === openId) ?? null;
 
   const act = useCallback(async (id: string, body: Record<string, unknown>, patch: Partial<FeedItem>) => {
@@ -326,9 +335,10 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
       {filter === "ecartees" ? (
         <SetAside
           items={set_aside.filter(matches)}
+          searching={Boolean(q)}
           loading={excluded.loading}
           more={!excluded.done && excluded.items.length > 0}
-          onMore={() => loadExcluded(excluded.items.length)}
+          onMore={() => loadExcluded(excluded.items.length, query.trim())}
           onOpen={(id) => setOpenId(id)}
         />
       ) : (
@@ -339,19 +349,28 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             ))}
           </div>
           {hasOffers && shown.length === 0 && !progress && (
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
-              Rien ici pour l&apos;instant.
-              <Link href={`${base}/recherche`} className="btn-soft">
-                Élargir ma recherche
-              </Link>
-            </div>
+            q ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
+                Rien dans ta sélection pour « {query.trim()} ».
+                <button type="button" onClick={openExcluded} className="btn-soft">
+                  Chercher dans les écartées
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
+                Rien ici pour l&apos;instant.
+                <Link href={`${base}/recherche`} className="btn-soft">
+                  Élargir ma recherche
+                </Link>
+              </div>
+            )
           )}
-          {outOfZone.length > 0 && filter === "all" && (
+          {shownElsewhere.length > 0 && (filter === "all" || q) && (
             <section className="mt-12">
               <h2 className="font-display text-2xl font-bold">Hors de ta zone</h2>
-              <p className="mt-1 text-sm text-muted">Gardées à part parce que tout le reste correspond très bien.</p>
+              <p className="mt-1 text-sm text-muted">{q ? "Elles correspondent à ta recherche, mais ailleurs que là où tu cherches." : "Gardées à part parce que tout le reste correspond très bien."}</p>
               <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
-                {outOfZone.map((item) => (
+                {shownElsewhere.filter((i) => filter === "all" || i.level === filter).map((item) => (
                   <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
                 ))}
               </div>
@@ -392,9 +411,13 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   );
 }
 
-function SetAside({ items, loading, more, onMore, onOpen }: { items: FeedItem[]; loading: boolean; more: boolean; onMore: () => void; onOpen: (id: string) => void }) {
+function SetAside({ items, loading, more, searching, onMore, onOpen }: { items: FeedItem[]; loading: boolean; more: boolean; searching: boolean; onMore: () => void; onOpen: (id: string) => void }) {
   if (items.length === 0)
-    return <p className="rounded-2xl border border-line bg-surface p-6 text-muted">{loading ? "Chargement des offres écartées…" : "Aucune offre écartée pour l'instant."}</p>;
+    return (
+      <p className="rounded-2xl border border-line bg-surface p-6 text-muted">
+        {loading ? "Chargement des offres écartées…" : searching ? "Aucune offre écartée ne correspond à ta recherche." : "Aucune offre écartée pour l'instant."}
+      </p>
+    );
   return (
     <div>
       <p className="mb-4 text-sm text-muted">Chaque offre écartée affiche sa raison. Si une raison te semble fausse, c&apos;est un réglage de Ma recherche à revoir.</p>
