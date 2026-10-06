@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
-import { LLM_UNAVAILABLE_MESSAGE } from "@/lib/llm";
+import { LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
 import { redactPersonalData } from "@/lib/privacy/redact";
 import { extractCvSummary, interpretSearch } from "@/lib/profile/interpret";
 
@@ -23,8 +23,11 @@ export async function POST(request: Request) {
     const cvSummary = body.data.cvText?.trim() ? await extractCvSummary(redactPersonalData(body.data.cvText, knownNames)) : null;
     const criteria = await interpretSearch(body.data.text, cvSummary);
     return NextResponse.json({ criteria, cvSummary });
-  } catch {
+  } catch (error) {
     // Never an approximate answer: the person retries once the model is reachable again.
-    return NextResponse.json({ error: LLM_UNAVAILABLE_MESSAGE }, { status: 503 });
+    // Logs carry the error kind only, never the text being analysed.
+    console.error("interpret failed:", (error as Error).name, error instanceof LlmUnavailableError ? (error as Error).message : "");
+    if (error instanceof LlmUnavailableError) return NextResponse.json({ error: LLM_UNAVAILABLE_MESSAGE }, { status: 503 });
+    return NextResponse.json({ error: "L'analyse n'a pas abouti. Réessaie ; si ça se reproduit, reformule en quelques phrases." }, { status: 500 });
   }
 }

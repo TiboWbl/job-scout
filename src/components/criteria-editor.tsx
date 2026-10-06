@@ -114,7 +114,6 @@ function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: (
 
 export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange: (c: Criteria) => void }) {
   const set = <K extends keyof Criteria>(key: K, v: Criteria[K]) => onChange({ ...value, [key]: v });
-  const [more, setMore] = useState(false);
 
   return (
     <div className="grid gap-3.5 lg:grid-cols-2">
@@ -147,6 +146,19 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         <Chips values={value.sectorsOk} onChange={(v) => set("sectorsOk", v)} placeholder="Ajouter un secteur" label="Ajouter un secteur accepté" />
         <p className="mb-2 mt-4 text-[13px] font-medium text-muted">À éviter</p>
         <Chips values={value.sectorsAvoid} onChange={(v) => set("sectorsAvoid", v)} placeholder="Ajouter un secteur" label="Ajouter un secteur à éviter" />
+        <label className="mt-4 flex items-center gap-2.5 text-sm">
+          <input type="checkbox" checked={value.otherSectors.open} onChange={(e) => set("otherSectors", { ...value.otherSectors, open: e.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />
+          Ouvert aux autres secteurs
+        </label>
+        {value.otherSectors.open && (
+          <input
+            value={value.otherSectors.condition ?? ""}
+            onChange={(e) => set("otherSectors", { ...value.otherSectors, condition: e.target.value || null })}
+            placeholder="À une condition ? Ex. une vraie culture produit"
+            aria-label="Condition pour les autres secteurs"
+            className="mt-2 w-full rounded-xl border border-line bg-pill-solid px-3 py-2 text-sm placeholder:text-muted"
+          />
+        )}
       </Section>
 
       <Section title="Contrat et expérience">
@@ -174,6 +186,15 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
           />
           ans
         </label>
+        <label className="mt-3 flex items-center gap-3 text-sm">
+          Disponibilité
+          <input
+            value={value.availability ?? ""}
+            onChange={(e) => set("availability", e.target.value || null)}
+            placeholder="Ex. immédiate"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-pill-solid px-3 py-1.5 text-sm placeholder:text-muted"
+          />
+        </label>
       </Section>
 
       <Section title="Ouverture" hint="Pondère le classement entre ce qui te plaît le plus et tes chances d'être retenu·e.">
@@ -192,31 +213,13 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         </div>
       </Section>
 
-      <Section title="Plus de précisions">
-        {!more ? (
-          <button type="button" onClick={() => setMore(true)} className="text-sm font-semibold underline underline-offset-4">
-            Langues, entreprises à éviter ou à suivre, deal-breakers
-          </button>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <p className="mb-2 text-[13px] font-medium text-muted">Langues</p>
-              <Chips values={value.languages} onChange={(v) => set("languages", v)} placeholder="Ajouter une langue" label="Ajouter une langue" />
-            </div>
-            <div>
-              <p className="mb-2 text-[13px] font-medium text-muted">Entreprises à éviter</p>
-              <Chips values={value.companiesAvoid} onChange={(v) => set("companiesAvoid", v)} placeholder="Ajouter une entreprise" label="Ajouter une entreprise à éviter" />
-            </div>
-            <div>
-              <p className="mb-2 text-[13px] font-medium text-muted">Entreprises à suivre</p>
-              <Chips values={value.companiesFollow} onChange={(v) => set("companiesFollow", v)} placeholder="Ajouter une entreprise" label="Ajouter une entreprise à suivre" />
-            </div>
-            <div>
-              <p className="mb-2 text-[13px] font-medium text-muted">Deal-breakers</p>
-              <Chips values={value.dealBreakers} onChange={(v) => set("dealBreakers", v)} placeholder="Ex. astreintes le week-end" label="Ajouter un deal-breaker" />
-            </div>
-          </div>
-        )}
+      <Section title="Langues et entreprises">
+        <p className="mb-2 text-[13px] font-medium text-muted">Langues</p>
+        <Chips values={value.languages} onChange={(v) => set("languages", v)} placeholder="Ajouter une langue" label="Ajouter une langue" />
+        <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Entreprises exclues</p>
+        <Chips values={value.companiesAvoid} onChange={(v) => set("companiesAvoid", v)} placeholder="Ajouter une entreprise" label="Ajouter une entreprise exclue" />
+        <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Deal-breakers</p>
+        <Chips values={value.dealBreakers} onChange={(v) => set("dealBreakers", v)} placeholder="Ex. astreintes le week-end" label="Ajouter un deal-breaker" />
       </Section>
     </div>
   );

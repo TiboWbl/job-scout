@@ -29,7 +29,7 @@ GitHub Actions / bouton admin ──► collecte (TypeScript) ──► Supabase
 | `src/lib/collect` | Connecteurs, normalisation, dédoublonnage, orchestration de la collecte |
 | `src/lib/domain` | Modèle : critères (zod), géographie, signaux (contrat, expérience, séniorité) |
 | `src/lib/scoring` | Portes du préfiltre, pré-tri lexical, jugement LLM, moteur par budget de temps |
-| `src/lib/llm` | Abstraction du fournisseur (Mistral ou repli déterministe), file à 1 requête/s |
+| `src/lib/llm` | Abstraction du fournisseur (Mistral), file d'attente au rythme du plan gratuit |
 | `src/lib/privacy` | Retrait des données personnelles du CV avant tout appel au LLM |
 | `src/lib/design` | Couleur d'accent des entreprises et contrôle de contraste WCAG AA |
 | `supabase/migrations` | Schéma et politiques row-level security |
@@ -64,7 +64,8 @@ npm run dev
 **Mistral**
 - Clé API du plan gratuit.
 - Désactive « Anonymous improvement data » dans *Admin → Privacy*.
-- Sans clé, `LLM_PROVIDER=mock` donne une évaluation automatique simplifiée.
+- La clé est obligatoire : sans modèle joignable, Scout l'indique et réessaie, sans jamais deviner.
+- Le plan gratuit ne sert que les modèles `ministral` : Scout utilise `ministral-14b-2512`.
 
 **Admin**
 - `ADMIN_EMAIL` = ton adresse Google.
@@ -76,8 +77,8 @@ npm run dev
 |---|---|
 | `npm run collect` | Une passe de collecte complète (comptes agrégés en sortie) |
 | `npm run dry-run` | Collecte réelle + portes du préfiltre en mémoire, sans base, pour contrôler la qualité |
-| `npm test` | Tests unitaires et portes des 11 cas de non-régression |
-| `npm run test:llm` | Les 11 cas complets, prompt inclus (nécessite `MISTRAL_API_KEY`) |
+| `npm test` | Tests unitaires, portes et filet de sécurité des 12 cas de non-régression |
+| `npm run test:llm` | Les 12 cas complets, prompts inclus (nécessite `MISTRAL_API_KEY`) |
 
 ## Confidentialité
 

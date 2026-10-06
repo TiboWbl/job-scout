@@ -43,6 +43,10 @@ describe("filet de sécurité de l'extraction", () => {
     expect(promoted.targetRoles).toEqual(["Product Manager"]);
     expect(promoted.bridgeRoles).toEqual(["Product Owner", "Product Analyst", "QA avec évolution vers le produit"]);
   });
+  it("ne mélange pas passerelles et intitulés équivalents", () => {
+    const mixed = reconcile(Criteria.parse({ targetRoles: ["Product Manager"], titleVariants: ["Associate Product Manager", "Product Owner Junior", "Product Analyst"], bridgeRoles: ["Product Owner orienté discovery", "Product Analyst"] }), SEARCH_TEXT);
+    expect(mixed.titleVariants).toEqual(["Associate Product Manager"]);
+  });
   it("garde l'exclusion quand aucun contrat n'est demandé", () => {
     const none = reconcile(Criteria.parse({ contracts: [] }), "Je cherche un poste, sans alternance.");
     expect(none.contracts).not.toContain("alternance");

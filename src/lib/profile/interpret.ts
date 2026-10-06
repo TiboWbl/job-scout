@@ -131,6 +131,10 @@ export function reconcile(c: Criteria, text: string): Criteria {
   // "Product Manager (Growth)" is not how offers are titled: keep the searchable part only.
   out.titleVariants = uniq(out.titleVariants.map((v) => v.replace(/\s*\([^)]*\)/g, "").trim()).filter(Boolean), out.targetRoles);
   out.bridgeRoles = uniq(out.bridgeRoles, out.targetRoles);
+  // A bridge is not an equivalent title: "Product Owner Junior" stays out of the variants when
+  // "Product Owner orienté discovery" is a bridge. The core of a bridge drops its qualifiers.
+  const bridgeCores = out.bridgeRoles.map((b) => fold(b).split(/\s+(?:oriente|orientee|avec|en|pour|vers|dans)\b/)[0].replace(/\s*\(.*$/, "").trim());
+  out.titleVariants = out.titleVariants.filter((v) => !bridgeCores.some((core) => core.length > 2 && fold(v).includes(core)));
   out.sectorsAvoid = uniq(out.sectorsAvoid);
   const avoided = new Set(out.sectorsAvoid.map(fold));
   out.sectorsPriority = uniq(out.sectorsPriority).filter((s) => !avoided.has(fold(s)));

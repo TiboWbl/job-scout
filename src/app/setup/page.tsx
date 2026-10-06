@@ -1,6 +1,6 @@
 // Shown when the deployment is missing configuration. Lists variable names, never values.
-const REQUIRED = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "ADMIN_EMAIL"];
-const OPTIONAL = ["MISTRAL_API_KEY", "NEXT_PUBLIC_LOGO_DEV_TOKEN"];
+const REQUIRED = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "ADMIN_EMAIL", "MISTRAL_API_KEY"];
+const OPTIONAL = ["NEXT_PUBLIC_LOGO_DEV_TOKEN"];
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default function SetupPage() {
       </ul>
       {optionalMissing.length > 0 && (
         <p className="mt-6 text-sm text-muted">
-          Facultatives, absentes : {optionalMissing.join(", ")}. Sans clé Mistral, le classement utilise une évaluation automatique simplifiée.
+          Facultatives, absentes : {optionalMissing.join(", ")}. Sans token logo.dev, les logos viennent d&apos;un service de repli.
         </p>
       )}
     </main>

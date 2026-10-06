@@ -10,16 +10,24 @@ type Props = {
   mode: "onboarding" | "edit";
   initialText?: string;
   initialCriteria?: Criteria | null;
+  initialCvSummary?: CvSummary | null;
 };
 
+// One line proving the CV was read: education, experience, key skills.
+function cvLine(cv: CvSummary) {
+  const parts = [cv.education.slice(0, 1).join(""), cv.roles.slice(0, 2).join(", "), cv.skills.slice(0, 5).join(", ")].filter(Boolean);
+  return parts.join(" · ");
+}
+
 // Shared by onboarding and "Ma recherche": free text (+ optional CV) → editable chips → saved.
-export function SearchSetup({ mode, initialText = "", initialCriteria = null }: Props) {
+export function SearchSetup({ mode, initialText = "", initialCriteria = null, initialCvSummary = null }: Props) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
   const [cvText, setCvText] = useState<string | null>(null);
   const [cvName, setCvName] = useState<string | null>(null);
   const [criteria, setCriteria] = useState<Criteria | null>(initialCriteria);
   const [cvSummary, setCvSummary] = useState<CvSummary | null | undefined>(undefined);
+  const shownCv = cvSummary ?? initialCvSummary;
   const [busy, setBusy] = useState<"cv" | "interpret" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -46,8 +54,9 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null }: 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, cvText: cvText ?? undefined }),
-    });
+    }).catch(() => null);
     setBusy(null);
+    if (!res) return setError("Connexion perdue. Vérifie ta connexion et réessaie.");
     const data = await res.json().catch(() => null);
     if (!res.ok) return setError(data?.error ?? "L'analyse n'a pas abouti, réessaie dans un instant.");
     setCriteria(data.criteria);
@@ -101,23 +110,39 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null }: 
             disabled={busy !== null || (!text.trim() && !cvText)}
             className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-40"
           >
-            {busy === "interpret" ? "Scout réfléchit…" : criteria ? "Réanalyser" : "Analyser ma recherche"}
+            {busy === "interpret" ? "Analyse en cours…" : criteria ? "Réanalyser" : "Analyser ma recherche"}
           </button>
         </div>
 
         <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[13px] leading-relaxed text-muted">
-          <span className="font-semibold text-ink">Tes données personnelles restent chez toi. </span>
+          <span className="font-semibold text-ink">Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA. </span>
           Ton CV est lu dans ton navigateur puis envoyé à Scout, qui en retire ton nom, ton email, ton téléphone et ton adresse avant de l&apos;analyser avec une IA (Mistral).
           Le CV lui-même n&apos;est pas conservé, seulement les compétences et l&apos;expérience qui en sont extraites.
         </p>
         {error && <p className="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>}
       </section>
 
-      {criteria && (
+      {busy === "interpret" && (
+        <div role="status" className="flex items-center gap-4 rounded-[22px] border border-line bg-surface p-5">
+          <span aria-hidden className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-line border-t-brand" />
+          <div>
+            <p className="font-display text-lg font-bold tracking-tight">Scout lit ta recherche…</p>
+            <p className="text-sm text-muted">{cvText ? "Il lit aussi ton CV, sans tes coordonnées. Compte une vingtaine de secondes." : "Compte une dizaine de secondes."}</p>
+          </div>
+        </div>
+      )}
+
+      {criteria && busy !== "interpret" && (
         <>
           <div>
             <h2 className="font-display text-2xl font-bold tracking-tight">Ce que j&apos;ai compris</h2>
             <p className="mt-1 text-sm text-muted">Ajuste ce qui ne va pas : chaque puce se retire d&apos;un clic, et on en ajoute avec Entrée.</p>
+            {shownCv && cvLine(shownCv) && (
+              <p className="mt-3 rounded-xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
+                <span className="font-semibold">Depuis ton CV : </span>
+                {cvLine(shownCv)}
+              </p>
+            )}
           </div>
           <CriteriaEditor value={criteria} onChange={setCriteria} />
           <div className="flex flex-wrap items-center gap-3">
