@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ATS_LIST, fetchBoard, type Ats } from "./connectors/ats";
+import { ATS_LIST, type Ats } from "./connectors/ats";
 import { slugGuesses } from "./discover";
 import { companyKey } from "./normalize";
 import { collectBoard, keepInScope, scopeFromProfiles } from "./run";
@@ -30,49 +30,102 @@ export function atsFromText(text: string): { ats: Ats; token: string } | null {
   return null;
 }
 
-export type Resolution = { companyId: string; name: string; found: boolean; offers: number };
+export type Resolution = { companyId: string; name: string; found: boolean; platform: string | null; offers: number };
+export type Entry = { name?: string; site?: string };
 
-const isUrl = (s: string) => /^https?:\/\//i.test(s) || /^[\w-]+(\.[\w-]+)+\/?/.test(s);
+const isUrl = (s: string) => /^https?:\/\//i.test(s) || /^[\w-]+(\.[\w-]+)+(\/|$)/.test(s);
 const prettify = (token: string) => token.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const TIMEOUT = 8_000;
+const BROWSER = { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", "Accept-Language": "fr-FR,fr;q=0.9" };
 
-async function pageHtml(url: string): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Scout job aggregator" } }).catch(() => null);
-  return res?.ok ? await res.text() : "";
+// Career platforms Scout cannot read (no public API, or not a legal source): named, not ignored.
+const PLATFORMS: [string, RegExp][] = [
+  ["Welcome to the Jungle", /welcometothejungle\.com\/[a-z]{2}\/companies\/[a-z0-9-]+|welcomekit\.co/i],
+  ["Workday", /myworkdayjobs\.com/i],
+  ["SuccessFactors", /successfactors\.(com|eu)|jobs\.sap\.com/i],
+  ["Taleo", /taleo\.net/i],
+  ["Talentsoft", /talent-soft\.com|talentsoft/i],
+  ["DigitalRecruiters", /digitalrecruiters\.com/i],
+  ["Jobaffinity", /jobaffinity\.fr/i],
+  ["Flatchr", /flatchr\.io/i],
+  ["Taleez", /taleez\.com/i],
+  ["iCIMS", /icims\.com/i],
+];
+
+async function page(url: string): Promise<{ url: string; html: string } | null> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: BROWSER, redirect: "follow" }).catch(() => null);
+  return res?.ok ? { url: res.url, html: await res.text().catch(() => "") } : null;
 }
 
-// A guessed slug counts only if the board answers with at least one posting: empty boards prove nothing.
-async function probeName(name: string): Promise<{ ats: Ats; token: string; company: string } | null> {
+// Light checks, all in parallel: does this ATS have a non-empty board under this slug?
+const BOARD_CHECKS: Record<Ats, (t: string) => [string, (body: string) => boolean]> = {
+  greenhouse: (t) => [`https://boards-api.greenhouse.io/v1/boards/${t}/jobs`, (b) => /"jobs":\[\{/.test(b)],
+  lever: (t) => [`https://api.lever.co/v0/postings/${t}?mode=json&limit=1`, (b) => b.trim().startsWith("[{")],
+  ashby: (t) => [`https://api.ashbyhq.com/posting-api/job-board/${t}`, (b) => /"jobs":\[\{/.test(b)],
+  smartrecruiters: (t) => [`https://api.smartrecruiters.com/v1/companies/${t}/postings?limit=1`, (b) => /"totalFound":[1-9]/.test(b)],
+  workable: (t) => [`https://apply.workable.com/api/v1/widget/accounts/${t}`, (b) => /"jobs":\[\{/.test(b)],
+  recruitee: (t) => [`https://${t}.recruitee.com/api/offers/`, (b) => /"offers":\[\{/.test(b)],
+  teamtailor: (t) => [`https://${t}.teamtailor.com/jobs.rss`, (b) => b.includes("<item>")],
+  personio: (t) => [`https://${t}.jobs.personio.de/xml`, (b) => b.includes("<position>")],
+};
+
+async function probeName(name: string): Promise<{ ats: Ats; token: string } | null> {
   const guesses = slugGuesses(name).flatMap((token) => ATS_LIST.map((ats) => ({ ats, token })));
   const hits = await Promise.all(
     guesses.map(async (g) => {
-      const offers = await fetchBoard({ name, domain: null, ats: g.ats, token: g.token }).catch(() => []);
-      return offers.length > 0 ? { ...g, company: offers[0].company.name } : null;
+      const [url, ok] = BOARD_CHECKS[g.ats](g.token);
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: { "User-Agent": "Scout job aggregator" } }).catch(() => null);
+      return res?.ok && ok(await res.text().catch(() => "")) ? g : null;
     }),
   );
   return hits.find(Boolean) ?? null;
 }
 
-export async function resolveCompany(db: SupabaseClient, input: string): Promise<Resolution> {
-  const raw = input.trim();
-  let name = raw;
-  let domain: string | null = null;
-  let board: { ats: Ats; token: string } | null = null;
-
-  if (isUrl(raw)) {
-    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-    board = atsFromText(url);
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    if (!board) {
-      // A company's own careers page usually embeds or links its ATS board.
-      board = atsFromText(await pageHtml(url));
-      domain = host;
+// From the company's site: the careers link on its homepage and the usual addresses, in parallel.
+async function exploreSite(site: string): Promise<{ board: { ats: Ats; token: string } | null; platform: string | null; careersUrl: string | null }> {
+  const root = new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`);
+  const host = root.hostname.replace(/^www\./, "");
+  const home = await page(root.href);
+  const candidates = new Set([`https://${host}/careers`, `https://${host}/carrieres`, `https://${host}/jobs`, `https://${host}/recrutement`, `https://${host}/nous-rejoindre`, `https://jobs.${host}`, `https://careers.${host}`]);
+  for (const m of home?.html.matchAll(/href="([^"#]*(?:career|carri[eè]re|jobs|recrut|rejoindre|join-us|joinus|emploi|talent|hiring)[^"#]*)"/gi) ?? []) {
+    try {
+      candidates.add(new URL(m[1], home!.url).href);
+    } catch {
+      // not a URL
     }
-    name = board ? prettify(board.token) : prettify(host.split(".")[0]);
-  } else {
-    const { data: known } = await db.from("companies").select("id, name, ats").eq("name_key", companyKey(raw)).maybeSingle();
-    if (known?.ats) return { companyId: known.id, name: known.name, found: true, offers: 0 };
-    const probed = await probeName(raw);
-    if (probed) board = { ats: probed.ats, token: probed.token };
+  }
+  const pages = [home, ...(await Promise.all([...candidates].slice(0, 10).map(page)))].filter((p): p is { url: string; html: string } => Boolean(p));
+  for (const p of pages) {
+    const board = atsFromText(`${p.url} ${p.html}`);
+    if (board) return { board, platform: null, careersUrl: p.url };
+  }
+  for (const p of pages) {
+    const platform = PLATFORMS.find(([, re]) => re.test(`${p.url} ${p.html}`));
+    if (platform) return { board: null, platform: platform[0], careersUrl: p.url };
+  }
+  return { board: null, platform: null, careersUrl: null };
+}
+
+export async function resolveCompany(db: SupabaseClient, input: string | Entry): Promise<Resolution> {
+  const entry: Entry = typeof input === "string" ? (isUrl(input.trim()) ? { site: input.trim() } : { name: input.trim() }) : input;
+  const site = entry.site?.trim() || null;
+  const host = site ? new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`).hostname.replace(/^www\./, "") : null;
+  let name = entry.name?.trim() || prettify(host!.split(".")[0]);
+
+  if (entry.name) {
+    const { data: known } = await db.from("companies").select("id, name, ats").eq("name_key", companyKey(entry.name)).maybeSingle();
+    if (known?.ats) return { companyId: known.id, name: known.name, found: true, platform: null, offers: 0 };
+  }
+
+  // A board address given directly; otherwise the name and the site are explored side by side.
+  let board = site ? atsFromText(site) : null;
+  let platform: string | null = null;
+  let careersUrl: string | null = null;
+  if (!board) {
+    const [byName, bySite] = await Promise.all([probeName(entry.name ?? host!.split(".")[0]), site ? exploreSite(site) : null]);
+    board = bySite?.board ?? byName;
+    platform = board ? null : (bySite?.platform ?? null);
+    careersUrl = bySite?.careersUrl ?? null;
   }
 
   // Same board already in the directory: reuse it.
@@ -81,14 +134,20 @@ export async function resolveCompany(db: SupabaseClient, input: string): Promise
     if (same) {
       // "Backmarket" (from a URL slug) becomes "Back Market" once someone types the real name.
       const letters = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (!isUrl(raw) && letters(raw) === letters(same.name) && raw !== same.name) await db.from("companies").update({ name: raw }).eq("id", same.id);
-      return { companyId: same.id, name: isUrl(raw) ? same.name : raw, found: true, offers: 0 };
+      if (entry.name && letters(entry.name) === letters(same.name) && entry.name !== same.name) await db.from("companies").update({ name: entry.name }).eq("id", same.id);
+      return { companyId: same.id, name: entry.name ?? same.name, found: true, platform: null, offers: 0 };
     }
   }
 
   const key = companyKey(name);
   const { data: existing } = await db.from("companies").select("id, name").eq("name_key", key).maybeSingle();
-  const fields = { ...(board ? { ats: board.ats, ats_token: board.token, discovered_via: "user" } : {}), ...(domain ? { domain } : {}), ats_checked_at: new Date().toISOString() };
+  const fields = {
+    ...(board ? { ats: board.ats, ats_token: board.token, discovered_via: "user" } : {}),
+    ...(host ? { domain: host } : {}),
+    careers_platform: platform,
+    careers_url: careersUrl,
+    ats_checked_at: new Date().toISOString(),
+  };
   let companyId: string;
   if (existing) {
     await db.from("companies").update(fields).eq("id", existing.id);
@@ -104,7 +163,7 @@ export async function resolveCompany(db: SupabaseClient, input: string): Promise
   let offers = 0;
   if (board) {
     const keep = keepInScope(await scopeFromProfiles(db));
-    offers = (await collectBoard(db, { id: companyId, name, domain, ats: board.ats, token: board.token }, keep)).seen;
+    offers = (await collectBoard(db, { id: companyId, name, domain: host, ats: board.ats, token: board.token }, keep)).seen;
   }
-  return { companyId, name, found: Boolean(board), offers };
+  return { companyId, name, found: Boolean(board), platform, offers };
 }

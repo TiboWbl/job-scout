@@ -7,14 +7,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const maxDuration = 60;
 
 // Up to 8 entries per call: the client sends a long list in chunks and shows the progress.
-const Body = z.object({ entries: z.array(z.string().trim().min(2).max(300)).min(1).max(8) });
+const Entry = z.object({ name: z.string().trim().min(2).max(200).optional(), site: z.string().trim().min(4).max(300).optional() }).refine((e) => e.name || e.site);
+const Body = z.object({ entries: z.array(z.union([z.string().trim().min(2).max(300), Entry])).min(1).max(8) });
 
 export async function GET() {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
   const { data } = await auth.supabase
     .from("favorite_companies")
-    .select("input, created_at, company:companies(id, name, domain, brand, ats)")
+    .select("input, created_at, company:companies(id, name, domain, brand, ats, careers_platform)")
     .order("created_at", { ascending: false });
   return NextResponse.json({ favorites: data ?? [] });
 }
@@ -30,11 +31,13 @@ export async function POST(request: Request) {
   const results = await Promise.all(
     body.data.entries.map(async (input) => {
       try {
-        const r = await resolveCompany(admin, input);
-        const { error } = await auth.supabase.from("favorite_companies").upsert({ user_id: auth.user.id, company_id: r.companyId, input });
-        return error ? { input, error: true } : { input, name: r.name, found: r.found, offers: r.offers };
+        // A slow site must not sink the whole batch: past 25 s the entry is reported as not found.
+        const r = await Promise.race([resolveCompany(admin, input), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 25_000))]);
+        const typed = typeof input === "string" ? input : [input.name, input.site].filter(Boolean).join(" · ");
+        const { error } = await auth.supabase.from("favorite_companies").upsert({ user_id: auth.user.id, company_id: r.companyId, input: typed });
+        return error ? { input: typed, error: true } : { input: typed, name: r.name, found: r.found, platform: r.platform, offers: r.offers };
       } catch {
-        return { input, error: true };
+        return { input: typeof input === "string" ? input : (input.name ?? input.site), error: true };
       }
     }),
   );

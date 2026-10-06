@@ -4,27 +4,30 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CompanyLogo } from "@/components/company-logo";
 import { CloseIcon } from "@/components/icons";
 
-type Favorite = { input: string; company: { id: string; name: string; domain: string | null; brand: string | null; ats: string | null } };
+type Favorite = { input: string; company: { id: string; name: string; domain: string | null; brand: string | null; ats: string | null; careers_platform: string | null } };
 
 const CHUNK = 8;
 const TEMPLATE = "entreprise,site\nAcme Sport,https://www.acme-sport.fr/carrieres\nExemple Santé,\n";
 
+export type Entry = { name?: string; site?: string };
+
+const looksLikeSite = (x: string) => /^https?:\/\//i.test(x) || /^[\w-]+(\.[\w-]+)+(\/|$)/.test(x);
+
 // "Acme Sport" or a URL per line, "Acme, Exemple" on one line, or CSV rows "company,site" (site optional).
-export function parseEntries(text: string): string[] {
-  const looksLikeSite = (x: string) => /^https?:\/\//i.test(x) || /^[\w-]+(\.[\w-]+)+(\/|$)/.test(x);
+// A row keeps its name and its site together: the name finds boards, the site finds the careers page.
+export function parseEntries(text: string): Entry[] {
   return text
     .split(/\r?\n/)
-    .flatMap((line) => {
+    .flatMap((line): Entry[] => {
       const parts = line.split(/[,;\t]/).map((x) => x.trim());
-      // A CSV row: the site, when given, is the most precise way to find the career page.
-      if (parts.length === 2 && (parts[1] === "" || looksLikeSite(parts[1]))) return [parts[1] || parts[0]];
-      return parts;
+      if (parts.length === 2 && (parts[1] === "" || looksLikeSite(parts[1]))) return [{ name: parts[0] || undefined, site: parts[1] || undefined }];
+      return parts.map((p) => (looksLikeSite(p) ? { site: p } : { name: p }));
     })
-    .filter((x) => x && !/^(entreprise|company|nom|name|site)$/i.test(x));
+    .filter((e) => (e.name || e.site) && !/^(entreprise|company|nom|name|site)$/i.test(e.name ?? ""));
 }
 
 // Sends entries in chunks so a long list never hits the serverless time limit, reporting progress.
-export async function addFavorites(entries: string[], onProgress: (done: number) => void) {
+export async function addFavorites(entries: Entry[], onProgress: (done: number) => void) {
   for (let i = 0; i < entries.length; i += CHUNK) {
     await fetch("/api/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entries: entries.slice(i, i + CHUNK) }) }).catch(() => null);
     onProgress(Math.min(entries.length, i + CHUNK));
@@ -48,7 +51,7 @@ export function Favorites() {
     load();
   }, [load]);
 
-  async function add(entries: string[]) {
+  async function add(entries: Entry[]) {
     if (entries.length === 0) return;
     setProgress({ done: 0, total: entries.length });
     await addFavorites(entries, (done) => setProgress({ done, total: entries.length }));
@@ -121,6 +124,10 @@ export function Favorites() {
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{f.company.name}</span>
               {f.company.ats ? (
                 <span className="whitespace-nowrap rounded-full bg-pill px-2.5 py-1 text-xs font-medium text-ink">Page carrière trouvée</span>
+              ) : f.company.careers_platform ? (
+                <span className="whitespace-nowrap rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-muted" title="Scout ne peut pas lire cette plateforme. Ses offres vues sur les moteurs d'emploi restent signalées.">
+                  Offres sur {f.company.careers_platform}
+                </span>
               ) : (
                 <span className="whitespace-nowrap rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-muted" title="Ses offres vues sur les moteurs d'emploi restent signalées.">
                   Page carrière introuvable

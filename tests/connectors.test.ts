@@ -64,7 +64,7 @@ describe("filtre géographique à la collecte", () => {
 describe("liste d'entreprises favorites", () => {
   it("lit une entreprise par ligne, des virgules, des URL et un CSV à deux colonnes", async () => {
     const { parseEntries } = await import("@/components/favorites");
-    expect(parseEntries("Acme Sport\nExemple Santé, Autre Boîte\nhttps://jobs.lever.co/acme")).toEqual(["Acme Sport", "Exemple Santé", "Autre Boîte", "https://jobs.lever.co/acme"]);
-    expect(parseEntries("entreprise,site\nAcme Sport,https://acme.fr/carrieres\nExemple Santé,")).toEqual(["https://acme.fr/carrieres", "Exemple Santé"]);
+    expect(parseEntries("Acme Sport\nExemple Santé, Autre Boîte\nhttps://jobs.lever.co/acme")).toEqual([{ name: "Acme Sport" }, { name: "Exemple Santé" }, { name: "Autre Boîte" }, { site: "https://jobs.lever.co/acme" }]);
+    expect(parseEntries("entreprise,site\nAcme Sport,https://acme.fr\nExemple Santé,")).toEqual([{ name: "Acme Sport", site: "https://acme.fr" }, { name: "Exemple Santé", site: undefined }]);
   });
 });
