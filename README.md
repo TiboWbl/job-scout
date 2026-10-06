@@ -42,6 +42,7 @@ Choix notables :
 - **Scoring en tranches de moins de 52 s** : portes d'abord, puis seulement les offres à l'intitulé proche, en lots parallèles au rythme du plan gratuit de Mistral. Chaque appel tient dans la limite Vercel Hobby, et l'interface relance jusqu'à ce que tout soit évalué.
 - **Une seule couleur stockée** par entreprise (le code hex extrait du logo), jamais une copie du logo.
 - **Logs de collecte agrégés par source**, sans aucune donnée d'utilisateur (le repo et ses logs CI sont publics).
+- **Robot GitHub Actions** 3 fois par jour : collecte, puis tri pour chaque profil ; découverte de pages carrière chaque lundi.
 
 ## Installation
 
@@ -80,6 +81,7 @@ npm run dev
 |---|---|
 | `npm run collect` | Une passe de collecte complète (comptes agrégés en sortie) |
 | `npm run discover` | Agrandit l'annuaire de pages carrière (`--crawls 3 --names 300`) |
+| `npm run score:all` | Trie les nouvelles offres pour chaque profil (lancé par le robot après la collecte) |
 | `npm run brand` | Régénère le logo, les icônes et l'image de partage |
 | `npm run dry-run` | Collecte réelle + portes du préfiltre en mémoire, sans base, pour contrôler la qualité |
 | `npm test` | Tests unitaires, portes et filet de sécurité des 12 cas de non-régression |

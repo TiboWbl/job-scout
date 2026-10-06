@@ -124,7 +124,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - Import en masse possible (CSV, listes d'URL, annuaires sectoriels, incubateurs).
   - Fiche entreprise : logo, photo, description, secteur, taille, offres ouvertes, lien carrière.
 - Onglet **Entreprises** : découvrir les entreprises qui correspondent à ma recherche, même sans offre ouverte, et les suivre.
-- Collecte 2 à 3 fois par jour via GitHub Actions.
+- Collecte et tri 3 fois par jour via GitHub Actions (`.github/workflows/collect.yml`, 7 h, 13 h et 19 h à Paris) : collecte, puis tri des nouvelles offres pour chaque profil (`npm run score:all`) ; découverte de pages carrière le lundi matin ; lancement manuel possible. Le robot garde aussi le projet Supabase gratuit actif.
+- Entretien de la base : archivage des offres retirées des pages carrière à chaque lecture, archivage des offres des moteurs non revues depuis 21 jours, purge des descriptions archivées depuis 60 jours ; taille de la base affichée dans l'admin face aux 500 Mo du plan gratuit.
 - **Monitoring de santé par source** : offres par run, erreurs, alerte si une source tombe à zéro ou chute anormalement.
 
 ## Normalisation et déduplication
@@ -267,7 +268,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - tableau de bord sobre, avec graphiques, utile pour suivre le produit et le présenter en entretien : offres actives et nouvelles par jour, entreprises dans l'annuaire et leur origine, sources et leur santé, utilisateurs actifs, offres triées par l'IA, répartition des niveaux, candidatures suivies (agrégées, jamais nominatives).
 - **Barre latérale** : en bas, la photo du compte Google et le prénom ; un clic ouvre un petit menu (Admin pour l'admin, Se déconnecter).
 - **Jamais d'attente muette** : toute opération en arrière-plan (analyse, tri, ajout, collecte, import) montre une progression ou un indicateur de chargement.
-- RGPD : page « Confidentialité » (données collectées, usage de Mistral, suppression) et suppression complète du compte et des données en un clic. Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
+- RGPD : page publique « Confidentialité » (`/confidentialite` : données gardées, usage de Mistral sans nom ni coordonnées, sous-traitants, cookie unique, droits ; contact par la variable facultative `CONTACT_EMAIL`) et suppression complète du compte en deux clics dans « Ma recherche » (l'utilisateur est supprimé, tout ce qui lui est rattaché suit en cascade, l'invitation est effacée). Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
 - Clés API en variables d'environnement (et secrets GitHub), jamais dans le code.
 
 ## Repo public
