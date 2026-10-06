@@ -13,7 +13,8 @@
     "collect": "tsx scripts/collect.mts",
     "dry-run": "tsx scripts/dry-run.mts",
     "discover": "tsx scripts/discover.mts",
-    "brand": "tsx scripts/brand.mts"
+    "brand": "tsx scripts/brand.mts",
+    "score:all": "tsx scripts/score-all.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

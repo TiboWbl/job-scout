@@ -1,0 +1,54 @@
+# Collects offers, then sorts what is new for every person, three times a day. Also keeps the free
+# Supabase project awake (it pauses after 7 days without activity).
+# The repo is public, so are these logs: scripts print aggregated counts per source only.
+name: Collecte et tri
+
+on:
+  schedule:
+    # 07:00, 13:00 and 19:00 in Paris (UTC+2 in summer, UTC+1 in winter: about the same hours).
+    - cron: "0 5,11,17 * * *"
+    # Monday morning: look for new career pages too.
+    - cron: "30 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      discover:
+        description: "Chercher aussi de nouvelles pages carrière"
+        type: boolean
+        default: false
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      NEXT_PUBLIC_LOGO_DEV_TOKEN: ${{ secrets.NEXT_PUBLIC_LOGO_DEV_TOKEN }}
+      ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+      ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+      JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+      FRANCE_TRAVAIL_CLIENT_ID: ${{ secrets.FRANCE_TRAVAIL_CLIENT_ID }}
+      FRANCE_TRAVAIL_CLIENT_SECRET: ${{ secrets.FRANCE_TRAVAIL_CLIENT_SECRET }}
+      LLM_PROVIDER: mistral
+      LLM_MODEL_FAST: ministral-14b-2512
+      LLM_MODEL_STRONG: ministral-14b-2512
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Découverte de pages carrière
+        if: github.event.schedule == '30 4 * * 1' || inputs.discover
+        run: npm run discover -- --crawls 2 --names 300
+      - name: Collecte
+        run: npm run collect
+      - name: Tri des nouvelles offres
+        run: npm run score:all

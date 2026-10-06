@@ -31,7 +31,8 @@ const bars = (rows: Row[] | null, key: string, labels: Record<string, string>): 
 // Grouping happens in Postgres (supabase/migrations/0009_admin_stats.sql): the page stays fast as data grows.
 export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
   const count = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0;
-  const [sources, perDayRows, origins, levels, activeOffers, directory, onboarded, applications, added, favorites] = await Promise.all([
+  const [dbSize, sources, perDayRows, origins, levels, activeOffers, directory, onboarded, applications, added, favorites] = await Promise.all([
+    db.rpc("admin_db_size"),
     db.rpc("admin_offer_sources"),
     db.rpc("admin_offers_per_day", { days: CHART_DAYS }),
     db.rpc("admin_directory_origins"),
@@ -53,6 +54,7 @@ export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
   const levelBars = bars(levels.data as Row[], "level", LEVEL_LABELS);
 
   return {
+    dbMegabytes: Math.round(Number(dbSize.data ?? 0) / 1_048_576),
     activeOffers,
     directory,
     judgedByAi: levelBars.reduce((n, b) => n + b.value, 0),

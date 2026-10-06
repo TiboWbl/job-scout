@@ -32,6 +32,9 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
               Admin
             </Link>
           )}
+          <Link href="/confidentialite" role="menuitem" onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 font-medium hover:bg-pill-solid">
+            Confidentialité
+          </Link>
           <form action="/auth/signout" method="post">
             <button type="submit" role="menuitem" className="w-full rounded-xl px-3 py-2.5 text-left font-medium hover:bg-pill-solid">
               Se déconnecter

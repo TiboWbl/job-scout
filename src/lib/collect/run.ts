@@ -15,6 +15,9 @@ export type SourceReport = { source: string; seen: number; created: number; arch
 const MAX_GENERATED_QUERIES = 8;
 const COLOR_BATCH = 150;
 const RETENTION_DAYS = 60;
+// Search engines never say when an offer is withdrawn: unseen for this long, it is archived.
+const ENGINE_STALE_DAYS = 21;
+const ENGINE_SOURCES = ["adzuna", "jooble", "france-travail"];
 const BOARD_CONCURRENCY = 6;
 
 // Logs stay aggregated: counts per source, never anything about a user.
@@ -65,6 +68,7 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
     // Who really recruits (group, institution) and a verified domain, before logos are coloured.
     await enrichCompanies(db).catch(() => null);
     await fillCompanyColors(db);
+    await archiveStaleEngineOffers(db);
     await purgeOldDescriptions(db);
   }
   return reports;
@@ -264,6 +268,12 @@ async function fillCompanyColors(db: SupabaseClient) {
     }
     await db.from("companies").update({ accent_color: accent, color_checked_at: new Date().toISOString() }).eq("id", c.id);
   }
+}
+
+async function archiveStaleEngineOffers(db: SupabaseClient) {
+  const cutoff = new Date(Date.now() - ENGINE_STALE_DAYS * 86_400_000).toISOString();
+  // Only offers known from engines alone: a career page lists its offers, so its own archiving is exact.
+  await db.from("offers").update({ archived_at: new Date().toISOString() }).is("archived_at", null).lt("last_seen_at", cutoff).containedBy("sources", ENGINE_SOURCES);
 }
 
 async function purgeOldDescriptions(db: SupabaseClient) {

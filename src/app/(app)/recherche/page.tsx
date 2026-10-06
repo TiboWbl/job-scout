@@ -1,5 +1,6 @@
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import { getUser } from "@/lib/supabase/server";
+import { DeleteAccount } from "@/components/delete-account";
 import { Favorites } from "@/components/favorites";
 import { SearchSetup } from "@/components/search-setup";
 
@@ -20,6 +21,9 @@ export default async function RecherchePage() {
       </div>
       <div className="mt-8">
         <Favorites />
+      </div>
+      <div className="mt-8">
+        <DeleteAccount />
       </div>
     </div>
   );
