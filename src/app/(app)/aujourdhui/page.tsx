@@ -73,26 +73,27 @@ export default async function TodayPage() {
         {followUps.length > 0 && <span className="rounded-full bg-peach-soft px-3.5 py-1.5 text-peach-ink">{plural(followUps.length, "relance", "relances")}</span>}
       </div>
 
-      <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <section>
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-display text-2xl font-bold">Ta sélection du jour</h2>
-            <Link href="/offres" className="btn-soft">
-              Toutes mes offres
-            </Link>
-          </div>
+      {/* Heading outside the grid: the side panels line up with the first offer, not with the title. */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 xl:pr-[384px]">
+        <h2 className="font-display text-2xl font-bold">Ta sélection du jour</h2>
+        <div className="flex flex-wrap items-center gap-2">
           {pending > 0 && (
-            <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
-              Encore {pending.toLocaleString("fr-FR")} offres à trier.
-              <Link href="/offres" className="btn-soft">
-                Lancer le tri
-              </Link>
-            </p>
+            <Link href="/offres" className="btn-soft">
+              Trier les {pending.toLocaleString("fr-FR")} nouvelles offres
+            </Link>
           )}
+          <Link href="/offres" className="btn-soft">
+            Toutes mes offres
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section>
           {selection.length === 0 ? (
-            <p className="mt-4 rounded-2xl bg-surface p-6 text-muted">Rien de nouveau pour l&apos;instant. Scout continue de chercher.</p>
+            <p className="rounded-2xl bg-surface p-6 text-muted">Rien de nouveau pour l&apos;instant. Scout continue de chercher.</p>
           ) : (
-            <ul className="mt-4 space-y-2.5">
+            <ul className="space-y-2.5">
               {selection.map((r) => (
                 <li key={r.offer.id}>
                   <Link

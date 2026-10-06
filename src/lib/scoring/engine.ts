@@ -5,7 +5,7 @@ import { chancesCap, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
 import { titleRelevance } from "./relevance";
-import { judgeBatch, type JudgeInput } from "./judge";
+import { judgeBatch, type JudgeInput, type Judgement } from "./judge";
 
 const BATCH_SIZE = 8;
 // A batch of 8 takes ~20-25 s on the free model; with 2.1 s between starts, ~12 fit in one call.
@@ -158,11 +158,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
-          .map(({ offer, outOfZone, gap }) => {
-            const judged = results.get(offer.id)!;
-            // The experience gate keeps its word whatever the model thought of the chances.
-            return { ...base, offer_id: offer.id, out_of_zone: outOfZone, ...judged, score_chances: Math.min(judged.score_chances, chancesCap(gap)), scored_by: "llm" };
-          });
+          .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service));
         if (rows.length > 0) {
           const { error: e } = await db.from("offer_scores").upsert(rows);
           if (e) throw e;
@@ -183,6 +179,32 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const unfinished = running.length - finished + failures.length;
 
   return { scoredNow, remaining: candidates.length + missed + unfinished * BATCH_SIZE, total: offers.length };
+}
+
+// The experience gate keeps its word whatever the model thought of the chances. When the model found
+// the years asked (with a verified quote) and the detector had not, the gate applies with them, and the
+// shared offer learns them for everyone.
+function scoreRow(
+  base: { user_id: string; criteria_version: number },
+  offerId: string,
+  outOfZone: boolean,
+  gap: number,
+  judged: Judgement,
+  experienceYears: number | null,
+  knownYears: number | null,
+  service: SupabaseClient | null,
+): Record<string, unknown> {
+  const { experience_years: found, ...rest } = judged;
+  let effectiveGap = gap;
+  if (knownYears === null && found !== null) {
+    if (service) void service.from("offers").update({ experience_min_years: found }).eq("id", offerId).is("experience_min_years", null);
+    if (experienceYears !== null) {
+      effectiveGap = Math.max(gap, found - experienceYears);
+      if (found - experienceYears >= 4)
+        return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: `${found} ans d'expérience demandés, ${experienceYears} de ton côté.`, scored_by: "llm" };
+    }
+  }
+  return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, score_chances: Math.min(rest.score_chances, chancesCap(effectiveGap)), scored_by: "llm" };
 }
 
 // An offer the person added themselves: same gates and judgement, no title pre-sort, right away.
@@ -226,7 +248,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
     );
     for (const { offer, outOfZone, gap } of toJudge) {
       const judged = results.get(offer.id);
-      if (judged) rows.push({ ...base, offer_id: offer.id, out_of_zone: outOfZone, ...judged, score_chances: Math.min(judged.score_chances, chancesCap(gap)), scored_by: "llm" });
+      if (judged) rows.push(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null));
     }
   }
   if (rows.length > 0) {

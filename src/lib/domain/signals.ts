@@ -38,12 +38,20 @@ export function detectContract(title: string, explicit?: string | null, descript
   return "unknown";
 }
 
+// A number of years, alone or as a range: "3", "3+", "3 ou plus", "3-5", "3 à 5".
+const YEARS = String.raw`(\d{1,2})\s*(?:\+|ou plus|or more)?\s*(?:(?:a|-|to|–)\s*\d{1,2}\s*\+?\s*)?`;
+const UNIT = String.raw`(?:ans?|annees?|years?|yrs?)\b['’]?`;
+// What follows the years when they describe the candidate's experience, not the company's history.
+const CONTEXT = String.raw`(?:in|as|of|on|at|working|within|en|dans|comme|chez|sur|d['’ ]?|de|minimum|min\b|(?:\w+\s+){0,3}experience|(?:\w+\s+){0,3}exp\b)`;
 const EXPERIENCE_PATTERNS = [
-  /(\d{1,2})\s*(?:\+|ou plus)?\s*(?:(?:a|-|to|–)\s*\d{1,2}\s*)?(?:ans|annees?)\s+(?:minimum\s+)?(?:d['’ ]\s*)?(?:experience|exp\b)/g,
-  /(?:minimum|au moins|at least)\s+(\d{1,2})\s*(?:ans|annees?|years?)/g,
-  /(\d{1,2})\s*\+?\s*(?:(?:-|to|–)\s*\d{1,2}\s*)?years?\s+(?:of\s+)?(?:\w+\s+){0,3}experience/g,
-  /experience\s+(?:de\s+|of\s+)?(\d{1,2})\s*\+?\s*(?:ans|years?)/g,
+  new RegExp(`${YEARS}${UNIT}\\s+(?:minimum\\s+)?(?:d['’ ]\\s*)?(?:experience|exp\\b)`, "g"),
+  /(?:minimum|au moins|at least|min\.?)\s+(?:de\s+)?(\d{1,2})\s*\+?\s*(?:ans?|annees?|years?|yrs?)\b/g,
+  /experience\s+(?:de\s+|of\s+|minimum\s+de\s+|d['’ ]au moins\s+)?(\d{1,2})\s*\+?\s*(?:(?:a|-|to|–)\s*\d{1,2}\s*)?(?:ans?|annees?|years?|yrs?)\b/g,
+  // "3+ years in product management", "5 years as a PM", "3 ans en gestion de produit", "2 ans sur un poste similaire"
+  new RegExp(`${YEARS}${UNIT}\\s+${CONTEXT}`, "g"),
 ];
+// Years that describe the company or a past period, never a requirement.
+const NOT_A_REQUIREMENT = /(?:depuis|since|founded|fondee?|cree+e?|il y a|ago|over the (?:past|last)|for the (?:past|last)|pendant|during|age|old|garantie|guarantee|anniversaire)\s*(?:\w+\s+){0,2}$/;
 
 // Lowest number of years the offer asks for, or null when it doesn't say.
 export function detectExperienceYears(description: string): number | null {
@@ -52,7 +60,9 @@ export function detectExperienceYears(description: string): number | null {
   for (const re of EXPERIENCE_PATTERNS) {
     for (const m of n.matchAll(re)) {
       const years = Number(m[1]);
-      if (Number.isFinite(years) && years <= 20 && (min === null || years < min)) min = years;
+      const before = n.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0);
+      if (NOT_A_REQUIREMENT.test(before)) continue;
+      if (Number.isFinite(years) && years <= 15 && (min === null || years < min)) min = years;
     }
   }
   return min;

@@ -316,16 +316,23 @@ Découpage en phases : à la fin de chacune, tests verts, commit + push, site te
 4. **Automatisation et conformité** : cron GitHub Actions (collecte puis scoring des nouvelles offres), page Confidentialité, suppression du compte, archivage et purge.
 5. **Mode démo et page d'accueil publique.**
 
-Ensuite (backlog) :
-- Auto-enrichissement de l'annuaire depuis les entreprises vues dans les offres des moteurs (Jooble, Careerjet).
-- Page Stats : entonnoir trouvées → sauvegardées → postulées → entretiens → offres, activité par semaine, taux et délai de réponse, répartition par niveau et par source. Graphes lisibles, actions mises en avant, refus affichés sobrement, pas de rouge.
-- Taux de couverture : la part des offres ajoutées par URL que Scout avait déjà trouvées.
-- Réinjection des « Pas pour moi » dans le scoring.
-- Analyse CV ATS (note sur 100, vue « Ce que voit un ATS », comparaison à une offre).
-- README vitrine avec lien vers la démo.
-- Notifications : Telegram pour un Coup de cœur, digest quotidien désactivable.
-- Bascule manuelle clair/sombre, raccourci ⌘K, finitions mobile.
-- Onglet Entreprises.
-- Vérification de marque Google (logo et nom sur l'écran de connexion).
+Ensuite (backlog, V2), par thème :
+
+- **Design** : une passe dédiée (rythme typographique, états vides illustrés, micro-animations, cohérence de toutes les pages) à partir des retours notés et d'exemples WTTJ / Apple fournis par l'utilisateur ; bascule manuelle clair/sombre ; finitions mobile ; raccourci ⌘K.
+- **CV** : analyse ATS (note sur 100 avec le détail par catégorie, vue « Ce que voit un ATS », recommandations concrètes, comparaison à une offre précise, historique des versions).
+- **Pertinence** :
+  - réinjection des « Pas pour moi » et de leur raison dans le scoring ;
+  - dédoublonnage des offres publiées sous des intitulés différents selon la source (ex. la même offre d'Alan, « Product Manager - Sales AI » sur Adzuna et « Product Builder - Sales AI » sur sa page carrière) ;
+  - tri au choix (plus récentes / plus pertinentes).
+- **Couverture** :
+  - Careerjet ; France Travail à retenter (API absente du catalogue en libre-service) ;
+  - connecteurs pour d'autres ATS courants des grands groupes (Workday, SuccessFactors, Taleo) ;
+  - plus de passages de Common Crawl par découverte ;
+  - auto-enrichissement de l'annuaire depuis les entreprises vues dans les offres des moteurs.
+- **Mesure** : page Stats (entonnoir trouvées → sauvegardées → postulées → entretiens → offres, activité par semaine, taux et délai de réponse, répartition par niveau et par source ; actions mises en avant, refus sobres, pas de rouge) ; taux de couverture (part des offres ajoutées par URL que Scout avait déjà trouvées).
+- **Notifications** : Telegram pour un Coup de cœur, digest quotidien désactivable.
+- **Entreprises** : onglet Entreprises (découvrir et suivre des entreprises même sans offre ouverte).
+- **Vitrine** : README vitrine avec lien vers la démo ; vérification de marque Google (logo et nom sur l'écran de connexion, nécessite la page Confidentialité et la page d'accueil publique).
+- **Admin** : premier chargement lent dû au démarrage à froid des fonctions Vercel (plan gratuit) ; à revoir si gênant.
 
 Hors périmètre (v2) : extension « Ajouter à Scout », signaux de candidature spontanée, aide à la rédaction de messages.

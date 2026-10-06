@@ -35,11 +35,15 @@ describe("niveau dérivé des réponses du modèle", () => {
 describe("faits vérifiés dans l'offre (jamais inventés)", async () => {
   const { verifiedExperience, verifiedSalary } = await import("@/lib/scoring/judge");
   it("la lecture du texte l'emporte sur l'IA", () => {
-    expect(verifiedExperience("3 ans et plus", 5, "At least 5 years in a product role")).toBe("5 ans et plus");
+    expect(verifiedExperience("3 ans et plus", 5, "At least 5 years in a product role").label).toBe("5 ans et plus");
   });
   it("refuse une expérience absente du texte (cas d'un extrait de 500 caractères)", () => {
-    expect(verifiedExperience("3 ans et plus", null, "Product Manager Sales AI, CDI à Paris, rejoins une équipe en croissance.")).toBeNull();
-    expect(verifiedExperience("3 ans et plus", null, "Profil : 3 ans d'expérience minimum en produit.")).toBe("3 ans et plus");
+    expect(verifiedExperience("3 ans et plus", null, "Product Manager Sales AI, CDI à Paris, rejoins une équipe en croissance.").label).toBeNull();
+  });
+  it("accepte la lecture de l'IA seulement avec une citation exacte qui contient les années", () => {
+    const text = "Preferred experience. Must-haves - 3+ years in product management, ideally in a mobile-first consumer app.";
+    expect(verifiedExperience("3 ans et plus", null, text, "3+ years in product management")).toEqual({ label: "3 ans et plus", years: 3 });
+    expect(verifiedExperience("5 ans et plus", null, text, "5+ years in product management")).toEqual({ label: null, years: null });
   });
   it("garde un salaire seulement s'il est écrit", () => {
     expect(verifiedSalary("45-55 k€", "Salaire : 45 000 - 55 000 € brut")).toBe("45-55 k€");

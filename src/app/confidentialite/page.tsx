@@ -6,7 +6,7 @@ export const metadata = { title: "Confidentialité · Scout" };
 export default function PrivacyPage() {
   const contact = process.env.CONTACT_EMAIL;
   return (
-    <div className="max-w-2xl px-1 pb-16 pt-3 md:px-2">
+    <div className="mx-auto w-full max-w-3xl px-1 pb-16 pt-3 md:px-2">
       <Link href="/" className="btn-soft">
         ← Retour à Scout
       </Link>
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         Scout est un projet personnel, gratuit et non commercial, ouvert sur invitation. Il garde le strict nécessaire pour trier les offres pour toi et suivre ta recherche. Rien n&apos;est vendu, partagé avec d&apos;autres utilisateurs ou utilisé pour de la publicité.
       </p>
 
-      <div className="mt-10 space-y-8 text-[15.5px] leading-relaxed [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_li]:mt-1.5 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5">
+      <div className="mt-8 space-y-8 rounded-[22px] border border-line bg-surface p-6 text-[15.5px] leading-relaxed md:p-8 [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_li]:mt-1.5 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5">
         <section>
           <h2>Ce que Scout garde</h2>
           <ul>

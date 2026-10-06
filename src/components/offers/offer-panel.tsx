@@ -8,14 +8,12 @@ import { tintStyle } from "@/lib/design/color";
 import { freshness, placeLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/browser";
 import { CompanyLogo } from "@/components/company-logo";
-import { ArrowIcon, CloseIcon, CollapseIcon, ExpandIcon, NopeIcon, SaveIcon } from "@/components/icons";
+import { ArrowIcon, CloseIcon, NopeIcon, SaveIcon } from "@/components/icons";
 import { LevelBadge } from "@/components/level-badge";
 import { NopeMenu } from "./nope-menu";
 
 type Props = {
   item: FeedItem;
-  expanded: boolean;
-  onToggleExpand: () => void;
   onClose: () => void;
   onSave: () => void;
   onNope: (reason: string) => void;
@@ -43,7 +41,7 @@ function toBlocks(text: string): Block[] {
   return blocks;
 }
 
-export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, onNope, onApply }: Props) {
+export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
   const { offer } = item;
   const [description, setDescription] = useState<string | null>(null);
   const [nopeOpen, setNopeOpen] = useState(false);
@@ -71,13 +69,12 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
 
   // The page behind must not scroll while the offer fills the screen.
   useEffect(() => {
-    if (!expanded) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previous;
     };
-  }, [expanded]);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -101,11 +98,7 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
       style={style}
       aria-label={`Détail de l'offre ${offer.title}`}
       onClick={(e) => e.stopPropagation()}
-      className={
-        expanded
-          ? "tinted-vars animate-rise flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl"
-          : "tinted-vars animate-slide-in fixed inset-y-0 right-0 z-40 flex w-full max-w-[480px] flex-col overflow-hidden border-l border-line bg-surface shadow-2xl xl:inset-y-4 xl:right-4 xl:rounded-3xl xl:border"
-      }
+      className="tinted-vars animate-rise flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl"
     >
       <div className={`relative shrink-0 bg-[var(--band)] ${offer.company.cover_url && !coverFailed ? "h-44" : "h-[92px]"}`}>
         {offer.company.cover_url && !coverFailed && (
@@ -113,15 +106,6 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
           <img src={offer.company.cover_url} alt="" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
         )}
         <div className="absolute right-4 top-4 flex gap-2">
-          <button
-            type="button"
-            onClick={onToggleExpand}
-            aria-label={expanded ? "Réduire" : "Afficher en plein écran"}
-            title={expanded ? "Réduire" : "Plein écran"}
-            className="hidden h-9 w-9 place-items-center rounded-full bg-white/80 text-[#17151f] hover:bg-white md:grid"
-          >
-            {expanded ? <CollapseIcon className="h-4 w-4" /> : <ExpandIcon className="h-4 w-4" />}
-          </button>
           <button type="button" onClick={onClose} aria-label="Fermer" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-[#17151f] hover:bg-white">
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -131,8 +115,8 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
         </div>
       </div>
 
-      <div className={`flex-1 overflow-y-auto px-6 pb-6 pt-11 ${expanded ? "md:px-10" : ""}`}>
-        <div className={expanded ? "mx-auto max-w-3xl" : ""}>
+      <div className="flex-1 overflow-y-auto px-6 pb-6 pt-11 md:px-10">
+        <div className="mx-auto max-w-3xl">
         <div className="flex justify-end">
           <LevelBadge level={item.level} />
         </div>
@@ -230,7 +214,6 @@ export function OfferPanel({ item, expanded, onToggleExpand, onClose, onSave, on
     </aside>
   );
 
-  if (!expanded) return panel;
   // Full screen: a dialog over the content area (the sidebar stays visible); a click beside it or Escape closes it.
   return (
     <div role="dialog" aria-modal="true" onClick={onClose} className="fixed inset-0 z-40 flex justify-center bg-[#17151f]/45 p-4 backdrop-blur-sm md:left-[252px] md:p-6">

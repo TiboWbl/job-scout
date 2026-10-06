@@ -81,7 +81,6 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [showStale, setShowStale] = useState(false);
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
-  const [expanded, setExpanded] = useState(false);
   const favoriteIds = useMemo(() => new Set(favoriteCompanyIds), [favoriteCompanyIds]);
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
@@ -155,7 +154,9 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   }, [toast]);
 
   const { main, outOfZone, set_aside } = useMemo(() => {
-    const byRank = (a: FeedItem, b: FeedItem) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || rank(b, openness) - rank(a, openness);
+    // Within a level, the newest first (applying early matters); fit breaks ties.
+    const day = (i: FeedItem) => Math.floor(new Date(i.offer.published_at ?? i.offer.first_seen_at).getTime() / 86_400_000);
+    const byRank = (a: FeedItem, b: FeedItem) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || day(b) - day(a) || rank(b, openness) - rank(a, openness);
     const visible = items.filter((i) => !i.dismissed);
     return {
       main: visible.filter((i) => i.level !== "ecartee" && !i.out_of_zone).sort(byRank),
@@ -223,11 +224,11 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   }
 
   return (
-    <div className={`px-1 pb-16 pt-3 md:px-2 ${open ? "xl:pr-[500px]" : ""}`}>
+    <div className="px-1 pb-16 pt-3 md:px-2">
       <h1 className="font-display text-5xl font-extrabold tracking-tight">Offres</h1>
       <p className="mt-2 text-[15px] text-muted">
         {main.length - staleCount > 0
-          ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, classées par niveau puis par pertinence.`
+          ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
           : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
       </p>
 
@@ -325,7 +326,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         />
       ) : (
         <>
-          <div className={`grid gap-3.5 ${open ? "sm:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"}`}>
+          <div className="grid gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
             {shown.map((item) => (
               <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
             ))}
@@ -342,7 +343,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             <section className="mt-12">
               <h2 className="font-display text-2xl font-bold">Hors de ta zone</h2>
               <p className="mt-1 text-sm text-muted">Gardées à part parce que tout le reste correspond très bien.</p>
-              <div className={`mt-4 grid gap-3.5 ${open ? "sm:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"}`}>
+              <div className="mt-4 grid gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
                 {outOfZone.map((item) => (
                   <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
                 ))}
@@ -352,7 +353,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </>
       )}
 
-      {open && <OfferPanel key={open.offer.id} item={open} expanded={expanded} onToggleExpand={() => setExpanded((v) => !v)} onClose={() => setOpenId(null)} {...handlers(open)} />}
+      {open && <OfferPanel key={open.offer.id} item={open} onClose={() => setOpenId(null)} {...handlers(open)} />}
 
       {askApplied && applying && (
         <div className="fixed bottom-6 left-1/2 z-50 w-[min(92vw,460px)] -translate-x-1/2 animate-rise rounded-2xl border border-line bg-surface p-5 shadow-2xl" role="dialog" aria-label="As-tu postulé ?">

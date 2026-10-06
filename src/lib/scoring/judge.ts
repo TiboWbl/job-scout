@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Level } from "@/lib/domain/offer";
+import { detectExperienceYears } from "@/lib/domain/signals";
 import { getLlm } from "@/lib/llm";
 
 export type JudgeInput = {
@@ -18,15 +19,24 @@ export type JudgeInput = {
 const foldAccents = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const plural = (n: number) => (n > 1 ? "s" : "");
 
-// Facts shown on a card must be in the posting itself. The detector's reading of the text wins; a
-// figure the model gives is kept only if that figure is written in the posting.
-export function verifiedExperience(asked: string | null, required: number | null, description: string): string | null {
-  if (required !== null) return required === 0 ? "Débutant accepté" : `${required} an${plural(required)} et plus`;
-  if (!asked) return null;
-  const text = foldAccents(description);
-  const numbers = asked.match(/\d+/g);
-  if (numbers) return numbers.every((n) => new RegExp(`\\b${n}\\s*\\+?\\s*(ans?|annees?|years?|yrs?)\\b`).test(text)) ? asked : null;
-  return /debutant|premiere experience|jeune diplome|junior|graduate|entry[- ]level|no experience|sans experience/.test(text) ? asked : null;
+// Facts shown on a card must be in the posting itself. The detector's reading of the text wins; the
+// model's reading counts only with its quote, found word for word in the posting and naming the years.
+const squash = (v: string) => foldAccents(v).replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
+
+export function verifiedExperience(
+  asked: string | null,
+  required: number | null,
+  description: string,
+  quote: string | null = null,
+): { label: string | null; years: number | null } {
+  if (required !== null) return { label: required === 0 ? "Débutant accepté" : `${required} an${plural(required)} et plus`, years: required };
+  const text = squash(description);
+  if (quote && text.includes(squash(quote))) {
+    const years = detectExperienceYears(quote);
+    if (years !== null) return { label: years === 0 ? "Débutant accepté" : `${years} an${plural(years)} et plus`, years };
+  }
+  if (asked && !/\d/.test(asked) && /debutant|premiere experience|jeune diplome|junior|graduate|entry[- ]level|no experience|sans experience/.test(text)) return { label: asked, years: null };
+  return { label: null, years: null };
 }
 
 export function verifiedSalary(salary: string | null, description: string): string | null {
@@ -41,6 +51,8 @@ export type Judgement = {
   missions: string[];
   salary: string | null;
   experience_asked: string | null;
+  // Years asked, when verified in the posting: the engine applies the experience gate with it.
+  experience_years: number | null;
   score_interet: number;
   score_chances: number;
   score_tremplin: number;
@@ -79,6 +91,7 @@ const Item = z.object({
   missions: List,
   salaire: Text,
   experience_demandee: Text,
+  citation_experience: Text,
   en_bref: Text,
   points_forts: List,
   points_d_attention: List,
@@ -129,10 +142,11 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "pourquoi" : une phrase concrète de 25 mots maximum, sans répéter l'intitulé ni l'entreprise.
 - "missions" : les 2 ou 3 missions principales du poste, 8 mots maximum chacune (ex. « Piloter la roadmap de l'app patient »).
 - "salaire" : le salaire tel qu'il est écrit dans l'offre (ex. « 45-55 k€ brut annuel »), sinon null. N'estime jamais.
-- "experience_demandee" : l'expérience demandée telle que lue dans « profil recherché » ou équivalent, en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
+- "experience_demandee" : l'expérience minimale demandée, lue partout dans l'offre (profil recherché, must-haves, requirements, qualifications…), en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
+- "citation_experience" : la phrase exacte de l'offre, recopiée mot pour mot, qui indique cette expérience (ex. « 3+ years in product management »), sinon null.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "missions", "salaire", "experience_demandee", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -202,6 +216,7 @@ export async function judgeBatch(
     const id = shortIds.get(item.id) ?? shortIds.get(`o${item.id.replace(/^o/i, "")}`) ?? (items.length === offers.length ? offers[index].id : undefined);
     if (!id) return;
     const input = offers.find((o) => o.id === id)!;
+    const experience = verifiedExperience(item.experience_demandee, input.experienceRequired, input.description, item.citation_experience);
     const facts: Facts = { match: item.correspondance, sector: item.secteur, trap: item.piege, dealBreaker: item.deal_breaker, chances: item.score_chances };
     const { level, reason } = deriveLevel(facts, criteria);
     const [interet, chances, tremplin] = to100(item, level);
@@ -210,7 +225,8 @@ export async function judgeBatch(
       level,
       missions: item.missions.slice(0, 3),
       salary: verifiedSalary(item.salaire, input.description),
-      experience_asked: verifiedExperience(item.experience_demandee, input.experienceRequired, input.description),
+      experience_asked: experience.label,
+      experience_years: experience.years,
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,

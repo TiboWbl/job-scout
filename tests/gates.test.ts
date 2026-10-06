@@ -127,3 +127,27 @@ describe("séniorité et écart d'expérience (portes)", () => {
     expect([0, 1, 2, 3].map(chancesCap)).toEqual([100, 80, 60, 35]);
   });
 });
+
+describe("expérience demandée lue dans l'offre", () => {
+  const cases: [string, number | null][] = [
+    ["Must-haves - 3+ years in product management, ideally in a mobile-first consumer app", 3],
+    ["At least 5 years in a product role (or equivalent product ownership)", 5],
+    ["You have 6+ years of experience as a Backend Engineer", 6],
+    ["4 years as a Product Manager in a B2B SaaS", 4],
+    ["Tu as 2 ans d'expérience minimum en tant que Product Owner", 2],
+    ["Vous justifiez de 3 ans en gestion de produit digital", 3],
+    ["2 à 4 ans sur un poste similaire", 2],
+    ["Expérience de 3 ans minimum dans le produit", 3],
+    ["Une première expérience de 1 an est un plus", 1],
+    ["3-5 years' experience in product", 3],
+    ["Depuis 15 ans, nous accompagnons nos clients", null],
+    ["Fondée il y a 10 ans, notre entreprise compte 200 personnes", null],
+    ["We've grown 3x over the past 2 years in Europe", null],
+    ["Theodo connait une croissance exceptionnelle depuis 15 ans", null],
+  ];
+  for (const [text, years] of cases) {
+    it(`« ${text.slice(0, 50)} » → ${years ?? "rien"}`, () => {
+      expect(detectExperienceYears(text)).toBe(years);
+    });
+  }
+});
