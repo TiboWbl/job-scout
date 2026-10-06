@@ -12,6 +12,8 @@ export type JudgeInput = {
   location: string;
   contract: string;
   experienceRequired: number | null;
+  // What the posting says in words when it gives no number ("profil junior", "expérience significative").
+  experienceLevel?: "junior" | "experienced" | null;
   description: string;
   // Only a search-engine excerpt could be read: nothing precise may be inferred from it.
   excerpt?: boolean;
@@ -244,6 +246,7 @@ export async function judgeBatch(
         lieu: o.location,
         contrat: o.contract,
         experience_demandee_detectee: o.experienceRequired,
+        ...(o.experienceLevel ? { niveau_experience_ecrit: o.experienceLevel === "junior" ? "profil junior accepté" : "expérience significative demandée" } : {}),
         ...(o.excerpt ? { extrait_seulement: true } : {}),
         description: focusedExcerpt(o.description),
       }),
@@ -268,7 +271,10 @@ export async function judgeBatch(
     const match = item.correspondance === "passerelle" && !item.piege && namesTargetRole(input.title, criteria) ? "metier_vise" : item.correspondance;
     const asked = input.experienceRequired ?? experience.years;
     const reach =
-      (asked !== null && asked <= (experienceYears ?? 0)) || JUNIOR.test(foldAccents(input.title)) || (experience.label !== null && !/\d/.test(experience.label));
+      (asked !== null && asked <= (experienceYears ?? 0)) ||
+      input.experienceLevel === "junior" ||
+      JUNIOR.test(foldAccents(input.title)) ||
+      (asked === null && input.experienceLevel !== "experienced" && experience.label !== null && !/\d/.test(experience.label));
     const sector = item.secteur === "a_eviter" && !namedItem(item.secteur_evite_concerne, criteria.sectorsAvoid) ? "autre" : item.secteur;
     const dealBreaker = item.deal_breaker && namedItem(item.deal_breaker_concerne, criteria.dealBreakers) ? item.deal_breaker : null;
     const facts: Facts = { match, sector, trap: item.piege, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };

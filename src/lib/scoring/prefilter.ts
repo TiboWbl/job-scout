@@ -2,7 +2,7 @@ import type { Criteria } from "@/lib/domain/criteria";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import { zoneVerdict } from "@/lib/domain/geo";
 import type { Place, Remote } from "@/lib/domain/offer";
-import { titleSeniorityYears } from "@/lib/domain/signals";
+import { EXPERIENCED_YEARS, titleSeniorityYears } from "@/lib/domain/signals";
 
 // Hard constraints are gates, never points: an offer that breaks one is set aside, whatever
 // its other qualities. Only safe exclusions live here; everything else is the LLM's job.
@@ -15,6 +15,7 @@ export type GateInput = {
   remote_scope: string[];
   contract: string;
   experience_min_years: number | null;
+  experience_level?: "junior" | "experienced" | null;
 };
 
 export type GateResult =
@@ -69,7 +70,9 @@ export function prefilter(offer: GateInput, criteria: Criteria, experienceYears:
     if (required !== null && required - experienceYears >= EXPERIENCE_GAP_EXCLUDE) {
       return { pass: false, reason: `${required} an${plural(required)} d'expérience demandé${plural(required)}, ${experienceYears} de ton côté.` };
     }
-    experienceGap = Math.max(0, implied - experienceYears, (required ?? 0) - experienceYears);
+    // "Expérience significative" without a number counts as a few years asked; never enough to exclude.
+    const worded = required === null && offer.experience_level === "experienced" ? EXPERIENCED_YEARS : 0;
+    experienceGap = Math.max(0, implied - experienceYears, (required ?? 0) - experienceYears, worded - experienceYears);
   }
 
   if (criteria.companiesAvoid.some((c) => norm(c) && norm(offer.companyName).includes(norm(c)))) {

@@ -4,7 +4,7 @@ import type { NormalizedOffer } from "@/lib/domain/offer";
 import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats";
 import type { Keep, Wanted } from "./connectors/ats-more";
 import { titleRelevance } from "@/lib/scoring/relevance";
-import { detectExperience } from "@/lib/domain/signals";
+import { detectExperience, detectExperienceLevel } from "@/lib/domain/signals";
 import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
@@ -252,7 +252,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
       const urls: { source: string; url: string }[] = prev?.urls ?? [];
       if (!urls.some((u) => u.url === o.sourceUrl)) urls.push({ source: o.sourceKey, url: o.sourceUrl });
       // Prefer the company's own page for applying when one is known.
-      const direct = urls.find((u) => /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio/.test(u.source));
+      const direct = urls.find((u) => /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio|digitalrecruiters|welcomekit/.test(u.source));
       const prevDesc: string = prev?.description ?? "";
       return {
         dedup_key: key,
@@ -265,6 +265,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
         contract: o.contract,
         experience_min_years: o.experienceMinYears ?? range.min,
         experience_max_years: range.max,
+        experience_level: detectExperienceLevel(o.description),
         description: o.description.length >= prevDesc.length ? o.description : prevDesc,
         apply_url: direct?.url ?? o.applyUrl,
         ...(o.imageUrl ? { image_url: o.imageUrl } : {}),

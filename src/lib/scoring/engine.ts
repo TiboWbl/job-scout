@@ -26,6 +26,7 @@ type LightOffer = {
   remote_scope: string[];
   contract: string;
   experience_min_years: number | null;
+  experience_level: "junior" | "experienced" | null;
   company_id: string;
   has_description: boolean;
   company: { name: string } | null;
@@ -63,7 +64,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const offers = await pages<LightOffer>((f, t) =>
     db
       .from("offers")
-      .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, company_id, has_description, company:companies(name)")
+      .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, company_id, has_description, company:companies(name)")
       .is("archived_at", null)
       .order("first_seen_at", { ascending: false })
       .range(f, t) as unknown as PromiseLike<{ data: LightOffer[] | null; error: unknown }>,
@@ -113,9 +114,9 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const toLoad = candidates.slice(0, MAX_BATCHES_PER_CALL * BATCH_SIZE).map((c) => c.offer.id);
   // Read the full posting behind search-engine excerpts first: judging 500 characters misleads.
   if (service) await completeOffers(service, toLoad);
-  const fresh = new Map<string, { description: string | null; experience_min_years: number | null; contract: string; archived_at: string | null; sources: string[] }>();
+  const fresh = new Map<string, { description: string | null; experience_min_years: number | null; experience_level: LightOffer["experience_level"]; contract: string; archived_at: string | null; sources: string[] }>();
   for (let i = 0; i < toLoad.length; i += 100) {
-    const { data } = await db.from("offers").select("id, description, experience_min_years, contract, archived_at, sources").in("id", toLoad.slice(i, i + 100));
+    const { data } = await db.from("offers").select("id, description, experience_min_years, experience_level, contract, archived_at, sources").in("id", toLoad.slice(i, i + 100));
     for (const d of data ?? []) fresh.set(d.id, d);
   }
   // Completed offers may now ask for more experience, or be gone: the gates are applied again.
@@ -128,7 +129,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       candidates.splice(i, 1);
       continue;
     }
-    c.offer = { ...c.offer, experience_min_years: f.experience_min_years, contract: f.contract };
+    c.offer = { ...c.offer, experience_min_years: f.experience_min_years, experience_level: f.experience_level, contract: f.contract };
     const gate = prefilter({ ...c.offer, companyName: c.offer.company?.name ?? "" }, criteria, experienceYears);
     if (!gate.pass) {
       regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
@@ -159,6 +160,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       location: offer.location_raw ?? "",
       contract: offer.contract,
       experienceRequired: offer.experience_min_years,
+      experienceLevel: offer.experience_level,
       description: descriptions.get(offer.id) ?? "",
       excerpt: excerpts.has(offer.id),
       favorite: favoriteIds.has(offer.company_id),
@@ -254,7 +256,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
 
   const { data: offers } = await db
     .from("offers")
-    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, description, company_id, company:companies(name)")
+    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, description, company_id, company:companies(name)")
     .in("id", offerIds);
   const rows: Record<string, unknown>[] = [];
   const toJudge: { offer: LightOffer & { description: string | null }; outOfZone: boolean; gap: number }[] = [];
@@ -275,6 +277,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
         location: offer.location_raw ?? "",
         contract: offer.contract,
         experienceRequired: offer.experience_min_years,
+        experienceLevel: offer.experience_level,
         description: offer.description ?? "",
         favorite: favoriteIds.has(offer.company_id),
       })),

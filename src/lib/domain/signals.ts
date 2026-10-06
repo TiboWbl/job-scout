@@ -79,6 +79,24 @@ export function detectExperience(description: string): ExperienceRange {
   return best;
 }
 
+// Without a number, the words still say a lot: "profil junior" or "première expérience" is within a
+// beginner's reach, "expérience significative" is not. Junior wins when both appear ("junior ou confirmé").
+export type ExperienceLevel = "junior" | "experienced";
+const JUNIOR_TEXT =
+  /\b(profils? junior|junior accepte|postes? junior|peu experimente|premiere experience|1ere experience|jeune diplome|debutant|sortie? d['’ ]ecole|fraichement diplome|entry[- ]level|new grad|graduate program|recent graduate|no (prior )?experience (is )?required|early[- ]career)/;
+const EXPERIENCED_TEXT =
+  /\b(experience (professionnelle )?(significative|solide|confirmee|averee|reussie|consequente|importante|approfondie|probante)|(solide|forte|riche|longue|vraie) experience|profils? (confirme|experimente|senior)|vous etes experimente|tu es experimente|plusieurs annees d['’ ]experience|significant experience|extensive experience|proven (track record|experience)|strong (track record|experience)|seasoned|several years of experience|experienced (product|professional|pm))/;
+
+export function detectExperienceLevel(description: string): ExperienceLevel | null {
+  const n = norm(description);
+  if (JUNIOR_TEXT.test(n)) return "junior";
+  if (EXPERIENCED_TEXT.test(n)) return "experienced";
+  return null;
+}
+
+// Years an "experienced" profile implies, used only for the gap (never shown as a number).
+export const EXPERIENCED_YEARS = 3;
+
 // Lowest number of years the offer asks for, or null when it doesn't say.
 export function detectExperienceYears(description: string): number | null {
   return detectExperience(description).min;
@@ -90,6 +108,11 @@ export function experienceLabel(min: number | null, max: number | null): string 
   if (max !== null && max > min) return `${min} à ${max} ans`;
   if (min === 0) return "Débutant accepté";
   return `${min} an${min > 1 ? "s" : ""} et plus`;
+}
+
+// The card's reading: the years when the posting gives them, otherwise its own words.
+export function experienceText(min: number | null, max: number | null, level: ExperienceLevel | null | undefined): string | null {
+  return experienceLabel(min, max) ?? (level === "junior" ? "Profil junior accepté" : level === "experienced" ? "Expérience significative demandée" : null);
 }
 
 // Minimum experience an intitulé implies, used only as a coarse, safe gate.

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { detectContract, detectExperience } from "@/lib/domain/signals";
+import { detectContract, detectExperience, detectExperienceLevel } from "@/lib/domain/signals";
 import { fromUrl } from "./manual";
 
 // Offers from search engines (Adzuna, Jooble) carry a 500-character excerpt. Judging or showing an
@@ -30,6 +30,7 @@ async function completeOne(db: SupabaseClient, o: Row): Promise<"full" | "gone" 
         description: text,
         experience_min_years: detectExperience(text).min,
         experience_max_years: detectExperience(text).max,
+        experience_level: detectExperienceLevel(text),
         contract: o.contract === "unknown" ? detectContract(o.title, null, text) : o.contract,
         // The employer's own page beats a search-engine redirect for applying.
         ...(full && /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio/.test(head!.url) ? { apply_url: head!.url } : {}),

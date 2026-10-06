@@ -6,7 +6,7 @@ import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { freshness, placeLabel } from "@/lib/format";
-import { experienceLabel } from "@/lib/domain/signals";
+import { experienceText } from "@/lib/domain/signals";
 import { structureDescription } from "@/lib/format-description";
 import { createClient } from "@/lib/supabase/browser";
 import { CompanyLogo } from "@/components/company-logo";
@@ -100,7 +100,7 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
     ["Lieu", placeLabel(offer.places, offer.location_raw)],
     ["Télétravail", REMOTE_LABELS[offer.remote]],
     ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
-    ["Expérience demandée", experienceLabel(offer.experience_min_years, offer.experience_max_years) ?? item.experience_asked ?? "Non précisée"],
+    ["Expérience demandée", experienceText(offer.experience_min_years, offer.experience_max_years, offer.experience_level) ?? item.experience_asked ?? "Non précisée"],
     ["Salaire", item.salary ?? "Non indiqué"],
     ["Publiée", freshness(seenAt).replace(/^./, (c) => c.toUpperCase())],
   ];

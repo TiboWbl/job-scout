@@ -173,3 +173,25 @@ describe("expérience en fourchette", async () => {
     });
   }
 });
+
+describe("expérience écrite en toutes lettres", async () => {
+  const { detectExperienceLevel, experienceText } = await import("@/lib/domain/signals");
+  const cases: [string, "junior" | "experienced" | null][] = [
+    ["Vous justifiez d'une expérience significative en gestion de produit digital.", "experienced"],
+    ["Profil junior accepté, curiosité et rigueur avant tout.", "junior"],
+    ["Une première expérience significative en product management (stage inclus).", "junior"],
+    ["Tu es peu expérimenté mais motivé ? Postule !", "junior"],
+    ["Proven track record shipping consumer products.", "experienced"],
+    ["Tu accompagneras les PM juniors de l'équipe.", null],
+  ];
+  for (const [text, level] of cases) it(`« ${text.slice(0, 45)} » → ${level}`, () => expect(detectExperienceLevel(text)).toBe(level));
+  it("un nombre d'années l'emporte sur les mots, jamais de nombre inventé", () => {
+    expect(experienceText(3, null, "junior")).toBe("3 ans et plus");
+    expect(experienceText(null, null, "experienced")).toBe("Expérience significative demandée");
+  });
+  it("une expérience significative compte comme quelques années d'écart, sans exclure", () => {
+    const offer = { title: "Product Manager", companyName: "Fictive", places: [{ city: "Paris", country: "FR" }], remote: "onsite" as const, remote_scope: [], contract: "cdi", experience_min_years: null, experience_level: "experienced" as const };
+    const r = prefilter(offer, { ...PROFILE, zone: { places: [], remoteOk: true }, contracts: [] }, 1);
+    expect(r.pass && r.experienceGap).toBe(2);
+  });
+});
