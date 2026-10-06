@@ -2,8 +2,10 @@ import { parseLocation } from "@/lib/domain/geo";
 import { detectContract, detectExperienceYears } from "@/lib/domain/signals";
 import type { NormalizedOffer } from "@/lib/domain/offer";
 import { htmlToText } from "../normalize";
+import { personio, recruitee, smartrecruiters, teamtailor, workable, type Keep } from "./ats-more";
 
-export type Ats = "greenhouse" | "lever" | "ashby";
+export const ATS_LIST = ["greenhouse", "lever", "ashby", "smartrecruiters", "workable", "recruitee", "teamtailor", "personio"] as const;
+export type Ats = (typeof ATS_LIST)[number];
 export type Board = { name: string; domain: string | null; ats: Ats; token: string };
 
 // Initial stock of companies whose career pages run on a public ATS API (the endpoint their own
@@ -169,8 +171,8 @@ async function ashby(board: Board): Promise<NormalizedOffer[]> {
     });
 }
 
-const FETCHERS: Record<Ats, (b: Board) => Promise<NormalizedOffer[]>> = { greenhouse, lever, ashby };
+const FETCHERS: Record<Ats, (b: Board, keep?: Keep) => Promise<NormalizedOffer[]>> = { greenhouse, lever, ashby, smartrecruiters, workable, recruitee, teamtailor, personio };
 
-export function fetchBoard(board: Board) {
-  return FETCHERS[board.ats](board);
+export function fetchBoard(board: Board, keep?: Keep) {
+  return FETCHERS[board.ats](board, keep);
 }

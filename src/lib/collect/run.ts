@@ -2,82 +2,165 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria } from "@/lib/domain/criteria";
 import type { NormalizedOffer } from "@/lib/domain/offer";
 import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats";
+import type { Keep } from "./connectors/ats-more";
 import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
-import { fetchAdzuna, isAdzunaConfigured } from "./connectors/adzuna";
+import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
+import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
 import { companyKey, dedupKey } from "./normalize";
 
 export type SourceReport = { source: string; seen: number; created: number; archived: number; error?: string };
 
-const MAX_GENERATED_QUERIES = 12;
+const MAX_GENERATED_QUERIES = 8;
 const COLOR_BATCH = 40;
 const RETENTION_DAYS = 60;
+const BOARD_CONCURRENCY = 6;
 
 // Logs stay aggregated: counts per source, never anything about a user.
 type Log = (line: string) => void;
+type Options = { log?: Log; budgetMs?: number };
 
-export async function runCollection(db: SupabaseClient, log: Log = () => {}): Promise<SourceReport[]> {
+type Scope = { queries: SearchQuery[]; countries: Set<string> };
+
+export async function runCollection(db: SupabaseClient, { log = () => {}, budgetMs = Infinity }: Options = {}): Promise<SourceReport[]> {
+  const startedAt = Date.now();
   await seedBoards(db);
-  const boards = await loadBoards(db);
-  const queries = await queriesFromProfiles(db);
-
-  const jobs: { source: string; run: () => Promise<NormalizedOffer[]>; archiveStale: boolean }[] = boards.map((b) => ({
-    source: `${b.ats}:${b.token}`,
-    run: () => fetchBoard(b),
-    archiveStale: true,
-  }));
-  if (queries.length && isFranceTravailConfigured()) jobs.push({ source: "france-travail", run: () => fetchFranceTravail(queries), archiveStale: false });
-  if (queries.length && isAdzunaConfigured()) jobs.push({ source: "adzuna", run: () => fetchAdzuna(queries), archiveStale: false });
-
+  const scope = await scopeFromProfiles(db);
+  const keep = keepInScope(scope);
   const reports: SourceReport[] = [];
-  // A few sources at a time: polite to the APIs, and one failing source never blocks the others.
-  for (let i = 0; i < jobs.length; i += 4) {
-    const chunk = jobs.slice(i, i + 4);
-    reports.push(...(await Promise.all(chunk.map((j) => collectSource(db, j.source, j.run, j.archiveStale)))));
-  }
-  for (const r of reports) log(`${r.source}: ${r.seen} vues, ${r.created} nouvelles, ${r.archived} archivées${r.error ? ` (erreur)` : ""}`);
 
-  await fillCompanyColors(db);
-  await purgeOldDescriptions(db);
+  // Search engines first: they bring the most offers for the people actually using Scout.
+  const engines: { source: string; run: () => Promise<NormalizedOffer[]> }[] = [];
+  if (scope.queries.length && isAdzunaConfigured()) engines.push({ source: "adzuna", run: () => fetchAdzuna(scope.queries) });
+  if (scope.queries.length && isJoobleConfigured()) engines.push({ source: "jooble", run: () => fetchJooble(scope.queries) });
+  if (scope.queries.length && isFranceTravailConfigured()) engines.push({ source: "france-travail", run: () => fetchFranceTravail(scope.queries.map((q) => q.what)) });
+  reports.push(...(await Promise.all(engines.map((e) => collectSource(db, e.source, e.run, false, keep)))));
+
+  // Then career pages, least recently collected first, as many as the time budget allows.
+  const boards = await loadBoards(db);
+  const byAts = new Map<string, SourceReport>();
+  let next = 0;
+  const worker = async () => {
+    while (next < boards.length && Date.now() - startedAt < budgetMs) {
+      const board = boards[next++];
+      const r = await collectBoard(db, board, keep);
+      const agg = byAts.get(board.ats) ?? { source: board.ats, seen: 0, created: 0, archived: 0 };
+      agg.seen += r.seen;
+      agg.created += r.created;
+      agg.archived += r.archived;
+      if (r.error && !agg.error) agg.error = `${board.token}: ${r.error}`;
+      byAts.set(board.ats, agg);
+    }
+  };
+  await Promise.all(Array.from({ length: BOARD_CONCURRENCY }, worker));
+  for (const agg of byAts.values()) {
+    reports.push(agg);
+    await recordRun(db, agg, new Date(startedAt).toISOString());
+  }
+  log(`pages carrière lues : ${next} sur ${boards.length}`);
+  for (const r of reports) log(`${r.source}: ${r.seen} vues, ${r.created} nouvelles, ${r.archived} archivées${r.error ? " (erreur)" : ""}`);
+
+  if (Date.now() - startedAt < budgetMs) {
+    await fillCompanyColors(db);
+    await purgeOldDescriptions(db);
+  }
   return reports;
 }
 
 async function seedBoards(db: SupabaseClient) {
-  const rows = SEED_BOARDS.map((b) => ({ name: b.name, name_key: companyKey(b.name), domain: b.domain, ats: b.ats, ats_token: b.token }));
+  const rows = SEED_BOARDS.map((b) => ({ name: b.name, name_key: companyKey(b.name), domain: b.domain, ats: b.ats, ats_token: b.token, discovered_via: "seed" }));
   await db.from("companies").upsert(rows, { onConflict: "name_key", ignoreDuplicates: true });
 }
 
-async function loadBoards(db: SupabaseClient): Promise<Board[]> {
-  const { data, error } = await db.from("companies").select("name, domain, ats, ats_token").not("ats", "is", null);
-  if (error) throw error;
-  return (data ?? []).map((c) => ({ name: c.name, domain: c.domain, ats: c.ats as Ats, token: c.ats_token }));
+async function loadBoards(db: SupabaseClient): Promise<(Board & { id: string })[]> {
+  const out: (Board & { id: string })[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db
+      .from("companies")
+      .select("id, name, domain, ats, ats_token")
+      .not("ats", "is", null)
+      .order("last_collected_at", { ascending: true, nullsFirst: true })
+      .range(from, from + 999);
+    if (error) throw error;
+    out.push(...(data ?? []).map((c) => ({ id: c.id, name: c.name, domain: c.domain, ats: c.ats as Ats, token: c.ats_token })));
+    if (!data || data.length < 1000) return out;
+  }
 }
 
-// Search queries come only from the profiles in the database: every user widens the coverage.
-async function queriesFromProfiles(db: SupabaseClient): Promise<string[]> {
+// Search queries and kept countries come only from the profiles in the database: every user widens
+// the coverage, and nothing is stored for places nobody is looking at (the free database is 500 MB).
+export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
   const { data } = await db.from("profiles").select("criteria").not("onboarded_at", "is", null);
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { q: SearchQuery; n: number }>();
+  const countries = new Set<string>();
   for (const row of data ?? []) {
     const parsed = Criteria.safeParse(row.criteria);
     if (!parsed.success) continue;
-    for (const q of [...parsed.data.targetRoles, ...parsed.data.titleVariants]) {
-      const key = q.trim().toLowerCase();
-      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    const c = parsed.data;
+    for (const p of c.zone.places) countries.add(p.country);
+    const where = c.zone.places.find((p) => p.kind !== "country")?.label ?? c.zone.places[0]?.label ?? null;
+    for (const what of [...c.targetRoles, ...c.titleVariants]) {
+      const key = `${what.trim().toLowerCase()}|${where ?? ""}`;
+      const prev = counts.get(key);
+      counts.set(key, { q: { what: what.trim(), where }, n: (prev?.n ?? 0) + 1 });
     }
   }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_GENERATED_QUERIES).map(([q]) => q);
+  const queries = [...counts.values()].sort((a, b) => b.n - a.n).slice(0, MAX_GENERATED_QUERIES).map((x) => x.q);
+  return { queries, countries };
 }
 
-async function collectSource(
-  db: SupabaseClient,
-  source: string,
-  fetchOffers: () => Promise<NormalizedOffer[]>,
-  archiveStale: boolean,
-): Promise<SourceReport> {
+export function keepInScope(scope: Scope): Keep {
+  // No profile yet: keep everything rather than nothing.
+  if (scope.countries.size === 0) return () => true;
+  return (places) => places.length === 0 || places.some((p) => !p.country || scope.countries.has(p.country));
+}
+
+async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep): Promise<SourceReport> {
+  const startedAt = new Date().toISOString();
+  const source = `${board.ats}:${board.token}`;
+  const report: SourceReport = { source, seen: 0, created: 0, archived: 0 };
+  try {
+    const all = await fetchBoard(board, keep);
+    const offers = all.filter((o) => keep(o.places, o.remote));
+    report.seen = offers.length;
+    report.created = await upsertOffers(db, offers);
+    // The board lists every open position: what is no longer there has been filled or withdrawn.
+    const { data } = await db
+      .from("offers")
+      .update({ archived_at: new Date().toISOString() })
+      .contains("sources", [source])
+      .lt("last_seen_at", startedAt)
+      .is("archived_at", null)
+      .select("id");
+    report.archived = data?.length ?? 0;
+    await db.from("companies").update({ last_collected_at: new Date().toISOString() }).eq("id", board.id);
+  } catch (error) {
+    report.error = (error as Error).message.slice(0, 120);
+    // A board that no longer exists is dropped from the rotation; discovery may find it again.
+    if (/HTTP 404/.test(report.error)) await db.from("companies").update({ ats: null, ats_token: null }).eq("id", board.id);
+    else await db.from("companies").update({ last_collected_at: new Date().toISOString() }).eq("id", board.id);
+  }
+  return report;
+}
+
+async function recordRun(db: SupabaseClient, r: SourceReport, startedAt: string) {
+  await db.from("collection_runs").insert({
+    source: r.source,
+    started_at: startedAt,
+    finished_at: new Date().toISOString(),
+    offers_seen: r.seen,
+    offers_new: r.created,
+    offers_archived: r.archived,
+    errors: r.error ? 1 : 0,
+    error_sample: r.error ?? null,
+  });
+}
+
+async function collectSource(db: SupabaseClient, source: string, fetchOffers: () => Promise<NormalizedOffer[]>, archiveStale: boolean, keep: Keep): Promise<SourceReport> {
   const startedAt = new Date().toISOString();
   const report: SourceReport = { source, seen: 0, created: 0, archived: 0 };
   try {
-    const offers = await fetchOffers();
+    const offers = (await fetchOffers()).filter((o) => keep(o.places, o.remote));
     report.seen = offers.length;
     report.created = await upsertOffers(db, offers);
     if (archiveStale && offers.length > 0) {
@@ -93,16 +176,7 @@ async function collectSource(
   } catch (error) {
     report.error = (error as Error).message.slice(0, 200);
   }
-  await db.from("collection_runs").insert({
-    source,
-    started_at: startedAt,
-    finished_at: new Date().toISOString(),
-    offers_seen: report.seen,
-    offers_new: report.created,
-    offers_archived: report.archived,
-    errors: report.error ? 1 : 0,
-    error_sample: report.error ?? null,
-  });
+  await recordRun(db, report, startedAt);
   return report;
 }
 
@@ -125,7 +199,7 @@ async function ensureCompanies(db: SupabaseClient, offers: NormalizedOffer[]) {
   return ids;
 }
 
-async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]): Promise<number> {
+export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]): Promise<number> {
   if (offers.length === 0) return 0;
   const companyIds = await ensureCompanies(db, offers);
   const now = new Date().toISOString();
@@ -147,7 +221,7 @@ async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]): Prom
       const urls: { source: string; url: string }[] = prev?.urls ?? [];
       if (!urls.some((u) => u.url === o.sourceUrl)) urls.push({ source: o.sourceKey, url: o.sourceUrl });
       // Prefer the company's own page for applying when one is known.
-      const direct = urls.find((u) => /greenhouse|lever|ashby/.test(u.source));
+      const direct = urls.find((u) => /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio/.test(u.source));
       const prevDesc: string = prev?.description ?? "";
       return {
         dedup_key: key,

@@ -5,7 +5,11 @@ import { htmlToText } from "../normalize";
 
 // Adzuna public API (France). Optional: skipped without credentials.
 const SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/fr/search";
-const MAX_PAGES = 3;
+// Free plan: about 250 calls a day. 8 searches × 5 pages × 3 runs a day stays under it.
+const MAX_PAGES = 5;
+const MAX_DAYS_OLD = 60;
+
+export type SearchQuery = { what: string; where: string | null };
 
 export function isAdzunaConfigured() {
   return Boolean(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY);
@@ -44,14 +48,16 @@ function normalize(o: AdzunaOffer): NormalizedOffer {
   };
 }
 
-export async function fetchAdzuna(queries: string[]): Promise<NormalizedOffer[]> {
+export async function fetchAdzuna(queries: SearchQuery[]): Promise<NormalizedOffer[]> {
   const out = new Map<string, NormalizedOffer>();
   for (const q of queries) {
     for (let page = 1; page <= MAX_PAGES; page++) {
       const url = new URL(`${SEARCH_URL}/${page}`);
       url.searchParams.set("app_id", process.env.ADZUNA_APP_ID!);
       url.searchParams.set("app_key", process.env.ADZUNA_APP_KEY!);
-      url.searchParams.set("what", q);
+      url.searchParams.set("what", q.what);
+      if (q.where) url.searchParams.set("where", q.where);
+      url.searchParams.set("max_days_old", String(MAX_DAYS_OLD));
       url.searchParams.set("results_per_page", "50");
       const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
       if (!res.ok) throw new Error(`search HTTP ${res.status}`);

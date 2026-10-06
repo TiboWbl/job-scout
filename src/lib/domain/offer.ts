@@ -22,7 +22,7 @@ export const REMOTE_LABELS: Record<Remote, string> = {
 export type NormalizedOffer = {
   sourceKey: string; // e.g. "greenhouse:doctolib", "france-travail"
   sourceUrl: string;
-  company: { name: string; domain?: string; ats?: "greenhouse" | "lever" | "ashby"; atsToken?: string };
+  company: { name: string; domain?: string; ats?: string; atsToken?: string };
   title: string;
   locationRaw: string | null;
   places: Place[];

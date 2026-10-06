@@ -1,0 +1,62 @@
+// Connectors read public feeds whose format we do not control: fixtures pin what we rely on.
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { personio, teamtailor } from "@/lib/collect/connectors/ats-more";
+import { slugGuesses } from "@/lib/collect/discover";
+import { keepInScope } from "@/lib/collect/run";
+
+const board = { name: "Entreprise Fictive", domain: null, token: "fictive" };
+
+function serve(body: string) {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("flux Teamtailor", () => {
+  it("lit titre, lieu, télétravail, description et date", async () => {
+    serve(`<rss><channel><title>Entreprise Fictive - Carrières</title>
+      <item><title>Product Manager</title>
+        <description>&lt;p&gt;Tu pilotes la &lt;strong&gt;discovery&lt;/strong&gt;.&lt;/p&gt;</description>
+        <pubDate>Tue, 30 Sep 2026 10:00:00 +0200</pubDate>
+        <link>https://fictive.teamtailor.com/jobs/1-product-manager</link>
+        <remoteStatus>hybrid</remoteStatus>
+        <tt:locations><tt:location><tt:city>Paris</tt:city><tt:country>France</tt:country></tt:location></tt:locations>
+      </item></channel></rss>`);
+    const [offer] = await teamtailor(board);
+    expect(offer).toMatchObject({ title: "Product Manager", remote: "hybrid", company: { name: "Entreprise Fictive" }, applyUrl: "https://fictive.teamtailor.com/jobs/1-product-manager" });
+    expect(offer.places[0]).toMatchObject({ city: "Paris", country: "FR" });
+    expect(offer.description).toContain("Tu pilotes la discovery.");
+    expect(offer.publishedAt).toBe("2026-09-30T08:00:00.000Z");
+  });
+});
+
+describe("flux Personio", () => {
+  it("lit le poste, le bureau, le contrat et les sections de description", async () => {
+    serve(`<workzag-jobs><position><id>42</id><subcompany>Entreprise Fictive</subcompany><office>Lyon</office>
+      <name>Chef de produit digital</name><employmentType>permanent</employmentType><createdAt>2026-09-20T09:00:00+00:00</createdAt>
+      <jobDescriptions><jobDescription><name>Missions</name><value><![CDATA[<p>Construire la roadmap.</p>]]></value></jobDescription></jobDescriptions>
+      </position></workzag-jobs>`);
+    const [offer] = await personio(board);
+    expect(offer).toMatchObject({ title: "Chef de produit digital", contract: "cdi", applyUrl: "https://fictive.jobs.personio.de/job/42" });
+    expect(offer.places[0]).toMatchObject({ city: "Lyon", country: "FR" });
+    expect(offer.description).toContain("Construire la roadmap.");
+  });
+});
+
+describe("découverte", () => {
+  it("devine les adresses de page carrière à partir du nom", () => {
+    expect(slugGuesses("Acme Sport SAS")).toEqual(["acmesport", "acme-sport"]);
+  });
+});
+
+describe("filtre géographique à la collecte", () => {
+  const keep = keepInScope({ queries: [], countries: new Set(["FR"]) });
+  it("garde la France et les lieux inconnus, écarte le reste", () => {
+    expect(keep([{ city: "Paris", country: "FR" }], "hybrid")).toBe(true);
+    expect(keep([], "unknown")).toBe(true);
+    expect(keep([{ city: "Boston", country: "US" }], "onsite")).toBe(false);
+  });
+  it("garde tout tant qu'aucun profil n'existe", () => {
+    expect(keepInScope({ queries: [], countries: new Set() })([{ city: "Boston", country: "US" }], "onsite")).toBe(true);
+  });
+});

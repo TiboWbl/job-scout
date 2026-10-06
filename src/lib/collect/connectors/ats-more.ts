@@ -1,0 +1,246 @@
+import { parseLocation } from "@/lib/domain/geo";
+import { detectContract, detectExperienceYears } from "@/lib/domain/signals";
+import type { NormalizedOffer, Place } from "@/lib/domain/offer";
+import { htmlToText } from "../normalize";
+
+// Public career-page APIs beyond Greenhouse, Lever and Ashby: the endpoints each company's own
+// jobs page calls. One request per board, except SmartRecruiters whose list has no description.
+
+export type BoardRef = { name: string; domain: string | null; token: string };
+// Lets a connector skip detail requests for offers that would be dropped anyway (outside every zone).
+export type Keep = (places: Place[], remote: NormalizedOffer["remote"]) => boolean;
+
+const TIMEOUT_MS = 30_000;
+const HEADERS = { "User-Agent": "Scout job aggregator", Accept: "application/json" };
+
+async function get(url: string): Promise<Response> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
+}
+
+function base(ats: string, board: BoardRef, name = board.name) {
+  return { sourceKey: `${ats}:${board.token}`, company: { name, domain: board.domain ?? undefined, ats, atsToken: board.token } };
+}
+
+function remoteFrom(remote: boolean | undefined, hybrid: boolean | undefined, fallback: NormalizedOffer["remote"]): NormalizedOffer["remote"] {
+  if (remote) return "remote";
+  if (hybrid) return "hybrid";
+  return fallback;
+}
+
+// SmartRecruiters ---------------------------------------------------------------------------
+
+type SrPosting = {
+  id: string;
+  name: string;
+  releasedDate?: string;
+  company?: { name?: string };
+  location?: { city?: string; region?: string; country?: string; remote?: boolean; hybrid?: boolean; fullLocation?: string };
+  typeOfEmployment?: { id?: string };
+};
+const SR_EMPLOYMENT: Record<string, string> = { permanent: "permanent", "full-time": "permanent", intern: "internship", contract: "contractor", temporary: "fixed-term" };
+const SR_DETAILS_PER_BOARD = 80;
+
+export async function smartrecruiters(board: BoardRef, keep?: Keep): Promise<NormalizedOffer[]> {
+  const postings: SrPosting[] = [];
+  for (let offset = 0; offset < 1000; offset += 100) {
+    const data = (await (await get(`https://api.smartrecruiters.com/v1/companies/${board.token}/postings?limit=100&offset=${offset}`)).json()) as { content?: SrPosting[]; totalFound?: number };
+    postings.push(...(data.content ?? []));
+    if (!data.content || data.content.length < 100) break;
+  }
+  const out: NormalizedOffer[] = [];
+  for (const p of postings) {
+    const raw = p.location?.fullLocation ?? [p.location?.city, p.location?.country?.toUpperCase()].filter(Boolean).join(", ");
+    const loc = parseLocation(raw, p.name);
+    loc.remote = remoteFrom(p.location?.remote, p.location?.hybrid, loc.remote);
+    if (keep && !keep(loc.places, loc.remote)) continue;
+    if (out.length >= SR_DETAILS_PER_BOARD) break;
+    const detail = (await (await get(`https://api.smartrecruiters.com/v1/companies/${board.token}/postings/${p.id}`)).json()) as {
+      postingUrl?: string;
+      jobAd?: { sections?: Record<string, { title?: string; text?: string }> };
+    };
+    const sections = detail.jobAd?.sections ?? {};
+    const description = ["jobDescription", "qualifications", "additionalInformation", "companyDescription"]
+      .map((k) => (sections[k]?.text ? `${sections[k]?.title ?? ""}\n${htmlToText(sections[k]!.text!)}` : ""))
+      .filter(Boolean)
+      .join("\n\n");
+    const url = detail.postingUrl ?? `https://jobs.smartrecruiters.com/${board.token}/${p.id}`;
+    out.push({
+      ...base("smartrecruiters", board, p.company?.name || board.name),
+      sourceUrl: url,
+      title: p.name.trim(),
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(p.name, SR_EMPLOYMENT[p.typeOfEmployment?.id ?? ""] ?? null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: p.releasedDate ?? null,
+    });
+  }
+  return out;
+}
+
+// Discovery only needs to know whether a board lists an offer in scope: the list is enough.
+export async function smartrecruitersHasOffer(token: string, keep: Keep): Promise<{ name: string } | null> {
+  const data = (await (await get(`https://api.smartrecruiters.com/v1/companies/${token}/postings?limit=100`)).json()) as { content?: SrPosting[] };
+  for (const p of data.content ?? []) {
+    const raw = p.location?.fullLocation ?? [p.location?.city, p.location?.country?.toUpperCase()].filter(Boolean).join(", ");
+    const loc = parseLocation(raw, p.name);
+    if (keep(loc.places, remoteFrom(p.location?.remote, p.location?.hybrid, loc.remote))) return { name: p.company?.name || token };
+  }
+  return null;
+}
+
+// Workable --------------------------------------------------------------------------------------
+
+type WorkableJob = {
+  title: string;
+  shortcode: string;
+  employment_type?: string;
+  telecommuting?: boolean;
+  url?: string;
+  application_url?: string;
+  published_on?: string;
+  created_at?: string;
+  city?: string;
+  country?: string;
+  locations?: { country?: string; city?: string; region?: string }[];
+  description?: string;
+};
+const WORKABLE_EMPLOYMENT: Record<string, string> = { "Full-time": "permanent", Contract: "contractor", Internship: "internship", Temporary: "fixed-term" };
+
+export async function workable(board: BoardRef): Promise<NormalizedOffer[]> {
+  const data = (await (await get(`https://apply.workable.com/api/v1/widget/accounts/${board.token}?details=true`)).json()) as { name?: string; jobs?: WorkableJob[] };
+  return (data.jobs ?? []).map((j) => {
+    const raw = (j.locations?.length ? j.locations : [{ city: j.city, country: j.country }]).map((l) => [l.city, l.region, l.country].filter(Boolean).join(", ")).join("; ");
+    const loc = parseLocation(raw, j.title);
+    if (j.telecommuting) loc.remote = "remote";
+    const description = htmlToText(j.description ?? "");
+    const url = j.url ?? j.application_url ?? `https://apply.workable.com/${board.token}/j/${j.shortcode}`;
+    return {
+      ...base("workable", board, data.name || board.name),
+      sourceUrl: url,
+      title: j.title.trim(),
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(j.title, WORKABLE_EMPLOYMENT[j.employment_type ?? ""] ?? null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: j.published_on ?? j.created_at ?? null,
+    };
+  });
+}
+
+// Recruitee -------------------------------------------------------------------------------------
+
+type RecruiteeOffer = {
+  title: string;
+  description?: string;
+  requirements?: string;
+  city?: string;
+  country?: string;
+  location?: string;
+  remote?: boolean;
+  hybrid?: boolean;
+  employment_type_code?: string;
+  careers_url?: string;
+  published_at?: string;
+  company_name?: string;
+};
+function recruiteeEmployment(code = ""): string | null {
+  if (code.includes("permanent")) return "permanent";
+  if (code.includes("fixed_term")) return "fixed-term";
+  if (/intern|trainee/.test(code)) return "internship";
+  if (code.includes("apprentice")) return "alternance";
+  if (code.includes("freelance")) return "contractor";
+  return null;
+}
+
+export async function recruitee(board: BoardRef): Promise<NormalizedOffer[]> {
+  const data = (await (await get(`https://${board.token}.recruitee.com/api/offers/`)).json()) as { offers?: RecruiteeOffer[] };
+  return (data.offers ?? []).map((o) => {
+    const raw = o.location || [o.city, o.country].filter(Boolean).join(", ");
+    const loc = parseLocation(raw, o.title);
+    loc.remote = remoteFrom(o.remote, o.hybrid, loc.remote);
+    const description = [htmlToText(o.description ?? ""), htmlToText(o.requirements ?? "")].filter(Boolean).join("\n\n");
+    const url = o.careers_url ?? `https://${board.token}.recruitee.com/`;
+    return {
+      ...base("recruitee", board, o.company_name || board.name),
+      sourceUrl: url,
+      title: o.title.trim(),
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(o.title, recruiteeEmployment(o.employment_type_code), description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: o.published_at ?? null,
+    };
+  });
+}
+
+// Teamtailor and Personio publish feeds, not JSON ---------------------------------------------
+
+const decode = (s: string) =>
+  s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+const tag = (xml: string, name: string) => decode(xml.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`))?.[1] ?? "").trim();
+const tags = (xml: string, name: string) => [...xml.matchAll(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "g"))].map((m) => m[1]);
+
+export async function teamtailor(board: BoardRef): Promise<NormalizedOffer[]> {
+  const xml = await (await get(`https://${board.token}.teamtailor.com/jobs.rss`)).text();
+  const company = tag(xml.split("<item>")[0], "title").replace(/\s*[-–|].*$/, "") || board.name;
+  return tags(xml, "item").map((item) => {
+    const title = tag(item, "title");
+    const raw = tags(item, "tt:location").map((l) => [tag(l, "tt:city"), tag(l, "tt:country")].filter(Boolean).join(", ")).join("; ");
+    const loc = parseLocation(raw, title);
+    const status = tag(item, "remoteStatus");
+    if (status === "fully") loc.remote = "remote";
+    else if (status === "hybrid") loc.remote = "hybrid";
+    const description = htmlToText(tag(item, "description"));
+    const url = tag(item, "link");
+    const date = tag(item, "pubDate");
+    return {
+      ...base("teamtailor", board, company),
+      sourceUrl: url,
+      title,
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(title, null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: date ? new Date(date).toISOString() : null,
+    };
+  });
+}
+
+const PERSONIO_EMPLOYMENT: Record<string, string> = { permanent: "permanent", temporary: "fixed-term", intern: "internship", trainee: "alternance", freelance: "contractor" };
+
+export async function personio(board: BoardRef): Promise<NormalizedOffer[]> {
+  const xml = await (await get(`https://${board.token}.jobs.personio.de/xml?language=fr`)).text();
+  return tags(xml, "position").map((p) => {
+    const id = tag(p, "id");
+    const title = tag(p, "name");
+    const raw = [tag(p, "office"), ...tags(p, "additionalOffice")].filter(Boolean).join("; ");
+    const loc = parseLocation(raw, title);
+    const description = tags(p, "jobDescription")
+      .map((d) => `${tag(d, "name")}\n${htmlToText(tag(d, "value"))}`)
+      .join("\n\n");
+    const url = `https://${board.token}.jobs.personio.de/job/${id}`;
+    return {
+      ...base("personio", board, tag(p, "subcompany") || board.name),
+      sourceUrl: url,
+      title,
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(title, PERSONIO_EMPLOYMENT[tag(p, "employmentType")] ?? null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: tag(p, "createdAt") || null,
+    };
+  });
+}

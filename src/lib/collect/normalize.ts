@@ -23,6 +23,8 @@ export function htmlToText(html: string): string {
     .replace(/<li[^>]*>/gi, "\n• ")
     .replace(/<\/(p|div|h[1-6]|ul|ol|li|tr)>/gi, "\n")
     .replace(/<br\s*\/?>/gi, "\n")
+    // Inline tags sit inside words and sentences: removing them must not add a space ("discovery .").
+    .replace(/<\/?(strong|b|em|i|u|span|a|code|small|sup|sub|font|mark)\b[^>]*>/gi, "")
     .replace(/<[^>]+>/g, " ")
     .replace(/[ \t ]+/g, " ")
     .split("\n")

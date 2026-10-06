@@ -5,7 +5,7 @@ import { prefilter } from "@/lib/scoring/prefilter";
 import { relevance } from "@/lib/scoring/relevance";
 import { PROFILE } from "../tests/fixtures/regression.ts";
 
-const results = await Promise.allSettled(SEED_BOARDS.map(fetchBoard));
+const results = await Promise.allSettled(SEED_BOARDS.map((b) => fetchBoard(b)));
 const offers = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 const failed = SEED_BOARDS.filter((_, i) => results[i].status === "rejected").map((b) => b.token);
 

@@ -11,7 +11,8 @@
     "test:llm": "RUN_LLM_TESTS=1 vitest run",
     "db:migrate": "tsx scripts/migrate.mts",
     "collect": "tsx scripts/collect.mts",
-    "dry-run": "tsx scripts/dry-run.mts"
+    "dry-run": "tsx scripts/dry-run.mts",
+    "discover": "tsx scripts/discover.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
