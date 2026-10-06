@@ -69,7 +69,8 @@ class MistralProvider implements LlmProvider {
 // Raised when no model can answer: callers surface a clear message and retry, never an approximate result.
 export class LlmUnavailableError extends Error {
   constructor(cause?: unknown) {
-    super("LLM unavailable", { cause });
+    // The cause is a provider name or an HTTP status, never user content: safe to log.
+    super(`LLM unavailable: ${String(cause ?? "unknown")}`, { cause });
     this.name = "LlmUnavailableError";
   }
 }
