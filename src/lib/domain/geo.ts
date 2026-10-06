@@ -179,5 +179,7 @@ export function zoneVerdict(
 
   const known = offer.places.filter((p) => p.country);
   if (known.length === 0) return "unknown";
+  // "France" alone (search engines often say no more): maybe in the zone, the posting will tell.
+  if (known.every((p) => !p.city && !p.region) && known.some((p) => zoneCountries.has(p.country!))) return "unknown";
   return "out";
 }

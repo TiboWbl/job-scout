@@ -161,6 +161,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       experienceRequired: offer.experience_min_years,
       description: descriptions.get(offer.id) ?? "",
       excerpt: excerpts.has(offer.id),
+      favorite: favoriteIds.has(offer.company_id),
     }));
     running.push(
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames, feedback).then(async (results) => {
@@ -253,7 +254,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
 
   const { data: offers } = await db
     .from("offers")
-    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, description, company:companies(name)")
+    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, description, company_id, company:companies(name)")
     .in("id", offerIds);
   const rows: Record<string, unknown>[] = [];
   const toJudge: { offer: LightOffer & { description: string | null }; outOfZone: boolean; gap: number }[] = [];
@@ -263,8 +264,9 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
     else rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
   }
   if (toJudge.length > 0) {
-    const { data: favs } = await db.from("favorite_companies").select("company:companies(name)").eq("user_id", userId);
+    const { data: favs } = await db.from("favorite_companies").select("company_id, company:companies(name)").eq("user_id", userId);
     const favoriteNames = (favs ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
+    const favoriteIds = new Set((favs ?? []).map((f) => f.company_id as string));
     const results = await judgeBatch(
       toJudge.map(({ offer }) => ({
         id: offer.id,
@@ -274,6 +276,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
         contract: offer.contract,
         experienceRequired: offer.experience_min_years,
         description: offer.description ?? "",
+        favorite: favoriteIds.has(offer.company_id),
       })),
       criteria,
       cv,

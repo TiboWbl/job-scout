@@ -51,6 +51,8 @@ const EXPERIENCE_PATTERNS: [RegExp, number, number | null, number | null][] = [
   [/experience\s+(?:de\s+|of\s+|minimum\s+de\s+|d['’ ]au moins\s+)?(\d{1,2})\s*\+?\s*(?:(?:a|-|to|–)\s*(\d{1,2})\s*)?(?:ans?|annees?|years?|yrs?)\b/g, 1, 2, null],
   // "3+ years in product management", "5 years as a PM", "3 ans en gestion de produit", "2 ans sur un poste similaire"
   [new RegExp(`${YEARS}${UNIT}\\s+${CONTEXT}`, "g"), 1, 2, null],
+  // "entre 2 et 5 ans d'expérience", "between 2 and 5 years": without it, "5 ans d'expérience" alone was read.
+  [/(?:entre|between)\s+(\d{1,2})\s*(?:ans?|annees?|years?)?\s*(?:et|and|a|-|–)\s*(\d{1,2})\s*(?:ans?|annees?|years?|yrs?)\b/g, 1, 2, null],
   // "jusqu'à 2 ans d'expérience", "up to 2 years", "moins de 3 ans": a ceiling, so from 0.
   [/(?:jusqu['’ ]?a|up to|moins de|less than|maximum|max\.?)\s+(\d{1,2})\s*(?:ans?|annees?|years?|yrs?)\b/g, 0, 1, 0],
 ];

@@ -66,3 +66,13 @@ export function titleRelevance(title: string, criteria: Criteria): number {
   for (const p of criteria.bridgeRoles) top = Math.max(top, phraseScore(core(p), titleTokens, "").title * 6);
   return top;
 }
+
+// The title names a role sought word for word ("Healthcare Product Manager Junior" names "Product
+// Manager"). Multi-word phrases only: acronyms like "PM" or "PO" are too ambiguous to settle it.
+export function namesTargetRole(title: string, criteria: Criteria): boolean {
+  const t = ` ${tokens(title).join(" ")} `;
+  return [...criteria.targetRoles, ...criteria.titleVariants].some((p) => {
+    const words = tokens(core(p));
+    return words.length >= 2 && t.includes(` ${words.join(" ")} `);
+  });
+}

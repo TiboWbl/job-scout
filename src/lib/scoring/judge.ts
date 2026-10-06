@@ -3,6 +3,7 @@ import type { Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Level } from "@/lib/domain/offer";
 import { detectExperienceYears } from "@/lib/domain/signals";
 import { getLlm } from "@/lib/llm";
+import { namesTargetRole } from "./relevance";
 
 export type JudgeInput = {
   id: string;
@@ -14,9 +15,13 @@ export type JudgeInput = {
   description: string;
   // Only a search-engine excerpt could be read: nothing precise may be inferred from it.
   excerpt?: boolean;
+  // One of the person's favourite companies.
+  favorite?: boolean;
 };
 
 const foldAccents = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+// Titles announcing a junior-level role.
+const JUNIOR = /\b(junior|jr|associate|graduate|entry[- ]level|debutant|jeune diplome)\b/;
 const plural = (n: number) => (n > 1 ? "s" : "");
 
 // Facts shown on a card must be in the posting itself. The detector's reading of the text wins; the
@@ -100,6 +105,8 @@ const Item = z.object({
   secteur: oneOf(SECTORS, "autre"),
   piege: Text,
   deal_breaker: Text,
+  deal_breaker_concerne: Text,
+  secteur_evite_concerne: Text,
   score_interet: Score,
   score_chances: Score,
   score_tremplin: Score,
@@ -117,7 +124,20 @@ const Item = z.object({
 });
 type Item = z.infer<typeof Item>;
 
-export type Facts = { match: Match; sector: Sector; trap: string | null; dealBreaker: string | null; chances: number };
+// `favorite`: a company the person picked. `reach`: the offer is open to their level (junior, beginners
+// accepted, or no more years asked than they have): where their chances are best.
+export type Facts = { match: Match; sector: Sector; trap: string | null; dealBreaker: string | null; chances: number; favorite?: boolean; reach?: boolean };
+
+// A sector to avoid or a deal-breaker excludes an offer only if the model names which of the person's
+// own items it is: "fintech is not sport" is not a reason they gave.
+export function namedItem(cited: string | null, items: string[]): boolean {
+  const c = fold(cited ?? "");
+  if (c.length < 3) return false;
+  return items.some((i) => {
+    const f = fold(i);
+    return f.length >= 3 && (f === c || f.includes(c) || c.includes(f));
+  });
+}
 
 // Constraints are gates, not averages: any one of them sets the level on its own.
 export function deriveLevel(f: Facts, criteria: Criteria): { level: Level; reason: string | null } {
@@ -126,8 +146,10 @@ export function deriveLevel(f: Facts, criteria: Criteria): { level: Level; reaso
   if (f.trap) return f.match === "passerelle" ? { level: "tremplin", reason: null } : { level: "ecartee", reason: f.trap };
   if (f.match === "autre") return { level: "ecartee", reason: null };
   if (f.match === "passerelle") return { level: "tremplin", reason: null };
-  if (f.sector === "autre" && !criteria.otherSectors.open) return { level: "ecartee", reason: "Hors des secteurs que tu vises." };
-  return { level: f.sector === "prioritaire" && f.chances >= 50 ? "coeur" : "solide", reason: null };
+  if (f.sector === "autre" && !criteria.otherSectors.open && !f.favorite) return { level: "ecartee", reason: "Hors des secteurs que tu vises." };
+  // A crush: the role sought, with real chances, in a preferred sector, at a favourite company, or
+  // open to the person's level.
+  return { level: f.chances >= 50 && (f.sector === "prioritaire" || f.favorite || f.reach) ? "coeur" : "solide", reason: null };
 }
 
 // Some models answer on a 0-10 scale despite the instruction; a relevant offer reveals it.
@@ -145,9 +167,9 @@ Pour chaque offre, juge le POSTE RÉEL décrit par les missions, pas l'intitulé
 
 Réponds à ces questions pour chaque offre :
 - "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
-- "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ?
-- "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null.
-- "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte un deal-breaker du profil, sinon null.
+- "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne". Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter".
+- "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null Un secteur non prioritaire n'est jamais un piège.
+- "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte clairement un deal-breaker du profil, sinon null ; recopie ce deal-breaker mot pour mot dans "deal_breaker_concerne". Un secteur non prioritaire n'est jamais un deal-breaker.
 
 Scores, entiers de 0 à 100 (jamais sur 10) :
 - score_interet : alignement avec ce que la personne cherche (missions, secteur). Bas si "autre" ou piège. Plus haut si l'entreprise fait partie de ses entreprises favorites. Tiens compte de ses retours : rapproche-toi des offres qu'elle a appréciées, éloigne-toi de celles qu'elle a écartées et de leurs raisons.
@@ -165,7 +187,7 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "piege", "deal_breaker", "deal_breaker_concerne", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -242,7 +264,14 @@ export async function judgeBatch(
     if (!id) return;
     const input = offers.find((o) => o.id === id)!;
     const experience = verifiedExperience(item.experience_demandee, input.experienceRequired, input.description, item.citation_experience);
-    const facts: Facts = { match: item.correspondance, sector: item.secteur, trap: item.piege, dealBreaker: item.deal_breaker, chances: item.score_chances };
+    // A title that names the role sought, with no trap, is that role: the model sometimes files it as a bridge.
+    const match = item.correspondance === "passerelle" && !item.piege && namesTargetRole(input.title, criteria) ? "metier_vise" : item.correspondance;
+    const asked = input.experienceRequired ?? experience.years;
+    const reach =
+      (asked !== null && asked <= (experienceYears ?? 0)) || JUNIOR.test(foldAccents(input.title)) || (experience.label !== null && !/\d/.test(experience.label));
+    const sector = item.secteur === "a_eviter" && !namedItem(item.secteur_evite_concerne, criteria.sectorsAvoid) ? "autre" : item.secteur;
+    const dealBreaker = item.deal_breaker && namedItem(item.deal_breaker_concerne, criteria.dealBreakers) ? item.deal_breaker : null;
+    const facts: Facts = { match, sector, trap: item.piege, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };
     const { level, reason } = deriveLevel(facts, criteria);
     const [interet, chances, tremplin] = to100(item, level);
     const watch = item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege, ...item.points_d_attention] : item.points_d_attention;

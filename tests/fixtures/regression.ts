@@ -97,13 +97,13 @@ export const CASES: Case[] = [
     expect: { stage: "llm", levels: ["coeur"] },
   },
   {
-    name: "8. Junior PM scale-up ameublement financée, vrai poste produit : solide",
+    name: "8. Junior PM scale-up ameublement financée, vrai poste produit, 0 à 2 ans : coup de cœur",
     title: "Junior Product Manager",
     company: "Maison Ondine",
     location: "Paris",
     description:
       "Maison Ondine, scale-up de mobilier et de décoration en ligne qui vient de lever 30 millions d'euros, renforce son équipe produit. Tu travailles sur le parcours d'achat du site e-commerce : discovery, tests A/B, spécifications et priorisation avec les développeurs. Profil recherché : 0 à 2 ans d'expérience en product management, esprit analytique, anglais professionnel. CDI.",
-    expect: { stage: "llm", levels: ["solide"] },
+    expect: { stage: "llm", levels: ["coeur"] },
   },
   {
     name: "9. « Junior PM » dans une marque de mode, en réalité collection textile : écartée",

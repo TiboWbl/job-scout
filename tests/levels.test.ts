@@ -18,6 +18,12 @@ describe("niveau dérivé des réponses du modèle", () => {
     expect(deriveLevel(facts({ sector: "autre" }), open).level).toBe("solide");
     expect(deriveLevel(facts({ sector: "autre" }), closed).level).toBe("ecartee");
   });
+  it("métier visé hors secteur prioritaire : coup de cœur chez une favorite ou si l'offre est à la portée d'un junior", () => {
+    expect(deriveLevel(facts({ sector: "autre" }), open).level).toBe("solide");
+    expect(deriveLevel(facts({ sector: "autre", favorite: true }), open).level).toBe("coeur");
+    expect(deriveLevel(facts({ sector: "accepte", reach: true }), open).level).toBe("coeur");
+    expect(deriveLevel(facts({ sector: "autre", reach: true, chances: 30 }), open).level).toBe("solide");
+  });
   it("passerelle : tremplin", () => {
     expect(deriveLevel(facts({ match: "passerelle" }), open).level).toBe("tremplin");
   });
@@ -29,6 +35,27 @@ describe("niveau dérivé des réponses du modèle", () => {
   });
   it("un deal-breaker l'emporte sur tout le reste", () => {
     expect(deriveLevel(facts({ dealBreaker: "Astreintes le week-end." }), open).level).toBe("ecartee");
+  });
+});
+
+describe("secteur évité et deal-breaker nommés par la personne", async () => {
+  const { namedItem } = await import("@/lib/scoring/judge");
+  const avoid = ["Paris sportifs et jeux d'argent", "Produit non digital (collection textile, retail)"];
+  it("accepte un élément recopié, refuse une raison inventée", () => {
+    expect(namedItem("Paris sportifs et jeux d'argent", avoid)).toBe(true);
+    expect(namedItem("produit non digital", avoid)).toBe(true);
+    expect(namedItem("Fintech non prioritaire", avoid)).toBe(false);
+    expect(namedItem(null, avoid)).toBe(false);
+  });
+});
+
+describe("intitulé qui nomme le métier visé", async () => {
+  const { namesTargetRole } = await import("@/lib/scoring/relevance");
+  const pm = Criteria.parse({ targetRoles: ["Product Manager"], titleVariants: ["PM", "Associate Product Manager"] });
+  it("reconnaît le métier dans un intitulé plus long, pas dans un autre métier", () => {
+    expect(namesTargetRole("Healthcare Product Manager Junior - CDI Paris", pm)).toBe(true);
+    expect(namesTargetRole("Product Support Manager", pm)).toBe(false);
+    expect(namesTargetRole("PM Office Coordinator", pm)).toBe(false);
   });
 });
 

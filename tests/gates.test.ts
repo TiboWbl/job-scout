@@ -42,6 +42,8 @@ describe("zone", () => {
 
   it("ne refuse jamais un lieu illisible", () => {
     expect(zoneVerdict(offerAt("HQ"), PARIS)).toBe("unknown");
+    // A search engine that only says "France": the city is to be checked, not ruled out.
+    expect(zoneVerdict({ ...offerAt("France"), places: [{ country: "FR" }] }, PARIS)).toBe("unknown");
   });
 
   it("accepte une région ou un pays comme zone", () => {
@@ -161,6 +163,8 @@ describe("expérience en fourchette", async () => {
     ["Must-haves - 3+ years in product management", 3, null, "3 ans et plus"],
     ["Up to 2 years of experience in a product team", 0, 2, "0 à 2 ans"],
     ["Moins de 3 ans d'expérience", 0, 3, "0 à 3 ans"],
+    ["Diplômé·e d'une grande école d'ingénieur, entre 2 et 5 ans d'expérience, idéalement en conseil", 2, 5, "2 à 5 ans"],
+    ["Between 1 and 3 years of experience in product", 1, 3, "1 à 3 ans"],
   ];
   for (const [text, min, max, label] of cases) {
     it(`« ${text.slice(0, 45)} » → ${label}`, () => {
