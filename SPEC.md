@@ -61,6 +61,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - Upload du CV en PDF (recommandé, pas obligatoire). Les coordonnées sont retirées côté serveur avant tout envoi au LLM, qui en extrait l'expérience, les compétences, la séniorité réelle et les langues. **L'onboarding le dit clairement**, avec ce texte : « Ton nom et tes coordonnées ne sont jamais envoyés à l'IA. »
   - « Décris ce que tu cherches en quelques phrases » : texte libre.
   - Pendant l'analyse : un état de chargement explicite (« Scout lit ta recherche… »), jamais un écran figé.
+  - « Tes entreprises de rêve » (facultatif) : quelques noms qui aident à cerner ce que la personne aime (secteur, taille, culture). Elles rejoignent les entreprises suivies.
+  - L'onboarding rassure : le texte et le CV pourront être modifiés à tout moment depuis « Ma recherche ».
   - Le LLM transforme le tout en critères structurés. Les négations sont respectées (« Pas de stage ni d'alternance » exclut ces contrats).
   - Écran **« Ce que j'ai compris »** :
     - tout ce qui a été extrait est visible d'un coup d'œil (y compris langues, entreprises exclues, disponibilité), rien derrière « Plus de précisions » ;
@@ -88,7 +90,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Les mêmes critères restent modifiables directement par filtres, sans passer par le texte.
 - Curseur d'ouverture : « job de rêve uniquement » ↔ « je veux surtout commencer quelque part ».
 - Aperçu en direct de l'effet des critères (« ≈ X offres par semaine avec ces réglages »).
-- Toute modification déclenche le re-scoring automatique des offres actives (profil versionné). « Ma recherche » utilise le même écran que l'onboarding.
+- Toute modification déclenche le re-scoring automatique des offres actives (profil versionné). « Ma recherche » utilise le même écran que l'onboarding : le texte de départ et le CV y restent modifiables.
 - **Entreprises suivies** :
   - ajout en collant une entreprise par ligne (le format le plus simple), par URL de page carrière, ou par import CSV à deux colonnes `entreprise,site` (site facultatif), avec un modèle téléchargeable ;
   - statut affiché par entreprise : « page carrière trouvée (ATS) » ou « introuvable » ;
@@ -183,7 +185,15 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 ## Offres (fil)
 
 - **Sélection du jour finie et curée**, pas un scroll infini. Classement par niveau puis score.
-- Cartes : logo, titre, lieu, télétravail, contrat, fraîcheur (« publiée il y a X jours »), niveau, « pourquoi » en une phrase. Points forts, points d'attention et leviers CV dans le panneau latéral.
+- Cartes : ce qu'on cherche d'un coup d'œil quand on parcourt une offre :
+  - logo, titre, entreprise, niveau, fraîcheur (« publiée il y a X jours ») ;
+  - lieu, télétravail, contrat, **salaire** s'il est indiqué ;
+  - **expérience demandée**, lue dans « Profil recherché » ou équivalent (ex. « 3 ans et plus ») ;
+  - **2 à 3 missions principales**, en quelques mots chacune ;
+  - le « pourquoi » en entier (une phrase courte), pas tronqué.
+  Points forts, points d'attention et leviers CV dans le panneau latéral.
+- Détail d'une offre : panneau latéral par défaut, avec une option « plein écran » qui occupe toute la zone de contenu en gardant la barre latérale.
+- Logos : par domaine quand il est connu, sinon recherche par nom (logo.dev) ; initiales en repli quand la marque n'est pas reconnue avec certitude.
 - Mise en avant douce des offres de moins de 48 h : postuler tôt compte.
 - Les offres publiées il y a plus de 60 jours sont masquées par défaut : les pages carrière gardent parfois des offres anciennes.
 - Actions sur chaque offre : **Sauvegarder**, **Pas pour moi** (+ raison en un clic, qui affine le scoring), **Postuler**.
@@ -251,7 +261,11 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Mutualisé : offres, annuaire d'entreprises, collecte.
 - Privé : profil, CV, scores, feedback, suivi.
 - Plafond d'appels LLM par utilisateur et par jour, suivi de la consommation du quota gratuit.
-- Tableau de bord admin : utilisateurs, consommation, santé des sources.
+- **Espace admin** (compte désigné par `ADMIN_EMAIL`), accessible depuis le menu du compte en bas de la barre latérale :
+  - invitations : ajouter ou retirer une adresse, et voir pour chaque invité s'il s'est déjà connecté (et quand) ;
+  - tableau de bord sobre, avec graphiques, utile pour suivre le produit et le présenter en entretien : offres actives et nouvelles par jour, entreprises dans l'annuaire et leur origine, sources et leur santé, utilisateurs actifs, offres triées par l'IA, répartition des niveaux, candidatures suivies (agrégées, jamais nominatives).
+- **Barre latérale** : en bas, la photo du compte Google et le prénom ; un clic ouvre un petit menu (Admin pour l'admin, Se déconnecter).
+- **Jamais d'attente muette** : toute opération en arrière-plan (analyse, tri, ajout, collecte, import) montre une progression ou un indicateur de chargement.
 - RGPD : page « Confidentialité » (données collectées, usage de Mistral, suppression) et suppression complète du compte et des données en un clic. Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
 - Clés API en variables d'environnement (et secrets GitHub), jamais dans le code.
 
