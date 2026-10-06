@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { Invitee } from "@/lib/admin/stats";
 
-type Props = { invited: string[]; fromEnv: string[] };
+const seen = (iso: string | null) =>
+  iso ? `Connecté·e le ${new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : "Pas encore connecté·e";
 
-export function Invitations({ invited, fromEnv }: Props) {
+export function Invitations({ people }: { people: Invitee[] }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,21 +47,19 @@ export function Invitations({ invited, fromEnv }: Props) {
       </form>
       {error && <p className="mt-2 text-sm text-warn">{error}</p>}
       <ul className="mt-4 divide-y divide-line text-sm">
-        {fromEnv.map((e) => (
-          <li key={`env-${e}`} className="flex items-center justify-between py-2">
-            <span>{e}</span>
-            <span className="text-muted">variable d&apos;environnement</span>
+        {people.map((p) => (
+          <li key={p.email} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+            <span className="min-w-0 flex-1 truncate font-medium">{p.email}</span>
+            <span className={p.lastSignIn ? "text-ink" : "text-muted"}>{seen(p.lastSignIn)}</span>
+            {p.via === "admin page" ? (
+              <button type="button" disabled={busy} onClick={() => call("DELETE", p.email)} className="text-muted underline-offset-4 hover:text-ink hover:underline">
+                Retirer
+              </button>
+            ) : (
+              <span className="text-muted">{p.via === "admin" ? "toi (admin)" : "variable d'environnement"}</span>
+            )}
           </li>
         ))}
-        {invited.map((e) => (
-          <li key={e} className="flex items-center justify-between py-2">
-            <span>{e}</span>
-            <button type="button" disabled={busy} onClick={() => call("DELETE", e)} className="text-muted underline-offset-4 hover:text-ink hover:underline">
-              Retirer
-            </button>
-          </li>
-        ))}
-        {fromEnv.length + invited.length === 0 && <li className="py-2 text-muted">Personne d&apos;autre que toi pour l&apos;instant.</li>}
       </ul>
       <p className="mt-3 text-[13px] text-muted">
         Tant que l&apos;application Google est en mode Test, ajoute aussi l&apos;adresse dans les utilisateurs test de Google Cloud.

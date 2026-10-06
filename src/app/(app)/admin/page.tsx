@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { CHART_DAYS, dashboardStats, invitees } from "@/lib/admin/stats";
 import { isAdminEmail } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { CollectButton } from "./collect-button";
+import { Columns, Rows } from "./charts";
 import { Invitations } from "./invitations";
 
 type Run = { source: string; started_at: string; offers_seen: number; offers_new: number; offers_archived: number; errors: number; error_sample: string | null };
@@ -12,14 +14,13 @@ export default async function AdminPage() {
   if (!isAdminEmail(user?.email)) notFound();
 
   const db = createAdminClient();
-  const [runs, offers, companies, users, invitations] = await Promise.all([
+  const [runs, invitations, stats] = await Promise.all([
     db.from("collection_runs").select("source, started_at, offers_seen, offers_new, offers_archived, errors, error_sample").order("started_at", { ascending: false }).limit(300),
-    db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
-    db.from("companies").select("id", { count: "exact", head: true }),
-    db.from("profiles").select("id", { count: "exact", head: true }).not("onboarded_at", "is", null),
     db.from("invitations").select("email").order("created_at", { ascending: false }),
+    dashboardStats(db),
   ]);
   const fromEnv = (process.env.INVITED_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const people = await invitees(db, process.env.ADMIN_EMAIL, fromEnv, (invitations.data ?? []).map((i) => i.email as string));
 
   // Latest run per source, plus the previous one to spot a sudden drop.
   const bySource = new Map<string, Run[]>();
@@ -29,25 +30,58 @@ export default async function AdminPage() {
   return (
     <div className="max-w-5xl px-1 pb-16 pt-3 md:px-2">
       <h1 className="font-display text-5xl font-extrabold tracking-tight">Admin</h1>
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <p className="mt-2 text-[15px] text-muted">Chiffres agrégés uniquement : rien ici ne dit qui cherche quoi.</p>
+
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          ["Offres actives", offers.count ?? 0],
-          ["Entreprises", companies.count ?? 0],
-          ["Utilisateurs", users.count ?? 0],
+          ["Offres actives en France", stats.activeOffers],
+          ["Pages carrière surveillées", stats.directory],
+          ["Offres lues par l'IA", stats.judgedByAi],
+          ["Personnes qui cherchent", stats.onboarded],
+          ["Candidatures suivies", stats.applications],
+          ["Offres ajoutées par URL", stats.added],
+          ["Entreprises favorites", stats.favorites],
+          ["Invitations", people.length],
         ].map(([label, n]) => (
           <div key={label} className="rounded-[20px] border border-line bg-surface p-4">
+            <p className="font-display text-3xl font-extrabold tabular-nums">{Number(n).toLocaleString("fr-FR")}</p>
             <p className="text-sm text-muted">{label}</p>
-            <p className="font-display text-3xl font-extrabold">{n}</p>
           </div>
         ))}
       </div>
 
-      <div className="mt-8">
-        <CollectButton />
+      <section className="mt-8 rounded-[22px] border border-line bg-surface p-5">
+        <h2 className="font-display text-xl font-bold">Nouvelles offres, {CHART_DAYS} derniers jours</h2>
+        <div className="mt-4">
+          <Columns data={stats.perDay} label="Nouvelles offres par jour" />
+        </div>
+      </section>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <section className="rounded-[22px] border border-line bg-surface p-5">
+          <h2 className="font-display text-xl font-bold">D&apos;où viennent les offres</h2>
+          <div className="mt-4">
+            <Rows data={stats.sources} label="Offres actives par source" />
+          </div>
+        </section>
+        <section className="rounded-[22px] border border-line bg-surface p-5">
+          <h2 className="font-display text-xl font-bold">Comment l&apos;annuaire s&apos;est construit</h2>
+          <div className="mt-4">
+            <Rows data={stats.origins} label="Pages carrière par origine" />
+          </div>
+          <h2 className="mt-6 font-display text-xl font-bold">Ce que l&apos;IA en a pensé</h2>
+          <div className="mt-4">
+            <Rows data={stats.levels} label="Offres lues par niveau, tous profils confondus" />
+          </div>
+        </section>
       </div>
 
       <h2 className="mt-10 font-display text-2xl font-bold">Invitations</h2>
-      <Invitations invited={(invitations.data ?? []).map((i) => i.email as string)} fromEnv={fromEnv} />
+      <Invitations people={people} />
+
+      <div className="mt-10">
+        <CollectButton />
+      </div>
 
       <h2 className="mt-10 font-display text-2xl font-bold">Santé des sources</h2>
       {rows.length === 0 ? (
