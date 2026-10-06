@@ -96,7 +96,7 @@ Réponds à ces questions pour chaque offre :
 - "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte un deal-breaker du profil, sinon null.
 
 Scores, entiers de 0 à 100 (jamais sur 10) :
-- score_interet : alignement avec ce que la personne cherche (missions, secteur). Bas si "autre" ou piège.
+- score_interet : alignement avec ce que la personne cherche (missions, secteur). Bas si "autre" ou piège. Plus haut si l'entreprise fait partie de ses entreprises favorites.
 - score_chances : expérience demandée vs réelle, compétences requises vs CV, langues. Chaque année demandée au-delà de l'expérience de la personne baisse ce score. L'expérience ne change jamais la correspondance.
 - score_tremplin : valeur comme étape de carrière (apprentissage, encadrement, passerelle).
 
@@ -121,7 +121,7 @@ export function focusedExcerpt(description: string, max = 3200): string {
   return `${description.slice(0, max - requirements.length - 20)}\n[…]\n${requirements}`;
 }
 
-function profileBrief(criteria: Criteria, cv: CvSummary | null, experienceYears: number | null) {
+function profileBrief(criteria: Criteria, cv: CvSummary | null, experienceYears: number | null, favorites: string[] = []) {
   return JSON.stringify({
     metiers_vises: criteria.targetRoles,
     variantes: criteria.titleVariants.slice(0, 12),
@@ -134,6 +134,7 @@ function profileBrief(criteria: Criteria, cv: CvSummary | null, experienceYears:
     experience_annees: experienceYears,
     langues: criteria.languages,
     deal_breakers: criteria.dealBreakers,
+    entreprises_favorites: favorites,
     cv: cv ? { postes: cv.roles, competences: cv.skills, formation: cv.education, realisations: cv.highlights } : null,
   });
 }
@@ -143,11 +144,12 @@ export async function judgeBatch(
   criteria: Criteria,
   cv: CvSummary | null,
   experienceYears: number | null,
+  favorites: string[] = [],
 ): Promise<Map<string, Judgement>> {
   const llm = getLlm();
 
   const shortIds = new Map(offers.map((o, i) => [`o${i + 1}`, o.id]));
-  const user = `Profil :\n${profileBrief(criteria, cv, experienceYears)}\n\nOffres :\n${offers
+  const user = `Profil :\n${profileBrief(criteria, cv, experienceYears, favorites)}\n\nOffres :\n${offers
     .map((o, i) =>
       JSON.stringify({
         id: `o${i + 1}`,

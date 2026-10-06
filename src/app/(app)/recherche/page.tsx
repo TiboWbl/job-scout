@@ -1,5 +1,6 @@
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import { getUser } from "@/lib/supabase/server";
+import { Favorites } from "@/components/favorites";
 import { SearchSetup } from "@/components/search-setup";
 
 export default async function RecherchePage() {
@@ -14,6 +15,9 @@ export default async function RecherchePage() {
       <p className="mt-2 max-w-2xl text-[15px] text-muted">Modifie tes critères directement, ou redis ta recherche avec tes mots pour repartir d&apos;une nouvelle analyse.</p>
       <div className="mt-8">
         <SearchSetup mode="edit" initialText={profile?.search_text ?? ""} initialCriteria={parsed.success ? parsed.data : null} initialCvSummary={cv.success ? cv.data : null} />
+      </div>
+      <div className="mt-8">
+        <Favorites />
       </div>
     </div>
   );

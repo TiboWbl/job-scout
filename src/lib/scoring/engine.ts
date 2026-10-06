@@ -96,6 +96,8 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   if (gateRows.length > 0) return { scoredNow: gateRows.length, remaining: candidates.length, total: offers.length };
 
   candidates.sort((a, b) => b.rel - a.rel);
+  const { data: favs } = await db.from("favorite_companies").select("company:companies(name)").eq("user_id", userId);
+  const favoriteNames = (favs ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
   const descriptions = new Map<string, string>();
   const toLoad = candidates.slice(0, MAX_BATCHES_PER_CALL * BATCH_SIZE).map((c) => c.offer.id);
   for (let i = 0; i < toLoad.length; i += 100) {
@@ -121,7 +123,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       description: descriptions.get(offer.id) ?? "",
     }));
     running.push(
-      judgeBatch(inputs, criteria, cv, experienceYears).then(async (results) => {
+      judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
           .map(({ offer, outOfZone, gap }) => {

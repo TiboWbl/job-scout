@@ -23,9 +23,9 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "ecartees", label: "Écartées" },
 ];
 
-type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
+type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, criteriaVersion, hasOffers, isAdmin }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, criteriaVersion, hasOffers, isAdmin }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -52,6 +52,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [showStale, setShowStale] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const favoriteIds = useMemo(() => new Set(favoriteCompanyIds), [favoriteCompanyIds]);
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -263,7 +264,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         <>
           <div className={`grid gap-3.5 ${open ? "sm:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"}`}>
             {shown.map((item) => (
-              <OfferCard key={item.offer.id} item={item} selected={item.offer.id === openId} {...handlers(item)} />
+              <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
             ))}
           </div>
           {hasOffers && shown.length === 0 && !progress && (
@@ -278,7 +279,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
               <p className="mt-1 text-sm text-muted">Gardées à part parce que tout le reste correspond très bien.</p>
               <div className={`mt-4 grid gap-3.5 ${open ? "sm:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"}`}>
                 {outOfZone.map((item) => (
-                  <OfferCard key={item.offer.id} item={item} selected={item.offer.id === openId} {...handlers(item)} />
+                  <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
                 ))}
               </div>
             </section>

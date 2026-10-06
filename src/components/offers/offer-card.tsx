@@ -12,6 +12,7 @@ import { NopeMenu } from "./nope-menu";
 
 type Props = {
   item: FeedItem;
+  favorite?: boolean;
   selected: boolean;
   onOpen: () => void;
   onSave: () => void;
@@ -19,7 +20,7 @@ type Props = {
   onApply: () => void;
 };
 
-export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: Props) {
+export function OfferCard({ item, favorite = false, selected, onOpen, onSave, onNope, onApply }: Props) {
   const [nopeOpen, setNopeOpen] = useState(false);
   const { offer } = item;
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
@@ -39,7 +40,14 @@ export function OfferCard({ item, selected, onOpen, onSave, onNope, onApply }: P
       <header className="flex items-center gap-3">
         <CompanyLogo name={offer.company.name} domain={offer.company.domain} brand={offer.company.brand} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{offer.company.name}</p>
+          <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+            {offer.company.name}
+            {favorite && (
+              <span className="rounded-full bg-[var(--accent)] px-1.5 py-px text-[10.5px] font-semibold text-white" title="Une de tes entreprises favorites">
+                Favorite
+              </span>
+            )}
+          </p>
           <p className={`text-[12.5px] ${fresh ? "font-semibold text-[var(--accent)]" : "text-muted"}`}>
             {fresh ? "Nouvelle · " : ""}
             {seenAt ? `Publiée ${freshness(seenAt)}` : ""}

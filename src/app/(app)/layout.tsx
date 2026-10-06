@@ -17,12 +17,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/offres", label: "Offres" },
     { href: "/suivi", label: "Suivi" },
     { href: "/recherche", label: "Ma recherche" },
-    ...(isAdminEmail(user.email) ? [{ href: "/admin", label: "Admin" }] : []),
   ];
+  const meta = user.user_metadata;
+  const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
 
   return (
     <div className="flex min-h-screen flex-col gap-4 p-4 md:flex-row">
-      <Rail items={items} firstName={profile.display_name || null} />
+      <Rail items={items} firstName={profile.display_name || null} avatarUrl={avatarUrl} isAdmin={isAdminEmail(user.email)} />
       <main className="min-w-0 flex-1">{children}</main>
     </div>
   );

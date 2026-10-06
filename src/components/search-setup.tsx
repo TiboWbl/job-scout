@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { hasMinimumCriteria, type Criteria, type CvSummary } from "@/lib/domain/criteria";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { CriteriaEditor } from "./criteria-editor";
+import { addFavorites, parseEntries } from "./favorites";
 
 type Props = {
   mode: "onboarding" | "edit";
@@ -29,6 +30,8 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
   const [cvSummary, setCvSummary] = useState<CvSummary | null | undefined>(undefined);
   const shownCv = cvSummary ?? initialCvSummary;
   const [busy, setBusy] = useState<"cv" | "interpret" | "save" | null>(null);
+  const [dream, setDream] = useState("");
+  const [dreamProgress, setDreamProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -77,6 +80,11 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
       setBusy(null);
       return setError(data?.error ?? "Enregistrement impossible, réessaie.");
     }
+    const dreams = parseEntries(dream);
+    if (dreams.length > 0) {
+      setDreamProgress(`Scout cherche la page carrière de tes entreprises de rêve : 0 / ${dreams.length}`);
+      await addFavorites(dreams, (done) => setDreamProgress(`Scout cherche la page carrière de tes entreprises de rêve : ${done} / ${dreams.length}`));
+    }
     router.push("/offres");
     router.refresh();
   }
@@ -90,6 +98,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
           {mode === "onboarding" ? "Dis-moi ce que tu cherches, avec tes mots" : "Redis-le avec tes mots"}
         </label>
         <p className="mt-1 text-sm text-muted">Le métier, le lieu, ce qui te plaît, ce que tu veux éviter, où tu en es. Quelques phrases suffisent.</p>
+        {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Pas de pression : tu pourras modifier ce texte, ton CV et tes entreprises à tout moment dans Ma recherche.</p>}
         <textarea
           id="search-text"
           value={text}
@@ -98,6 +107,23 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
           placeholder="Ex. Je termine mes études et je cherche un premier poste en marketing digital à Lyon, ou en télétravail. J'aimerais une entreprise à impact, et j'évite la grande distribution."
           className="mt-4 w-full resize-y rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
         />
+
+        {mode === "onboarding" && (
+          <div className="mt-4">
+            <label htmlFor="dream" className="text-sm font-semibold">
+              Tes entreprises de rêve <span className="font-normal text-muted">(facultatif)</span>
+            </label>
+            <p className="text-[13px] text-muted">Elles aident Scout à cerner ce que tu aimes, et il surveillera leurs offres. Une par ligne ou séparées par des virgules.</p>
+            <textarea
+              id="dream"
+              value={dream}
+              onChange={(e) => setDream(e.target.value)}
+              rows={2}
+              placeholder="Ex. Acme Sport, Exemple Santé"
+              className="mt-2 w-full resize-y rounded-2xl border border-line bg-pill-solid p-3 text-[15px] placeholder:text-muted focus:border-ink focus:outline-none"
+            />
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
@@ -149,6 +175,12 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
             <button type="button" onClick={save} disabled={!ready || busy !== null} className="rounded-xl bg-button px-6 py-3 text-[15px] font-semibold text-button-ink disabled:opacity-40">
               {busy === "save" ? "Enregistrement…" : mode === "onboarding" ? "C'est parti" : "Enregistrer"}
             </button>
+            {dreamProgress && (
+              <p role="status" className="flex items-center gap-2 text-sm text-muted">
+                <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-brand" />
+                {dreamProgress}
+              </p>
+            )}
             {!ready && <p className="text-sm text-muted">Il faut au moins un métier et un lieu.</p>}
             {ready && mode === "edit" && <p className="text-sm text-muted">Toutes les offres seront réévaluées avec ces critères.</p>}
           </div>

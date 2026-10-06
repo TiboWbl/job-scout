@@ -60,3 +60,11 @@ describe("filtre géographique à la collecte", () => {
     expect(keepInScope({ queries: [], countries: new Set() })([{ city: "Boston", country: "US" }], "onsite")).toBe(true);
   });
 });
+
+describe("liste d'entreprises favorites", () => {
+  it("lit une entreprise par ligne, des virgules, des URL et un CSV à deux colonnes", async () => {
+    const { parseEntries } = await import("@/components/favorites");
+    expect(parseEntries("Acme Sport\nExemple Santé, Autre Boîte\nhttps://jobs.lever.co/acme")).toEqual(["Acme Sport", "Exemple Santé", "Autre Boîte", "https://jobs.lever.co/acme"]);
+    expect(parseEntries("entreprise,site\nAcme Sport,https://acme.fr/carrieres\nExemple Santé,")).toEqual(["https://acme.fr/carrieres", "Exemple Santé"]);
+  });
+});

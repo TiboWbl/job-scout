@@ -12,10 +12,11 @@ export default async function OffresPage() {
   const version = profile?.criteria_version ?? 0;
 
   // Set-aside offers are only counted here; the "Écartées" view loads them on demand.
-  const [selected, excludedCount, actions, activeCount, scoredCount] = await Promise.all([
+  const [selected, excludedCount, actions, favorites, activeCount, scoredCount] = await Promise.all([
     supabase.from("offer_scores").select(SCORE_SELECT).eq("user_id", userId).eq("criteria_version", version).neq("level", "ecartee").limit(1500),
     supabase.from("offer_scores").select("offer_id", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version).eq("level", "ecartee"),
     supabase.from("user_offers").select("offer_id, saved, dismissed"),
+    supabase.from("favorite_companies").select("company_id"),
     supabase.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
     supabase.from("offer_scores").select("offer_id", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version),
   ]);
@@ -39,6 +40,7 @@ export default async function OffresPage() {
       openness={criteria.openness}
       pending={pending}
       excludedCount={excludedCount.count ?? 0}
+      favoriteCompanyIds={(favorites.data ?? []).map((f) => f.company_id as string)}
       criteriaVersion={version}
       total={activeCount.count ?? 0}
       hasOffers={(activeCount.count ?? 0) > 0}

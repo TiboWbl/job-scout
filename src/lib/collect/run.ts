@@ -119,7 +119,7 @@ export function keepInScope(scope: Scope): Keep {
   return (places) => places.some((p) => p.country !== undefined && scope.countries.has(p.country));
 }
 
-async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep): Promise<SourceReport> {
+export async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep): Promise<SourceReport> {
   const startedAt = new Date().toISOString();
   const source = `${board.ats}:${board.token}`;
   const report: SourceReport = { source, seen: 0, created: 0, archived: 0 };

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AccountMenu } from "./account-menu";
 
 type Item = { href: string; label: string };
 
-export function Rail({ items, firstName }: { items: Item[]; firstName: string | null }) {
+export function Rail({ items, firstName, avatarUrl, isAdmin }: { items: Item[]; firstName: string | null; avatarUrl: string | null; isAdmin: boolean }) {
   const pathname = usePathname();
   return (
-    <aside className="flex shrink-0 flex-col gap-1 rounded-3xl bg-rail px-3.5 py-5 md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:w-[220px]">
+    <aside className="relative flex shrink-0 flex-col gap-1 rounded-3xl bg-rail px-3.5 py-5 md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:w-[220px]">
       <Link href="/" className="px-2.5 pb-5 font-display text-[26px] font-extrabold tracking-tight text-white">
         Scout<span className="text-[#b9a8ff]">.</span>
       </Link>
@@ -27,12 +28,9 @@ export function Rail({ items, firstName }: { items: Item[]; firstName: string | 
           );
         })}
       </nav>
-      <form action="/auth/signout" method="post" className="mt-auto hidden px-2.5 pt-4 md:block">
-        {firstName && <p className="text-sm text-white">{firstName}</p>}
-        <button type="submit" className="mt-1 text-[13px] text-rail-ink underline-offset-4 hover:text-white hover:underline">
-          Se déconnecter
-        </button>
-      </form>
+      <div className="mt-auto pt-4 max-md:absolute max-md:right-3 max-md:top-3 max-md:pt-0">
+        <AccountMenu firstName={firstName} avatarUrl={avatarUrl} isAdmin={isAdmin} />
+      </div>
     </aside>
   );
 }
