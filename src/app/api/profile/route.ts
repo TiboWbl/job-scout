@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
+import { requestCollection } from "@/lib/collect/dispatch";
 import { Criteria, CvSummary, hasMinimumCriteria } from "@/lib/domain/criteria";
 
 const Body = z.object({
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   if (!hasMinimumCriteria(body.data.criteria)) return badRequest("Indique au moins un métier et un lieu.");
 
   const { supabase, user } = auth;
-  const { data: current } = await supabase.from("profiles").select("criteria_version, onboarded_at").eq("id", user.id).single();
+  const { data: current } = await supabase.from("profiles").select("criteria, criteria_version, onboarded_at").eq("id", user.id).single();
   const update: Record<string, unknown> = {
     criteria: body.data.criteria,
     criteria_version: (current?.criteria_version ?? 0) + 1,
@@ -33,7 +34,16 @@ export async function POST(request: Request) {
     update.cv_updated_at = new Date().toISOString();
   }
 
+  // New roles, places or contracts: the offers to read change, so a full collection starts at once
+  // instead of waiting for the next scheduled one.
+  const c = body.data.criteria;
+  const before = current?.criteria ? Criteria.safeParse(current.criteria).data : null;
+  const searched = (x: Criteria) => JSON.stringify([x.targetRoles, x.titleVariants, x.bridgeRoles, x.zone, x.contracts, x.outOfZone]);
+  if (!before || searched(before) !== searched(c)) {
+    if (await requestCollection()) update.collect_requested_at = new Date().toISOString();
+  }
+
   const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
   if (error) return NextResponse.json({ error: "Enregistrement impossible" }, { status: 500 });
-  return NextResponse.json({ ok: true, version: update.criteria_version });
+  return NextResponse.json({ ok: true, version: update.criteria_version, collecting: Boolean(update.collect_requested_at) });
 }

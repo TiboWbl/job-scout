@@ -73,9 +73,11 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
 type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
   // Public demo: everything works in the session, nothing is saved, no sorting is started.
   demo?: boolean;
-  base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
+  base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
+  // A fresh collection runs for a search the person just changed.
+  collecting?: boolean };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, base = "", criteriaVersion, hasOffers, isAdmin }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, base = "", criteriaVersion, hasOffers, isAdmin, collecting = false }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -222,6 +224,23 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     searched.current = query.trim();
     loadExcluded(0, query.trim());
   };
+  // A search also shows, below its results, the set-aside offers it matches (read on the server), so a
+  // company never looks absent when Scout did find its offers.
+  const [searchAside, setSearchAside] = useState<{ q: string; items: FeedItem[] }>({ q: "", items: [] });
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2 || filter === "ecartees") return;
+    const t = setTimeout(async () => {
+      const data = demo
+        ? ((await fetch(`/api/demo/excluded?from=0&q=${encodeURIComponent(term)}`).then((r) => r.json()).catch(() => ({ data: [] }))) as { data: unknown[] }).data
+        : await loadExcludedPage(createClient(), { version: criteriaVersion, from: 0, search: term });
+      const rows = ((data ?? []) as unknown as Omit<FeedItem, "saved" | "dismissed">[]).filter((r) => r.offer).map((r) => ({ ...r, saved: false, dismissed: false }));
+      setSearchAside({ q: term, items: rows });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query, filter, demo, criteriaVersion]);
+  const asideForQuery = searchAside.q === query.trim() && query.trim().length >= 2 ? [...set_aside.filter((i) => i.level !== "ecartee" && matches(i)), ...searchAside.items] : [];
+
   // In "Écartées", a new search reloads from the server once typing pauses.
   useEffect(() => {
     if (filter !== "ecartees" || searched.current === query.trim()) return;
@@ -231,7 +250,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     }, 350);
     return () => clearTimeout(t);
   }, [filter, query, loadExcluded]);
-  const open = items.find((i) => i.offer.id === openId) ?? null;
+  const open = items.find((i) => i.offer.id === openId) ?? searchAside.items.find((i) => i.offer.id === openId) ?? null;
 
   const act = useCallback(async (id: string, body: Record<string, unknown>, patch: Partial<FeedItem>) => {
     setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -279,6 +298,12 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
           ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
           : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
       </p>
+
+      {collecting && (
+        <p className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
+          Scout va chercher les offres de ta recherche mise à jour sur toutes ses sources. Elles arriveront d&apos;ici une quinzaine de minutes : reviens un peu plus tard.
+        </p>
+      )}
 
       {progress && (
         <div className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
@@ -383,12 +408,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
           {shown.length > drawn && <MoreOnScroll onMore={drawMore} />}
           {hasOffers && shown.length === 0 && !progress && (
             q ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
-                Rien dans ta sélection pour « {query.trim()} ».
-                <button type="button" onClick={openExcluded} className="btn-soft">
-                  Chercher dans les écartées
-                </button>
-              </div>
+              <p className="rounded-2xl bg-surface p-6 text-muted">Rien dans ta sélection pour « {query.trim()} ».</p>
             ) : (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
                 Rien ici pour l&apos;instant.
@@ -406,6 +426,14 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
                 {shownElsewhere.filter((i) => filter === "all" || i.level === filter).map((item) => (
                   <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
                 ))}
+              </div>
+            </section>
+          )}
+          {asideForQuery.length > 0 && (
+            <section className="mt-12">
+              <h2 className="font-display text-2xl font-bold">Écartées pour toi · {asideForQuery.length}</h2>
+              <div className="mt-4">
+                <SetAside items={asideForQuery} loading={false} more={false} searching onMore={() => undefined} onOpen={(id) => setOpenId(id)} />
               </div>
             </section>
           )}

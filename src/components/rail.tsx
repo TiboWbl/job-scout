@@ -22,6 +22,9 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
             <Link
               key={item.href}
               href={item.href}
+              // Each tab is loaded in full in the background: the first click opens it at once too.
+              // Any change made in the app refreshes these copies.
+              prefetch
               aria-current={active ? "page" : undefined}
               className={`whitespace-nowrap rounded-[14px] px-3.5 py-2.5 text-[15px] ${active ? "bg-rail-active font-semibold text-rail-active-ink" : "font-medium text-rail-ink hover:bg-pill-solid hover:text-rail-text"}`}
             >
