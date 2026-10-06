@@ -50,3 +50,15 @@ describe("faits vérifiés dans l'offre (jamais inventés)", async () => {
     expect(verifiedSalary("50 k€", "Rémunération attractive selon profil")).toBeNull();
   });
 });
+
+describe("contrat lu dans l'offre (avec preuve)", async () => {
+  const { verifiedContract } = await import("@/lib/scoring/judge");
+  const text = "Nous recherchons un(e) stagiaire Product Manager pour un stage de 6 mois à Paris.";
+  it("garde un stage cité mot pour mot", () => {
+    expect(verifiedContract("stage", "un stage de 6 mois", text)).toBe("stage");
+  });
+  it("refuse une citation absente ou qui ne parle pas du contrat", () => {
+    expect(verifiedContract("cdi", "un CDI à Paris", text)).toBeNull();
+    expect(verifiedContract("stage", "à Paris", text)).toBeNull();
+  });
+});

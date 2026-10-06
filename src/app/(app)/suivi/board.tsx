@@ -9,7 +9,7 @@ import { AddOffer } from "@/components/add-offer";
 import { CompanyLogo } from "@/components/company-logo";
 import { ArrowIcon } from "@/components/icons";
 
-export type BoardItem = Application & { domain: string | null; brand: string | null; accent: string | null };
+import type { BoardItem } from "@/lib/views/board";
 type Patch = Partial<Pick<Application, "stage" | "notes" | "contact" | "applied_at" | "interview_at" | "followed_up_at">>;
 
 // Refused and archived share the last column: presented soberly, never front and centre.
@@ -31,17 +31,21 @@ const toInput = (iso: string | null, withTime: boolean) => {
 const fromInput = (value: string) => (value ? new Date(value).toISOString() : null);
 const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export function Board({ items: initial }: { items: BoardItem[] }) {
+// demo: moves and notes work during the visit, nothing is saved; adding an offer is explained instead.
+export function Board({ items: initial, demo = false, base = "" }: { items: BoardItem[]; demo?: boolean; base?: string }) {
   const [items, setItems] = useState(initial);
   const [adding, setAdding] = useState(false);
+  const [demoNote, setDemoNote] = useState(false);
 
   async function patch(id: string, body: Patch) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...body } : i)));
+    if (demo) return;
     await fetch(`/api/applications/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   }
 
   async function remove(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    if (demo) return;
     await fetch(`/api/applications/${id}`, { method: "DELETE" });
   }
 
@@ -59,20 +63,25 @@ export function Board({ items: initial }: { items: BoardItem[] }) {
               : `${sent} candidature${sent > 1 ? "s" : ""} envoyée${sent > 1 ? "s" : ""}${interviews ? `, ${interviews} en entretien ou plus loin` : ""}. Continue comme ça.`}
           </p>
         </div>
-        <button type="button" onClick={() => setAdding(true)} className="rounded-xl bg-button px-4 py-2.5 text-sm font-semibold text-button-ink">
+        <button type="button" onClick={() => (demo ? setDemoNote(true) : setAdding(true))} className="rounded-xl bg-button px-4 py-2.5 text-sm font-semibold text-button-ink">
           Ajouter une offre trouvée ailleurs
         </button>
       </div>
+      {demoNote && (
+        <p role="status" className="mt-4 max-w-2xl rounded-2xl bg-violet-soft px-4 py-3 text-sm text-violet-ink">
+          Désactivé en démo. Dans ton compte, tu colles l&apos;adresse d&apos;une offre vue sur WTTJ ou LinkedIn : Scout la lit, te dit s&apos;il la connaissait déjà, la juge pour ton profil et l&apos;ajoute ici.
+        </p>
+      )}
 
       {items.length === 0 ? (
         <div className="mt-8 flex flex-wrap items-center gap-3 text-[15px] text-muted">
           Rien pour l&apos;instant : postule depuis tes offres, ou ajoute une offre vue ailleurs.
-          <Link href="/offres" className="btn-soft">
+          <Link href={`${base}/offres`} className="btn-soft">
             Voir mes offres
           </Link>
         </div>
       ) : (
-        <div className="mt-8 grid gap-4 overflow-x-auto pb-2 md:grid-cols-5">
+        <div className="mt-8 grid grid-cols-1 gap-4 overflow-x-auto pb-2 md:grid-cols-5">
           {COLUMNS.map((col) => {
             const cards = items.filter((i) => col.stages.includes(i.stage));
             return (

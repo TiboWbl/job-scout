@@ -52,3 +52,5 @@ jobs:
         run: npm run collect
       - name: Tri des nouvelles offres
         run: npm run score:all
+      - name: Démo publique (profil fictif, suivi rafraîchi)
+        run: npm run demo:seed

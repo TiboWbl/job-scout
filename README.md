@@ -2,6 +2,8 @@
 
 Toute sa recherche d'emploi dans un seul onglet : les offres qui correspondent vraiment, expliquées, et le suivi des candidatures. Calme, transparent, multi-utilisateurs.
 
+**Démo, sans compte : [scout-tibow.vercel.app/demo](https://scout-tibow.vercel.app/demo)** (profil fictif, offres réelles).
+
 La spécification complète est dans [SPEC.md](SPEC.md). Les maquettes de la direction visuelle retenue sont dans [design/mockups](design/mockups/index.html).
 
 ## Ce que fait la version actuelle

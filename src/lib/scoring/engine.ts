@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Criteria, CvSummary } from "@/lib/domain/criteria";
+import { CONTRACT_LABELS, Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
 import { chancesCap, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
@@ -158,7 +158,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
-          .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service));
+          .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts));
         if (rows.length > 0) {
           const { error: e } = await db.from("offer_scores").upsert(rows);
           if (e) throw e;
@@ -193,11 +193,20 @@ function scoreRow(
   experienceYears: number | null,
   knownYears: number | null,
   service: SupabaseClient | null,
+  knownContract = "unknown",
+  wanted: string[] = [],
 ): Record<string, unknown> {
-  const { experience_years: found, ...rest } = judged;
+  const { experience_years: found, contract_found: contract, ...rest } = judged;
+  // Same for the contract: an internship found in the text never reaches a CDI-only search.
+  if (knownContract === "unknown" && contract) {
+    // Query builders only run when awaited or then-ed: started here, without delaying the score.
+    if (service) service.from("offers").update({ contract }).eq("id", offerId).eq("contract", "unknown").then(() => undefined);
+    if (wanted.length > 0 && !wanted.includes(contract))
+      return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: `${CONTRACT_LABELS[contract as keyof typeof CONTRACT_LABELS] ?? contract}, un type de contrat que tu n'as pas retenu.`, scored_by: "llm" };
+  }
   let effectiveGap = gap;
   if (knownYears === null && found !== null) {
-    if (service) void service.from("offers").update({ experience_min_years: found }).eq("id", offerId).is("experience_min_years", null);
+    if (service) service.from("offers").update({ experience_min_years: found }).eq("id", offerId).is("experience_min_years", null).then(() => undefined);
     if (experienceYears !== null) {
       effectiveGap = Math.max(gap, found - experienceYears);
       if (found - experienceYears >= 4)
@@ -248,7 +257,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
     );
     for (const { offer, outOfZone, gap } of toJudge) {
       const judged = results.get(offer.id);
-      if (judged) rows.push(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null));
+      if (judged) rows.push(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null, offer.contract, criteria.contracts));
     }
   }
   if (rows.length > 0) {

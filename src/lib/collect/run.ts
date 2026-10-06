@@ -99,7 +99,8 @@ async function loadBoards(db: SupabaseClient): Promise<(Board & { id: string })[
 // Search queries and kept countries come only from the profiles in the database: every user widens
 // the coverage, and nothing is stored for places nobody is looking at (the free database is 500 MB).
 export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
-  const { data } = await db.from("profiles").select("criteria").not("onboarded_at", "is", null);
+  // The demo persona does not spend the search engines' quotas.
+  const { data } = await db.from("profiles").select("criteria").not("onboarded_at", "is", null).eq("is_demo", false);
   const counts = new Map<string, { q: SearchQuery; n: number }>();
   const countries = new Set<string>();
   for (const row of data ?? []) {

@@ -51,9 +51,12 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   );
 }
 
-type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
+type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
+  // Public demo: everything works in the session, nothing is saved, no sorting is started.
+  demo?: boolean;
+  base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, criteriaVersion, hasOffers, isAdmin }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, base = "", criteriaVersion, hasOffers, isAdmin }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -61,16 +64,18 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [excluded, setExcluded] = useState<{ items: FeedItem[]; loading: boolean; done: boolean }>({ items: [], loading: false, done: false });
   const loadExcluded = useCallback(async (from: number) => {
     setExcluded((e) => ({ ...e, loading: true }));
-    const { data } = await createClient()
-      .from("offer_scores")
-      .select(SCORE_SELECT)
-      .eq("criteria_version", criteriaVersion)
-      .eq("level", "ecartee")
-      .order("created_at", { ascending: false })
-      .range(from, from + EXCLUDED_PAGE - 1);
+    const { data } = demo
+      ? ((await fetch(`/api/demo/excluded?from=${from}`).then((r) => r.json()).catch(() => ({ data: [] }))) as { data: unknown[] })
+      : await createClient()
+          .from("offer_scores")
+          .select(SCORE_SELECT)
+          .eq("criteria_version", criteriaVersion)
+          .eq("level", "ecartee")
+          .order("created_at", { ascending: false })
+          .range(from, from + EXCLUDED_PAGE - 1);
     const rows = ((data ?? []) as unknown as (Omit<FeedItem, "saved" | "dismissed">)[]).filter((r) => r.offer).map((r) => ({ ...r, saved: false, dismissed: false }));
     setExcluded((e) => ({ items: [...e.items, ...rows], loading: false, done: rows.length < EXCLUDED_PAGE }));
-  }, [criteriaVersion]);
+  }, [criteriaVersion, demo]);
   const items = useMemo(
     () => [...initial, ...excluded.items].map((i) => (overrides[i.offer.id] ? { ...i, ...overrides[i.offer.id] } : i)),
     [initial, excluded.items, overrides],
@@ -90,7 +95,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   // Score what's left in successive calls (each one fits in a serverless time budget), refreshing as results land.
   // Interruptions are retried on their own: the person never has to reload.
   // Started once per visit: refreshing the server data must not start a second loop.
-  const initialPending = useRef(pending);
+  const initialPending = useRef(demo ? 0 : pending);
   useEffect(() => {
     if (initialPending.current <= 0) return;
     let cancelled = false;
@@ -192,8 +197,9 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
 
   const act = useCallback(async (id: string, body: Record<string, unknown>, patch: Partial<FeedItem>) => {
     setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+    if (demo) return;
     await fetch(`/api/offers/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  }, []);
+  }, [demo]);
 
   const handlers = (item: FeedItem) => ({
     onOpen: () => setOpenId(item.offer.id),
@@ -215,6 +221,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     const { offer } = applying;
     setAskApplied(false);
     setApplying(null);
+    if (demo) return setToast("En démo, rien n'est enregistré : dans ton compte, l'offre irait dans ton suivi.");
     const res = await fetch("/api/applications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -326,7 +333,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         />
       ) : (
         <>
-          <div className="grid gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
             {shown.map((item) => (
               <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
             ))}
@@ -334,7 +341,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
           {hasOffers && shown.length === 0 && !progress && (
             <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
               Rien ici pour l&apos;instant.
-              <Link href="/recherche" className="btn-soft">
+              <Link href={`${base}/recherche`} className="btn-soft">
                 Élargir ma recherche
               </Link>
             </div>
@@ -343,7 +350,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             <section className="mt-12">
               <h2 className="font-display text-2xl font-bold">Hors de ta zone</h2>
               <p className="mt-1 text-sm text-muted">Gardées à part parce que tout le reste correspond très bien.</p>
-              <div className="mt-4 grid gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
+              <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 2xl:grid-cols-3">
                 {outOfZone.map((item) => (
                   <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
                 ))}
@@ -353,7 +360,13 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </>
       )}
 
-      {open && <OfferPanel key={open.offer.id} item={open} onClose={() => setOpenId(null)} {...handlers(open)} />}
+      {open && <OfferPanel
+          key={open.offer.id}
+          item={open}
+          onClose={() => setOpenId(null)}
+          loadDescription={demo ? (id) => fetch(`/api/demo/description?id=${id}`).then((r) => r.json()).then((d: { description?: string }) => d.description ?? "") : undefined}
+          {...handlers(open)}
+        />}
 
       {askApplied && applying && (
         <div className="fixed bottom-6 left-1/2 z-50 w-[min(92vw,460px)] -translate-x-1/2 animate-rise rounded-2xl border border-line bg-surface p-5 shadow-2xl" role="dialog" aria-label="As-tu postulé ?">

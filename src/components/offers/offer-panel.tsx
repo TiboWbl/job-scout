@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
@@ -18,6 +18,8 @@ type Props = {
   onSave: () => void;
   onNope: (reason: string) => void;
   onApply: () => void;
+  // The public demo reads descriptions through a read-only API instead of the signed-in client.
+  loadDescription?: (id: string) => Promise<string>;
 };
 
 type Block = { kind: "heading" | "paragraph"; text: string } | { kind: "list"; items: string[] };
@@ -41,9 +43,11 @@ function toBlocks(text: string): Block[] {
   return blocks;
 }
 
-export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
+export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescription }: Props) {
   const { offer } = item;
   const [description, setDescription] = useState<string | null>(null);
+  // Stable across renders: the parent passes a new function each time.
+  const loader = useRef(loadDescription);
   const [nopeOpen, setNopeOpen] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
@@ -51,6 +55,12 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply }: Props) {
   useEffect(() => {
     let cancelled = false;
     const done = (text: string) => !cancelled && setDescription(text);
+    if (loader.current) {
+      loader.current(offer.id).then(done, () => done(""));
+      return () => {
+        cancelled = true;
+      };
+    }
     try {
       createClient()
         .from("offers")

@@ -39,6 +39,20 @@ export function verifiedExperience(
   return { label: null, years: null };
 }
 
+// The contract type the model read, kept only if its quote is in the posting and names that contract.
+const CONTRACT_WORDS: Record<string, RegExp> = {
+  cdi: /\b(cdi|permanent|indetermin)/,
+  cdd: /\b(cdd|fixed[- ]term|determin)/,
+  stage: /\b(stage|stagiaire|intern(ship)?)\b/,
+  alternance: /\b(alternan|apprenti|work[- ]study)/,
+  freelance: /\b(freelance|independant|contractor)/,
+};
+export function verifiedContract(contract: string | null, quote: string | null, description: string): string | null {
+  const c = contract?.toLowerCase().trim() ?? "";
+  if (!quote || !CONTRACT_WORDS[c]) return null;
+  return squash(description).includes(squash(quote)) && CONTRACT_WORDS[c].test(squash(quote)) ? c : null;
+}
+
 export function verifiedSalary(salary: string | null, description: string): string | null {
   if (!salary) return null;
   const text = description.replace(/[\s\u00a0\u202f]/g, "");
@@ -53,6 +67,8 @@ export type Judgement = {
   experience_asked: string | null;
   // Years asked, when verified in the posting: the engine applies the experience gate with it.
   experience_years: number | null;
+  // Contract type read by the model with a verified quote: the engine applies the contract gate with it.
+  contract_found: string | null;
   score_interet: number;
   score_chances: number;
   score_tremplin: number;
@@ -92,6 +108,8 @@ const Item = z.object({
   salaire: Text,
   experience_demandee: Text,
   citation_experience: Text,
+  contrat: Text,
+  citation_contrat: Text,
   en_bref: Text,
   points_forts: List,
   points_d_attention: List,
@@ -144,9 +162,10 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "salaire" : le salaire tel qu'il est écrit dans l'offre (ex. « 45-55 k€ brut annuel »), sinon null. N'estime jamais.
 - "experience_demandee" : l'expérience minimale demandée, lue partout dans l'offre (profil recherché, must-haves, requirements, qualifications…), en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
 - "citation_experience" : la phrase exacte de l'offre, recopiée mot pour mot, qui indique cette expérience (ex. « 3+ years in product management »), sinon null.
+- "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "piege", "deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -227,6 +246,7 @@ export async function judgeBatch(
       salary: verifiedSalary(item.salaire, input.description),
       experience_asked: experience.label,
       experience_years: experience.years,
+      contract_found: verifiedContract(item.contrat, item.citation_contrat, input.description),
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,

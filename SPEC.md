@@ -166,6 +166,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Cache par couple (offre, version du profil).
 - **LLM** : Mistral derrière une couche d'abstraction (changer de fournisseur = changer une variable d'environnement). `ministral-14b-2512` pour le scoring comme pour l'analyse de CV et la conversion des critères (modèles réglables par variables d'environnement). File d'attente à une requête toutes les 2,1 s (30/minute) avec nouvel essai sur 429. **Scoring par lots de 8 offres par requête.**
 - Premier tri : progression visible (« 1 190 / 1 249 »), la sélection se remplit au fur et à mesure. Le premier appel n'applique que les portes (instantané) ; les suivants envoient les lots au LLM en parallèle, un départ toutes les 2,1 s, et rendent la main avant 52 s quoi qu'il arrive. Les coupures sont reprises automatiquement.
+- Fiabilité des faits affichés : l'expérience demandée et le contrat sont lus d'abord par un détecteur déterministe (tournures FR/EN courantes) ; le LLM ne peut les compléter qu'en citant la phrase exacte de l'offre, vérifiée mot pour mot. Une expérience ou un contrat ainsi trouvé passe par les mêmes portes. Un salaire n'est affiché que s'il est écrit. Jamais d'information inventée.
 - Le LLM répond à des questions factuelles (métier réel, secteur, piège, deal-breaker) ; le niveau en est déduit par une règle fixe. Le domaine du produit (cloud, IA…) ne change pas le métier. Une offre écartée affiche une raison de 12 mots au plus.
 - **Test de non-régression** automatique, rejoué à chaque modification du prompt. Offres fictives rédigées pour le test, sans nom d'entreprise réel.
   - Préfiltre et pièges :
@@ -291,13 +292,14 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 ## Vitrine (portfolio et entretiens)
 
 - README : problème, vision, captures, schéma d'architecture, choix techniques et produit, lien vers la démo.
-- **Page d'accueil publique** (visiteur non connecté) : ce que fait Scout en une phrase et quelques visuels, deux boutons « Voir la démo » et « Continuer avec Google » (sur invitation).
+- **Page d'accueil publique** (visiteur non connecté, sur `/`) : ce que fait Scout en une phrase, trois vraies offres triées pour la persona de démo avec leur « Pour toi », trois chiffres réels (offres lues, pages carrière surveillées, chaque offre expliquée), et deux boutons « Voir la démo » et « Continuer avec Google » (sur invitation).
 - **Mode démo sans connexion**, lien direct `/demo` :
   - persona fictive (Camille, PM junior à Paris) scorée comme un vrai utilisateur sur les **vraies offres** en base : la démo montre le produit réel, pas des captures ;
   - jamais le compte de l'auteur ni ses vraies candidatures ;
   - suivi pré-rempli avec des candidatures fictives ;
   - lecture seule côté serveur : aucun appel au LLM déclenché par un visiteur (le scoring de la persona est calculé par le cron), les clics marchent dans la session sans être enregistrés, ajout par URL et import désactivés avec une explication ;
-  - bandeau discret : « Démo avec un profil fictif · Données d'offres réelles ».
+  - bandeau discret : « Démo avec un profil fictif · Données d'offres réelles », bouton « Quitter la démo ».
+  - Mise en œuvre : Camille est un profil marqué `is_demo` (adresse inutilisable, aucune connexion possible), exclu des requêtes de collecte et des statistiques. `npm run demo:seed`, lancé par le robot après chaque tri, la crée si besoin, trie ses offres, choisit ses favorites et reconstruit un suivi fictif sur des offres encore ouvertes, avec des dates relatives au jour. Les pages `/demo` lisent ses données avec le rôle de service ; deux API publiques en lecture seule servent les descriptions et les écartées.
 - **Pas de page d'explication dans le site** : le projet est expliqué dans le portfolio de l'auteur. C'est l'UX elle-même qui doit rendre évident, pour un utilisateur comme pour un recruteur, comment Scout fonctionne et ce qu'il permet de faire qu'on ne peut pas faire ailleurs :
   - chaque offre montre d'où elle vient, pourquoi elle est proposée et à quel niveau ;
   - les offres écartées restent consultables avec la règle qui les a écartées ;

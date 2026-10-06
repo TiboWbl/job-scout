@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth", "/setup", "/manifest.webmanifest", "/confidentialite"];
+const PUBLIC_PATHS = ["/login", "/auth", "/setup", "/manifest.webmanifest", "/confidentialite", "/demo", "/api/demo"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -28,7 +28,8 @@ export async function proxy(request: NextRequest) {
   // Must run on every request so the session cookie stays fresh (refreshes an expired token).
   const { data } = await supabase.auth.getClaims();
 
-  if (!data?.claims && !isPublic && !pathname.startsWith("/api")) {
+  // "/" is public too: visitors see the home page.
+  if (!data?.claims && !isPublic && pathname !== "/" && !pathname.startsWith("/api")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return response;

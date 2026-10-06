@@ -39,7 +39,7 @@ export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
     db.rpc("admin_ai_levels"),
     count(db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null)),
     count(db.from("companies").select("id", { count: "exact", head: true }).not("ats", "is", null)),
-    count(db.from("profiles").select("id", { count: "exact", head: true }).not("onboarded_at", "is", null)),
+    count(db.from("profiles").select("id", { count: "exact", head: true }).not("onboarded_at", "is", null).eq("is_demo", false)),
     count(db.from("applications").select("id", { count: "exact", head: true })),
     count(db.from("applications").select("id", { count: "exact", head: true }).eq("origin", "added")),
     count(db.from("favorite_companies").select("company_id", { count: "exact", head: true })),

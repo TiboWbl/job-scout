@@ -116,7 +116,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
   const set = <K extends keyof Criteria>(key: K, v: Criteria[K]) => onChange({ ...value, [key]: v });
 
   return (
-    <div className="grid gap-3.5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
       <Section title="Métier visé" hint="Les intitulés équivalents servent à trouver les offres, même formulées autrement.">
         <Chips values={value.targetRoles} onChange={(v) => set("targetRoles", v)} placeholder="Ajouter un métier" label="Ajouter un métier visé" />
         <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Intitulés équivalents</p>
