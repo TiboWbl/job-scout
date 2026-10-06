@@ -12,6 +12,8 @@ type Props = {
   initialText?: string;
   initialCriteria?: Criteria | null;
   initialCvSummary?: CvSummary | null;
+  // The CV already read for this profile (the file itself is never kept).
+  savedCv?: { filename: string | null; updatedAt: string | null } | null;
 };
 
 // One line proving the CV was read: education, experience, key skills.
@@ -21,7 +23,7 @@ function cvLine(cv: CvSummary) {
 }
 
 // Shared by onboarding and "Ma recherche": free text (+ optional CV) → editable chips → saved.
-export function SearchSetup({ mode, initialText = "", initialCriteria = null, initialCvSummary = null }: Props) {
+export function SearchSetup({ mode, initialText = "", initialCriteria = null, initialCvSummary = null, savedCv = null }: Props) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
   const [cvText, setCvText] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
     const res = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ criteria, searchText: text, ...(cvSummary !== undefined ? { cvSummary } : {}) }),
+      body: JSON.stringify({ criteria, searchText: text, ...(cvSummary !== undefined ? { cvSummary, cvFilename: cvName ?? undefined } : {}) }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
@@ -108,6 +110,14 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
           className="mt-4 w-full resize-y rounded-2xl border border-line bg-pill-solid p-4 text-[15px] leading-relaxed placeholder:text-muted focus:border-ink focus:outline-none"
         />
 
+        {savedCv && !cvName && initialCvSummary && (
+          <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
+            <span className="font-semibold">Ton CV{savedCv.filename ? ` (${savedCv.filename})` : ""}</span>
+            {savedCv.updatedAt ? `, lu le ${new Date(savedCv.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""}. Scout en a retenu : {cvLine(initialCvSummary) || "ton expérience et tes compétences"}.
+            <span className="block text-[13px] text-muted">Le fichier lui-même n&apos;est pas conservé. Pour le changer, utilise « Remplacer mon CV » puis « Réanalyser ».</span>
+          </p>
+        )}
+
         {mode === "onboarding" && (
           <div className="mt-4">
             <label htmlFor="dream" className="text-sm font-semibold">
@@ -128,7 +138,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
           <button type="button" onClick={() => fileRef.current?.click()} disabled={busy !== null} className="rounded-xl border border-line bg-pill px-4 py-2.5 text-sm font-medium hover:border-ink">
-            {busy === "cv" ? "Lecture du CV…" : cvName ? `CV : ${cvName}` : "Ajouter mon CV (PDF, facultatif)"}
+            {busy === "cv" ? "Lecture du CV…" : cvName ? `CV : ${cvName}` : savedCv ? "Remplacer mon CV" : "Ajouter mon CV (PDF, facultatif)"}
           </button>
           <button
             type="button"

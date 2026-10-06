@@ -118,3 +118,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-rise, .animate-slide-in { animation: none; }
 }
+
+/* Tailwind v4 leaves buttons with the default arrow: anything clickable shows a hand. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  select:not(:disabled),
+  label:has(> input[type="checkbox"]),
+  summary {
+    cursor: pointer;
+  }
+}

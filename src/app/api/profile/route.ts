@@ -7,6 +7,7 @@ const Body = z.object({
   criteria: Criteria,
   searchText: z.string().max(6000).optional(),
   cvSummary: CvSummary.nullable().optional(),
+  cvFilename: z.string().max(200).optional(),
 });
 
 // Saving bumps the profile version: every active offer gets re-scored against the new criteria.
@@ -26,7 +27,11 @@ export async function POST(request: Request) {
     updated_at: new Date().toISOString(),
   };
   if (body.data.searchText !== undefined) update.search_text = body.data.searchText;
-  if (body.data.cvSummary !== undefined) update.cv_summary = body.data.cvSummary;
+  if (body.data.cvSummary !== undefined) {
+    update.cv_summary = body.data.cvSummary;
+    update.cv_filename = body.data.cvFilename ?? null;
+    update.cv_updated_at = new Date().toISOString();
+  }
 
   const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
   if (error) return NextResponse.json({ error: "Enregistrement impossible" }, { status: 500 });
