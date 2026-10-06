@@ -5,7 +5,11 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], weight: ["600", "700", "800"] });
 
+// Vercel exposes the production domain; share images need absolute URLs.
+const site = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(site),
   title: "Scout",
   description: "Toute ta recherche d'emploi dans un seul onglet : les offres qui te correspondent, expliquées, et le suivi de tes candidatures.",
 };
