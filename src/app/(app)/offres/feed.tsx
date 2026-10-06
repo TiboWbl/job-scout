@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isExceptional, LEVEL_ORDER, type FeedItem } from "@/lib/domain/feed";
+import { isExceptional, isStaleOffer, LEVEL_ORDER, type FeedItem } from "@/lib/domain/feed";
 import { createClient } from "@/lib/supabase/browser";
 import type { Level } from "@/lib/domain/offer";
 import { rank } from "@/lib/scoring/judge";
-import { isFresh, isStale, STALE_DAYS } from "@/lib/format";
+import { isFresh, STALE_DAYS } from "@/lib/format";
 import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
 import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
@@ -32,7 +32,10 @@ const LEVEL_HELP: Partial<Record<Filter, string>> = {
 // Junior: 2 years asked at most, or announced as such in the title or the requirements.
 const JUNIOR_WORDS = /\b(junior|jr|associate|graduate|entry[- ]level|d[ée]butant|premi[eè]re exp[ée]rience|jeune dipl[oô]m)/i;
 const isJunior = (i: FeedItem) =>
-  (i.offer.experience_min_years !== null && i.offer.experience_min_years <= 2) || JUNIOR_WORDS.test(i.offer.title) || JUNIOR_WORDS.test(i.experience_asked ?? "");
+  (i.offer.experience_min_years !== null && i.offer.experience_min_years <= 2) ||
+  i.offer.experience_level === "junior" ||
+  JUNIOR_WORDS.test(i.offer.title) ||
+  (i.offer.experience_min_years === null && i.offer.experience_level !== "experienced" && JUNIOR_WORDS.test(i.experience_asked ?? ""));
 
 function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -171,7 +174,8 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const excludedTotal = excludedCount + set_aside.filter((i) => i.level !== "ecartee").length;
 
   const published = (i: FeedItem) => i.offer.published_at ?? i.offer.first_seen_at;
-  const staleCount = main.filter((i) => isStale(published(i))).length;
+  const stale = (i: FeedItem) => isStaleOffer(i.offer);
+  const staleCount = main.filter(stale).length;
   // Search by company or title, accents and case ignored.
   const fold = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const q = fold(query.trim());
@@ -180,11 +184,11 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const shown = main
     .filter(matches)
     .filter((i) => filter === "all" || filter === "ecartees" || i.level === filter)
-    .filter((i) => showStale || !isStale(published(i)))
+    .filter((i) => showStale || !stale(i))
     .filter((i) => !freshOnly || isFresh(published(i)))
     .filter((i) => !juniorOnly || isJunior(i));
   // Counts per level follow the refinements, so each option says what it would show.
-  const refined = main.filter(matches).filter((i) => (showStale || !isStale(published(i))) && (!freshOnly || isFresh(published(i))) && (!juniorOnly || isJunior(i)));
+  const refined = main.filter(matches).filter((i) => (showStale || !stale(i)) && (!freshOnly || isFresh(published(i))) && (!juniorOnly || isJunior(i)));
   const levelCount = (key: Filter) => (key === "all" ? refined.length : refined.filter((i) => i.level === key).length);
   const shownElsewhere = q ? elsewhere.filter(matches) : outOfZone;
   const searched = useRef(query.trim());

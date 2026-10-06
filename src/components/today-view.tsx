@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { followUpDue, isUpcoming, type Application } from "@/lib/domain/application";
 import { Criteria } from "@/lib/domain/criteria";
-import { LEVEL_ORDER, SCORE_SELECT, type FeedItem } from "@/lib/domain/feed";
+import { isStaleOffer, LEVEL_ORDER, SCORE_SELECT, type FeedItem } from "@/lib/domain/feed";
 import { tintStyle } from "@/lib/design/color";
-import { isStale } from "@/lib/format";
 import { rank } from "@/lib/scoring/judge";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CompanyLogo } from "@/components/company-logo";
@@ -44,7 +43,7 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
   const handled = new Set([...(actions.data ?? []).filter((a) => a.dismissed).map((a) => a.offer_id), ...apps.map((a) => a.offer_id)]);
   type Row = Omit<FeedItem, "saved" | "dismissed"> & { offer: FeedItem["offer"] & { archived_at: string | null } };
   const candidates = ((scores.data ?? []) as unknown as Row[]).filter(
-    (r) => r.offer && !r.offer.archived_at && !r.out_of_zone && !handled.has(r.offer.id) && !isStale(r.offer.published_at ?? r.offer.first_seen_at),
+    (r) => r.offer && !r.offer.archived_at && !r.out_of_zone && !handled.has(r.offer.id) && !isStaleOffer(r.offer),
   );
   const isNew = (r: Row) => now - new Date(r.offer.first_seen_at).getTime() < NEW_HOURS * 3_600_000;
   // A finished list: what arrived lately first, then by level and fit. Never an endless scroll.

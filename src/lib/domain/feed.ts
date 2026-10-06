@@ -1,4 +1,5 @@
 import type { Level, Place, Remote } from "./offer";
+import { isStale } from "@/lib/format";
 
 export type FeedOffer = {
   id: string;
@@ -9,10 +10,12 @@ export type FeedOffer = {
   contract: string;
   experience_min_years: number | null;
   experience_max_years: number | null;
+  experience_level: "junior" | "experienced" | null;
   image_url: string | null;
   apply_url: string;
   published_at: string | null;
   first_seen_at: string;
+  sources: string[];
   company: { id: string; name: string; domain: string | null; brand: string | null; accent_color: string | null; cover_url: string | null };
 };
 
@@ -37,10 +40,17 @@ export type FeedItem = {
 };
 
 const OFFER_FIELDS =
-  "id, title, location_raw, places, remote, contract, experience_min_years, experience_max_years, image_url, apply_url, published_at, first_seen_at, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url)";
+  "id, title, location_raw, places, remote, contract, experience_min_years, experience_max_years, experience_level, image_url, apply_url, published_at, first_seen_at, sources, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url)";
 
 // One shape for every feed query, server-side for the selection and client-side for "Écartées".
 export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, salary, experience_asked, score_interet, score_chances, score_tremplin, why, strengths, watch, cv_levers, scored_by, offer:offers(${OFFER_FIELDS})`;
+
+// Search engines keep postings long after they close; a career page lists only open ones (an offer
+// gone from it is archived). So only an offer known from engines alone grows stale with age.
+const ENGINES = new Set(["adzuna", "jooble", "france-travail"]);
+export function isStaleOffer(offer: Pick<FeedOffer, "published_at" | "first_seen_at" | "sources">, now = Date.now()) {
+  return (offer.sources ?? []).every((s) => ENGINES.has(s)) && isStale(offer.published_at ?? offer.first_seen_at, now);
+}
 
 export const LEVEL_ORDER: Record<Level, number> = { coeur: 0, solide: 1, tremplin: 2, ecartee: 3 };
 
