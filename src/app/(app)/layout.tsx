@@ -14,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile?.onboarded_at) redirect("/onboarding");
 
   const items = [
+    { href: "/aujourdhui", label: "Aujourd'hui" },
     { href: "/offres", label: "Offres" },
     { href: "/suivi", label: "Suivi" },
     { href: "/recherche", label: "Ma recherche" },

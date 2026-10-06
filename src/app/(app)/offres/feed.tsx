@@ -23,9 +23,9 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "ecartees", label: "Écartées" },
 ];
 
-type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
+type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, criteriaVersion, hasOffers, isAdmin }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, criteriaVersion, hasOffers, isAdmin }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -50,7 +50,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [filter, setFilter] = useState<Filter>("all");
   const [freshOnly, setFreshOnly] = useState(false);
   const [showStale, setShowStale] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const [expanded, setExpanded] = useState(false);
   const favoriteIds = useMemo(() => new Set(favoriteCompanyIds), [favoriteCompanyIds]);
   const [applying, setApplying] = useState<FeedItem | null>(null);

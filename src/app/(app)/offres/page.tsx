@@ -4,7 +4,9 @@ import { isAdminEmail } from "@/lib/env";
 import { getUser } from "@/lib/supabase/server";
 import { Feed } from "./feed";
 
-export default async function OffresPage() {
+// ?offre=<id> opens that offer directly (links from Aujourd'hui).
+export default async function OffresPage({ searchParams }: { searchParams: Promise<{ offre?: string }> }) {
+  const { offre } = await searchParams;
   const { supabase, user } = await getUser();
   const userId = user!.id;
   const { data: profile } = await supabase.from("profiles").select("criteria, criteria_version").eq("id", userId).single();
@@ -42,6 +44,7 @@ export default async function OffresPage() {
       excludedCount={excludedCount.count ?? 0}
       favoriteCompanyIds={(favorites.data ?? []).map((f) => f.company_id as string)}
       criteriaVersion={version}
+      initialOpenId={offre ?? null}
       total={activeCount.count ?? 0}
       hasOffers={(activeCount.count ?? 0) > 0}
       isAdmin={isAdminEmail(user!.email)}

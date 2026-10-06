@@ -12,5 +12,5 @@ export default async function Home() {
   if (!user) redirect("/login");
   if (!(await isInvited(user.email))) redirect("/invitation");
   const { data: profile } = await supabase.from("profiles").select("onboarded_at").eq("id", user.id).single();
-  redirect(profile?.onboarded_at ? "/offres" : "/onboarding");
+  redirect(profile?.onboarded_at ? "/aujourdhui" : "/onboarding");
 }
