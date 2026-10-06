@@ -71,7 +71,7 @@ export function Favorites() {
   }
 
   return (
-    <section className="rounded-[22px] bg-peach-soft p-5 md:p-6">
+    <section className="rounded-[22px] bg-brand-soft/50 p-5 md:p-6">
       <h2 className="font-display text-xl font-bold tracking-tight">Mes entreprises favorites</h2>
       <p className="mt-1 text-sm text-muted">Scout lit leur page carrière à chaque collecte et met une étoile sur leurs offres.</p>
 

@@ -10,15 +10,16 @@ export async function loadExcludedPage(db: SupabaseClient, opts: { userId?: stri
   let ids: string[] | null = null;
   const term = (opts.search ?? "").replace(/[%_,()*\\]/g, " ").trim();
   if (term) {
-    const { data: companies } = await db.from("companies").select("id").ilike("name", `%${term}%`).limit(50);
-    const companyIds = (companies ?? []).map((c) => c.id as string);
-    const { data: offers } = await db
-      .from("offers")
-      .select("id")
-      .is("archived_at", null)
-      .or(companyIds.length ? `title.ilike.%${term}%,company_id.in.(${companyIds.join(",")})` : `title.ilike.%${term}%`)
-      .limit(200);
-    ids = (offers ?? []).map((o) => o.id as string);
+    // By title and by company at once: one round trip less while the person waits.
+    const [byTitle, byCompany] = await Promise.all([
+      db.from("offers").select("id").is("archived_at", null).ilike("title", `%${term}%`).limit(100),
+      (async () => {
+        const { data } = await db.from("companies").select("id").ilike("name", `%${term}%`).limit(50);
+        const companyIds = (data ?? []).map((c) => c.id as string);
+        return companyIds.length ? await db.from("offers").select("id").is("archived_at", null).in("company_id", companyIds).limit(150) : { data: [] };
+      })(),
+    ]);
+    ids = [...new Set([...(byTitle.data ?? []), ...(byCompany.data ?? [])].map((o) => o.id as string))];
     if (ids.length === 0) return [];
   }
   let query = db.from("offer_scores").select(SCORE_SELECT).eq("level", "ecartee");

@@ -239,9 +239,11 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         : await loadExcludedPage(createClient(), { version: criteriaVersion, from: 0, search: term });
       const rows = ((data ?? []) as unknown as Omit<FeedItem, "saved" | "dismissed">[]).filter((r) => r.offer).map((r) => ({ ...r, saved: false, dismissed: false }));
       setSearchAside({ q: term, items: rows });
-    }, 350);
+    }, 200);
     return () => clearTimeout(t);
   }, [query, filter, demo, criteriaVersion]);
+  // The set-aside offers are still being looked up: said on screen, so an empty result never looks final.
+  const asideLoading = query.trim().length >= 2 && filter !== "ecartees" && searchAside.q !== query.trim();
   const asideForQuery = searchAside.q === query.trim() && query.trim().length >= 2 ? [...set_aside.filter((i) => i.level !== "ecartee" && matches(i)), ...searchAside.items] : [];
 
   // In "Écartées", a new search reloads from the server once typing pauses.
@@ -406,7 +408,9 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
           {shown.length > drawn && <MoreOnScroll onMore={drawMore} />}
           {hasOffers && shown.length === 0 && !progress && (
             q ? (
-              <p className="rounded-2xl bg-surface p-6 text-muted">Rien dans ta sélection pour « {query.trim()} ».</p>
+              <p className="rounded-2xl bg-surface p-6 text-muted">
+                Rien dans ta sélection pour « {query.trim()} »{asideLoading ? ". Scout regarde aussi parmi les offres écartées…" : "."}
+              </p>
             ) : (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
                 Rien ici pour l&apos;instant.
@@ -427,7 +431,13 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
               </div>
             </section>
           )}
-          {asideForQuery.length > 0 && (
+          {asideLoading && (
+            <p role="status" className="mt-8 flex items-center gap-2.5 text-sm text-muted">
+              <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-brand" />
+              Recherche parmi les offres écartées…
+            </p>
+          )}
+          {!asideLoading && asideForQuery.length > 0 && (
             <section className="mt-12">
               <h2 className="font-display text-2xl font-bold">Écartées pour toi · {asideForQuery.length}</h2>
               <div className="mt-4">
