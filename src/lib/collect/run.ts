@@ -9,7 +9,7 @@ import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/fran
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
-import { fillCovers } from "./cover";
+import { fillAbout, fillCovers } from "./cover";
 import { enrichCompanies } from "./enrich";
 import { companyKey, offerKey } from "./normalize";
 
@@ -75,6 +75,7 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
     await enrichCompanies(db).catch(() => null);
     await fillCompanyColors(db);
     await fillCovers(db).catch(() => null);
+    await fillAbout(db).catch(() => null);
     await archiveStaleEngineOffers(db);
     await purgeOldDescriptions(db);
   }

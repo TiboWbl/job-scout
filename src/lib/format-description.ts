@@ -44,3 +44,26 @@ export function structureDescription(text: string): string {
     .filter(Boolean)
     .join("\n");
 }
+
+// The company's own introduction in the posting ("Qui sommes-nous", "About us"…), a few sentences.
+const INTRO = /^(qui sommes[- ]nous|qui est [^:]{2,40}|a propos( de [^:]{2,40})?|about( us| the company| [^:]{2,30})?|l['’ ]entreprise|la soci[eé]t[eé]|notre (entreprise|soci[eé]t[eé]|histoire)|pr[eé]sentation( de [^:]{2,40})?|who we are|our (company|story|mission)|the company|company description|description de l['’ ]entreprise)\s*:?\s*$/i;
+const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+export function companyIntro(description: string): string | null {
+  const lines = structureDescription(description).split("\n").map((l) => l.trim()).filter(Boolean);
+  const start = lines.findIndex((l) => l.length < 70 && INTRO.test(fold(l).replace(/\s*[:.?!]\s*$/, "").trim()));
+  if (start < 0) return null;
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    // The next heading ends the introduction.
+    if (line.length < 70 && /:$/.test(line)) break;
+    body.push(line.replace(/^•\s*/, ""));
+    if (body.join(" ").length > 420) break;
+  }
+  const text = body.join(" ").replace(/\s+/g, " ").trim();
+  if (text.length < 60) return null;
+  if (text.length <= 420) return text;
+  const cut = text.slice(0, 420);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "));
+  return end > 120 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+}

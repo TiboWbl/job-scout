@@ -7,7 +7,7 @@ import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
 import { freshness, placeLabel } from "@/lib/format";
 import { experienceText } from "@/lib/domain/signals";
-import { structureDescription } from "@/lib/format-description";
+import { companyIntro, structureDescription } from "@/lib/format-description";
 import { createClient } from "@/lib/supabase/browser";
 import { CompanyLogo } from "@/components/company-logo";
 import { ArrowIcon, CloseIcon, NopeIcon, SaveIcon } from "@/components/icons";
@@ -95,6 +95,8 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
   }, [onClose]);
 
   const blocks = description ? toBlocks(structureDescription(description)) : [];
+  // What the company does: its own words on its site, otherwise the posting's introduction.
+  const about = offer.company.about ?? (description ? companyIntro(description) : null);
   const seenAt = offer.published_at ?? offer.first_seen_at;
   const facts = [
     ["Lieu", placeLabel(offer.places, offer.location_raw)],
@@ -146,6 +148,13 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
             </div>
           ))}
         </dl>
+
+        {about && (
+          <section className="mt-5">
+            <h3 className="mb-1.5 text-[13px] font-semibold text-muted">L&apos;entreprise</h3>
+            <p className="text-[14.5px] leading-relaxed">{about}</p>
+          </section>
+        )}
 
         {item.missions.length > 0 && (
           <section className="mt-5">

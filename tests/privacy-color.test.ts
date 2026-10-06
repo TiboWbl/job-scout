@@ -50,3 +50,17 @@ describe("normalisation", () => {
     expect(dedupKey("Doctolib SAS", "Product Manager (H/F)", "Paris")).toBe(dedupKey("doctolib", "product manager", "paris"));
   });
 });
+
+describe("présentation de l'entreprise", async () => {
+  const { companyIntro } = await import("@/lib/format-description");
+  const { metaDescription } = await import("@/lib/collect/cover");
+  it("prend l'introduction de l'offre, pas les missions", () => {
+    const text = "Qui sommes-nous ?\nFictive Santé développe une application de suivi de la rééducation utilisée par 2 000 kinés en France.\nTes missions :\n• Piloter la roadmap";
+    expect(companyIntro(text)).toBe("Fictive Santé développe une application de suivi de la rééducation utilisée par 2 000 kinés en France.");
+    expect(companyIntro("Tes missions :\n• Piloter la roadmap\n• Mener la discovery")).toBeNull();
+  });
+  it("lit la description publiée par le site, sans bandeau de cookies", () => {
+    expect(metaDescription('<meta name="description" content="Fictive aide les clubs de sport amateurs à gérer leurs équipes et leurs matchs.">')).toBe("Fictive aide les clubs de sport amateurs à gérer leurs équipes et leurs matchs.");
+    expect(metaDescription('<meta property="og:description" content="We use cookies to improve your experience on our site.">')).toBeNull();
+  });
+});

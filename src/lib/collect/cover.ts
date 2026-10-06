@@ -64,3 +64,39 @@ export async function fillCovers(db: SupabaseClient, limit = 100, concurrency = 
   );
   return { checked: list.length, found };
 }
+
+// What the company does, in its own words: the description its homepage gives for link previews.
+// Kept short, and dropped when it is only a cookie notice or a slogan of a few words.
+export function metaDescription(html: string): string | null {
+  const m =
+    html.match(/<meta[^>]+(?:name|property)=["'](?:description|og:description)["'][^>]+content=["']([^"']+)["']/i) ??
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["'](?:description|og:description)["']/i);
+  if (!m) return null;
+  const text = m[1]
+    .replace(/&amp;/g, "&").replace(/&#0?39;|&apos;|&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length < 40 || /cookie|javascript|captcha|access denied/i.test(text)) return null;
+  if (text.length <= 240) return text;
+  const cut = text.slice(0, 240);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(". ") + 1, cut.lastIndexOf(" "))).trim()}…`;
+}
+
+export async function fillAbout(db: SupabaseClient, limit = 150, concurrency = 8) {
+  const { data } = await db.from("companies").select("id, domain").not("domain", "is", null).is("about_checked_at", null).limit(limit);
+  const list = data ?? [];
+  let next = 0;
+  let found = 0;
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (next < list.length) {
+        const c = list[next++];
+        const page = await fetch(`https://${c.domain}`, { headers: { ...BROWSER, "Accept-Language": "fr-FR,fr;q=0.9" }, redirect: "follow", signal: AbortSignal.timeout(8_000) }).catch(() => null);
+        const about = page?.ok ? metaDescription(await page.text().catch(() => "")) : null;
+        if (about) found++;
+        await db.from("companies").update({ about, about_checked_at: new Date().toISOString() }).eq("id", c.id);
+      }
+    }),
+  );
+  return { checked: list.length, found };
+}
