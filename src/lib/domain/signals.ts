@@ -16,6 +16,8 @@ const CONTRACT_PATTERNS: [RegExp, Contract][] = [
 // In prose, only explicit statements count: "première expérience (stage ou alternance acceptés)"
 // describes the candidate, not the contract, and must not turn a CDI into an internship.
 const DESCRIPTION_PATTERNS: [RegExp, Contract][] = [
+  // "ton stage", "ce stage": the posting speaks of itself as an internship, before any CDI mention.
+  [/\b(ton|ce|votre|du|ton futur) stage\b|\bstage de fin d'etudes\b/, "stage"],
   [/\b(cdi|contrat a duree indeterminee)\b/, "cdi"],
   [/\b(cdd|contrat a duree determinee|fixed[- ]term contract)\b/, "cdd"],
   [/\b(offre de stage|stage de \d+ ?mois|stage d'une duree|stage de fin d'etudes de \d+|\d+[- ]month internship|internship of \d+)\b/, "stage"],
@@ -33,7 +35,7 @@ export function detectContract(title: string, explicit?: string | null, descript
     if (!n) continue;
     for (const [re, contract] of CONTRACT_PATTERNS) if (re.test(n)) return contract;
   }
-  const d = norm(description.slice(0, 4000));
+  const d = norm(description);
   // A stated contract, anywhere in the text: "Contrat : CDI", "type de contrat : stage", "… en stage".
   const full = norm(description);
   const stated = STATED_CONTRACT.map((re) => re.exec(full)?.[1]).find(Boolean);
@@ -57,8 +59,9 @@ const STATED_WORDS: Record<string, Contract> = {
 export function detectRemote(description: string): "remote" | "hybrid" | null {
   const n = norm(description).replace(/[\u00a0\u202f]/g, " ");
   if (/\b(full[- ]?remote|fully remote|100 ?% (remote|teletravail|en teletravail)|teletravail (complet|total|integral)|remote[- ]first)\b/.test(n)) return "remote";
+  if (/\b(pas de|sans|aucun|no) (teletravail|remote|home office)\b|\bteletravail (non|impossible)\b|\bfully on[- ]?site\b|\b100 ?% (presentiel|sur site)\b/.test(n)) return null;
   if (
-    /\b(\d|un|une|deux|trois|quatre)\s*(jours?|days?)\s*(de |of |en )?(teletravail|remote|tt|home office)\b|\b(teletravail|remote)\s*(jusqu'?a|up to|de)?\s*\d\s*(jours?|days?)|\bhybrid work|travail hybride|mode hybride|organisation hybride|modele hybride|politique de teletravail|teletravail (flexible|partiel|possible|occasionnel|autorise)|hybrid (model|working|policy|set ?up|schedule)|remote[- ]friendly|flexible remote/.test(
+    /\bteletravail\b|\b(work|working) remotely\b|\bremote (work|working|days?|policy)\b|\bhome office\b|\b(\d|un|une|deux|trois|quatre)\s*(jours?|days?)\s*(de |of |en )?(teletravail|remote|tt|home office)\b|\b(teletravail|remote)\s*(jusqu'?a|up to|de)?\s*\d\s*(jours?|days?)|\bhybrid work|travail hybride|mode hybride|organisation hybride|modele hybride|politique de teletravail|teletravail (flexible|partiel|possible|occasionnel|autorise)|hybrid (model|working|policy|set ?up|schedule)|remote[- ]friendly|flexible remote/.test(
       n,
     )
   )
@@ -78,7 +81,7 @@ const DURATION = new RegExp(
 );
 const EXPERIENCE_WORDS = /experien|\bexp\b|years of|years in|years as|background|track record|seniorit|poste similaire|similar role|role similaire|in product|en product|en gestion|in management|au sein d|minimum|au moins|at least|profil/;
 // Right before the duration: the company's history, a contract, an age, a past period.
-const NOT_A_REQUIREMENT = /\b(depuis|since|founded|fondee?s?|creee?s?|il y a|ago|over the (past|last)|for the (past|last)|pendant|during|age|old|aged|garantie|guarantee|anniversaire|nos|our|fort de|forte de|pres de|nearly|almost|contrat|cdd|duree|duration|programme|program|mission|alternance|apprentissage|engagement|tous les|every|prime|anciennete|a partir de|bac\+?\d?|diplome|etudes|cursus|formation)\b[ ,'-]*(\w+[ ,'-]+){0,2}$/;
+const NOT_A_REQUIREMENT = /\b(depuis|since|founded|fondee?s?|creee?s?|il y a|ago|over the (past|last)|for the (past|last)|pendant|during|age|old|aged|garantie|guarantee|anniversaire|nos|our|fort de|forte de|pres de|nearly|almost|contrat|cdd|duree|duration|programme|program|mission|alternance|apprentissage|engagement|tous les|every|prime|anciennete|a partir de|bac|degree|diplome|etudes|cursus|formation)\b[ ,'+-]*(\w+[ ,'+-]+){0,2}$/;
 const CEILING = /^(jusqu'? ?a|up to|moins de|less than|max(?:imum)?\.?)$/;
 
 export type ExperienceRange = { min: number | null; max: number | null };
@@ -187,7 +190,7 @@ export function detectSalary(description: string): string | null {
     const at = m.index ?? 0;
     // Pay words right before the amount (or just after it), never a budget or a deal size.
     const around = n.slice(Math.max(0, at - 45), at + m[0].length + 30);
-    if (!PAY_WORDS.test(around) || NOT_PAY.test(n.slice(Math.max(0, at - 50), at + m[0].length + 15))) continue;
+    if (!PAY_WORDS.test(around) || NOT_PAY.test(n.slice(Math.max(0, at - 50), at + m[0].length))) continue;
     const low = m[1] !== undefined ? annualThousands(m[1], m[2] ?? m[4]) : annualThousands(m[5], m[6]);
     const high = m[3] !== undefined ? annualThousands(m[3], m[4] ?? m[2]) : null;
     if (low === null) continue;

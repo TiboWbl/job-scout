@@ -100,6 +100,13 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         <p className="rounded-xl bg-surface/80 px-3 py-2 text-[13.5px] leading-snug">
           <span className="font-semibold text-[var(--accent)]">Pour toi : </span>
           {item.why}
+          {/* The main thing to check, so the decision can be made from the card. */}
+          {item.watch[0] && (
+            <span className="mt-1 block text-[12.5px] text-muted">
+              <span className="font-semibold">À vérifier : </span>
+              {item.watch[0].replace(/^À vérifier : /, "")}
+            </span>
+          )}
         </p>
       )}
 

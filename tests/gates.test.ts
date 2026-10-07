@@ -250,3 +250,22 @@ describe("contrat et télétravail écrits dans la description", async () => {
     expect(detectRemote("Animer les rituels agiles ou hybrides avec les équipes")).toBeNull();
   });
 });
+
+describe("faits relevés par le contrôle du 7 octobre", async () => {
+  const { detectExperience, detectSalary, detectRemote } = await import("@/lib/domain/signals");
+  it("ne lit pas « bac +4 year » comme de l'expérience", () => {
+    expect(detectExperience("Education: Bac +4 year or equivalent degree. Background & expected experiences: - 10+ years in security operations")).toEqual({ min: 10, max: null });
+  });
+  it("lit un salaire suivi des avantages", () => {
+    expect(detectSalary("🤑 une rémunération comprise entre 50 et 60k€ 🍽️ tickets restaurant Swile")).toBe("50 à 60 k€ par an");
+  });
+  it("lit le contrat en fin d'annonce, le stage d'abord", () => {
+    expect(detectContract("Product Support Manager", null, `${"Missions et contexte. ".repeat(300)} Détails du poste • CDI • Temps plein • Nantes`)).toBe("cdi");
+    expect(detectContract("Assistant·e Product Manager", null, "Le premier objectif de ton stage est d'appréhender le métier. Une embauche en CDI est possible ensuite.")).toBe("stage");
+  });
+  it("lit les formes courantes du télétravail, jamais une négation", () => {
+    expect(detectRemote("The possibility to work remotely (up to 2 days a week)")).toBe("hybrid");
+    expect(detectRemote("Avantages : tickets restaurant, télétravail possible")).toBe("hybrid");
+    expect(detectRemote("Poste 100 % présentiel, pas de télétravail")).toBeNull();
+  });
+});

@@ -138,6 +138,7 @@ const Item = z.object({
   score_chances: Score,
   score_tremplin: Score,
   pourquoi: z.string().min(1).transform(plain),
+  reserve: Text,
   missions: List,
   salaire: Text,
   experience_demandee: Text,
@@ -223,7 +224,8 @@ Scores, entiers de 0 à 100 (jamais sur 10) :
 Si "extrait_seulement" est vrai, tu n'as qu'un extrait de l'offre : remplis "missions", "salaire" et "experience_demandee" seulement avec ce qui y est écrit, sinon [] ou null, et commence "points_d_attention" par « Extrait seulement : lis l'offre complète ».
 
 Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel.
-- "pourquoi" : une phrase concrète de 25 mots maximum, sans répéter l'intitulé ni l'entreprise.
+- "pourquoi" : une phrase concrète de 25 mots maximum qui dit ce qui fait correspondre cette offre à la recherche de la personne : le métier réel et ses missions, le secteur, le niveau d'expérience demandé face au sien, l'entreprise si elle fait partie de ses favorites. Uniquement ce qui correspond, aucune réserve ici. Sans répéter l'intitulé ni le nom de l'entreprise. Ex. « PM d'une app santé grand public, ouvert aux profils juniors : discovery et roadmap comme chez ton dernier poste. »
+- "reserve" : la principale réserve en 12 mots maximum, concrète (ex. « 3 ans demandés, un de plus que toi », « Secteur bancaire, hors de tes priorités »), sinon null.
 - "missions" : les 2 ou 3 missions principales du poste, 8 mots maximum chacune (ex. « Piloter la roadmap de l'app patient »).
 - "salaire" : le salaire tel qu'il est écrit dans l'offre (ex. « 45-55 k€ brut annuel »), sinon null. N'estime jamais.
 - "experience_demandee" : l'expérience minimale demandée, lue partout dans l'offre (profil recherché, must-haves, requirements, qualifications…), en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
@@ -233,7 +235,7 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "competences" : 4 à 10 compétences demandées par l'offre, chacune en 1 à 3 mots recopiés de l'offre, avec "type" : "outil" (logiciel, langage), "methode" (méthode, pratique, domaine de savoir-faire), "savoir_etre" (qualité humaine) ou "langue". Rien qui ne soit écrit dans l'offre.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "reserve", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -345,7 +347,15 @@ export async function judgeBatch(
     const [interet, chances, tremplin] = to100(item, level);
     // A deal-breaker the posting does not prove stays visible as something to check.
     const unproven = item.deal_breaker && !dealBreaker ? [`À vérifier : ${item.deal_breaker}`] : [];
-    const watch = [...(item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege] : []), ...unproven, ...item.points_d_attention];
+    // The main reservation leads the points to check; "pourquoi" says only what fits, so it never
+    // contradicts the level.
+    const reservation = item.reserve ? plain(item.reserve) : null;
+    const watch = [
+      ...(item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege] : []),
+      ...unproven,
+      ...(reservation && !item.points_d_attention.includes(reservation) ? [reservation] : []),
+      ...item.points_d_attention,
+    ];
     results.set(id, {
       level,
       missions: item.missions.slice(0, 3),

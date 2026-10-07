@@ -197,7 +197,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - lieu, télétravail, contrat, **salaire** s'il est indiqué ;
   - **expérience demandée**, lue dans « Profil recherché » ou équivalent (ex. « 3 ans et plus ») ;
   - **2 à 3 missions principales**, en quelques mots chacune ;
-  - le « pourquoi » en entier (une phrase courte), pas tronqué.
+  - le « pourquoi » en entier : ce qui fait correspondre l'offre (métier réel, secteur, niveau demandé face à l'expérience, entreprise favorite), jamais une réserve, pour ne jamais contredire le niveau ; puis « À vérifier » : la principale réserve en quelques mots (« 3 ans demandés, un de plus que toi »).
   Points forts, points d'attention et leviers CV dans le panneau latéral.
 - Détail d'une offre : un bloc « L'entreprise » dit ce qu'elle fait concrètement (son produit ou service et pour qui, une phrase factuelle lue dans ses offres par le LLM, jamais un slogan), sinon l'introduction de l'offre. Panneau latéral par défaut, avec une option « plein écran » qui occupe toute la zone de contenu en gardant la barre latérale.
 - Logos : par domaine quand il est connu, sinon recherche par nom (logo.dev) ; initiales en repli quand la marque n'est pas reconnue avec certitude.

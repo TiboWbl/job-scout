@@ -35,7 +35,7 @@ type LightOffer = {
 };
 
 // Bumped whenever the prompt or the level rules change: older judgements are then redone.
-const JUDGE_RULES = 7;
+const JUDGE_RULES = 8;
 
 // Everything the model's judgement depends on. A profile change outside it (zone, openness, out-of-zone
 // setting) keeps the judgements: only the gates run again, in a second.
