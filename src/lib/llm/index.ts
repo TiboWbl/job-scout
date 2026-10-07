@@ -37,6 +37,7 @@ class MistralProvider implements LlmProvider {
   async json({ system, user, tier }: { system: string; user: string; tier: Tier }) {
     const model = tier === "fast" ? process.env.LLM_MODEL_FAST || DEFAULT_MODEL : process.env.LLM_MODEL_STRONG || DEFAULT_MODEL;
     for (let attempt = 0; ; attempt++) {
+      // A slow answer is retried like a rate limit: the model is busy, not broken.
       const res = await throttled(() =>
         fetch("https://api.mistral.ai/v1/chat/completions", {
           method: "POST",
@@ -50,7 +51,10 @@ class MistralProvider implements LlmProvider {
               { role: "user", content: user },
             ],
           }),
-          signal: AbortSignal.timeout(45_000),
+          signal: AbortSignal.timeout(60_000),
+        }).catch((error: Error) => {
+          if (error.name === "TimeoutError" || error.name === "AbortError") return new Response(null, { status: 504 });
+          throw error;
         }),
       );
       if (res.status === 429 || res.status >= 500) {

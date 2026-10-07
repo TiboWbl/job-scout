@@ -16,7 +16,8 @@ export async function loadFeed(db: SupabaseClient, userId: string) {
     db.from("user_offers").select("offer_id, saved, dismissed").eq("user_id", userId),
     db.from("favorite_companies").select("company_id").eq("user_id", userId),
     db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
-    db.from("offer_scores").select("offer_id", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version),
+    // Sorted offers still active: scores of archived offers must not hide offers waiting to be sorted.
+    db.from("offer_scores").select("offer_id, offer:offers!inner(archived_at)", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version).is("offer.archived_at", null),
   ]);
 
   const actionByOffer = new Map((actions.data ?? []).map((a) => [a.offer_id, a]));

@@ -83,7 +83,7 @@ export function checkedSkills(list: { nom: string; type?: string | null }[], des
     const kind = SKILL_KINDS.find((k) => fold(s.type ?? "").startsWith(k.slice(0, 5))) ?? "methode";
     if (!out.some((o) => foldAccents(o.name) === foldAccents(name))) out.push({ name, kind });
   }
-  return out.slice(0, 10);
+  return out.slice(0, 6);
 }
 
 export type Judgement = {
@@ -137,7 +137,8 @@ const Item = z.object({
   score_interet: Score,
   score_chances: Score,
   score_tremplin: Score,
-  pourquoi: z.string().min(1).transform(plain),
+  // Null for an offer with nothing that fits (it is set aside with "en_bref" as its reason).
+  pourquoi: Text,
   reserve: Text,
   missions: List,
   salaire: Text,
@@ -232,7 +233,7 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "citation_experience" : la phrase exacte de l'offre, recopiée mot pour mot, qui indique cette expérience (ex. « 3+ years in product management »), sinon null.
 - "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
 - "activite_entreprise" : ce que l'entreprise fait concrètement, d'après l'offre : son produit ou service et pour qui, en 20 mots maximum (ex. « Application de suivi de rééducation pour les kinésithérapeutes et leurs patients »). Jamais de slogan, de promesse ni de valeurs ; null si l'offre ne le dit pas.
-- "competences" : 4 à 10 compétences demandées par l'offre, chacune en 1 à 3 mots recopiés de l'offre, avec "type" : "outil" (logiciel, langage), "methode" (méthode, pratique, domaine de savoir-faire), "savoir_etre" (qualité humaine) ou "langue". Rien qui ne soit écrit dans l'offre.
+- "competences" : 3 à 6 compétences demandées par l'offre, chacune en 1 à 3 mots recopiés de l'offre, avec "type" : "outil" (logiciel, langage), "methode" (méthode, pratique, domaine de savoir-faire), "savoir_etre" (qualité humaine) ou "langue". Rien qui ne soit écrit dans l'offre.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
 Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "reserve", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
@@ -306,7 +307,10 @@ export async function judgeBatch(
   // One malformed offer must not cost the whole batch.
   items.forEach((entry, index) => {
     const parsed = Item.safeParse(entry);
-    if (!parsed.success) return;
+    if (!parsed.success) {
+      if (process.env.SCOUT_DEBUG_JUDGE) console.error("judge item rejected:", parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
+      return;
+    }
     const item = parsed.data;
     // Models sometimes echo "1" or "O1" instead of "o1"; the answer order matches the input order.
     const id = shortIds.get(item.id) ?? shortIds.get(`o${item.id.replace(/^o/i, "")}`) ?? (items.length === offers.length ? offers[index].id : undefined);
@@ -368,11 +372,11 @@ export async function judgeBatch(
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,
-      why: item.pourquoi,
+      why: item.pourquoi ? plain(item.pourquoi) : item.en_bref ? plain(item.en_bref) : "",
       strengths: item.points_forts.slice(0, 3),
       watch: watch.slice(0, 3),
       cv_levers: item.leviers_cv.slice(0, 3),
-      excluded_reason: level === "ecartee" ? (reason ?? (item.en_bref ? plain(item.en_bref) : item.pourquoi)) : null,
+      excluded_reason: level === "ecartee" ? (reason ?? (item.en_bref ? plain(item.en_bref) : item.pourquoi ? plain(item.pourquoi) : "Ne correspond pas à ta recherche.")) : null,
     });
   });
   return results;

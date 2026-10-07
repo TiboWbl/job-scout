@@ -8,15 +8,19 @@ import { MIN_INTERVAL_MS } from "@/lib/llm";
 import { titleRelevance } from "./relevance";
 import { judgeBatch, type Feedback, type JudgeInput, type Judgement } from "./judge";
 
-const BATCH_SIZE = 8;
-// A batch of 8 takes ~20-25 s on the free model; with 2.1 s between starts, ~12 fit in one call.
-const BATCH_DURATION_MS = 30_000;
+// Six offers per request: shorter answers, finished in time, none skipped by the model.
+const BATCH_SIZE = 6;
+// A batch of 6 takes ~20 s on the free model; with 2.1 s between starts, ~10 start in one call.
+const BATCH_DURATION_MS = 25_000;
+// On the site (a serverless call of under a minute) at most 12 batches; the scheduled job, with a longer
+// budget, keeps as many in flight as the rate limit allows.
 const MAX_BATCHES_PER_CALL = 12;
 // A role sought (even half named) or a full bridge: half a bridge ("FP&A Analyst" for "Product Analyst") is not enough.
 const MIN_TITLE_RELEVANCE = 5;
 // Offers of favourite companies skip the title pre-sort, judged after the closest titles.
 const FAVORITE_RELEVANCE = 1;
-const HARD_STOP_MS = 52_000;
+// Leaves the serverless call before its 60 s limit; a longer budget (scheduled job) moves it.
+const HARD_STOP_MARGIN_MS = 7_000;
 const PAGE = 1000;
 
 type LightOffer = {
@@ -158,7 +162,8 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const feedback = await loadFeedback(db, userId);
   const descriptions = new Map<string, string>();
   const excerpts = new Set<string>();
-  const toLoad = candidates.slice(0, MAX_BATCHES_PER_CALL * BATCH_SIZE).map((c) => c.offer.id);
+  const maxBatches = budgetMs > 60_000 ? Math.floor((budgetMs - BATCH_DURATION_MS) / MIN_INTERVAL_MS) : MAX_BATCHES_PER_CALL;
+  const toLoad = candidates.slice(0, maxBatches * BATCH_SIZE).map((c) => c.offer.id);
   // Read the full posting behind search-engine excerpts first: judging 500 characters misleads.
   if (service) await completeOffers(service, toLoad);
   const fresh = new Map<string, { description: string | null; experience_min_years: number | null; experience_level: LightOffer["experience_level"]; contract: string; archived_at: string | null; sources: string[] }>();
@@ -198,7 +203,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   let missed = 0;
   let finished = 0;
   const running: Promise<void>[] = [];
-  while (candidates.length > 0 && running.length < MAX_BATCHES_PER_CALL && Date.now() - startedAt < budgetMs - BATCH_DURATION_MS) {
+  while (candidates.length > 0 && running.length < maxBatches && Date.now() - startedAt < budgetMs - BATCH_DURATION_MS) {
     const batch = candidates.splice(0, BATCH_SIZE);
     const batchTitle = new Map(batch.map((c) => [c.offer.id, c.titleMatch]));
     const inputs: JudgeInput[] = batch.map(({ offer }) => ({
@@ -233,7 +238,10 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   }
   // Hard stop before the platform limit: unfinished batches are simply scored again next call.
   const all = Promise.allSettled(running);
-  const settled = await Promise.race([all, new Promise<null>((r) => setTimeout(() => r(null), Math.max(0, startedAt + HARD_STOP_MS - Date.now())))]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const settled = await Promise.race([all, new Promise<null>((r) => (timer = setTimeout(() => r(null), Math.max(0, startedAt + Math.max(52_000, budgetMs + HARD_STOP_MARGIN_MS) - Date.now()))))]);
+  // A pending timer would keep the scheduled job alive minutes after the work is done.
+  clearTimeout(timer);
   const failures = settled ? settled.filter((r): r is PromiseRejectedResult => r.status === "rejected") : [];
   if (failures.length > 0 && scoredNow === 0) throw failures[0].reason;
   const unfinished = running.length - finished + failures.length;

@@ -33,7 +33,7 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
     supabase.from("user_offers").select("offer_id, dismissed").eq("user_id", userId),
     supabase.from("applications").select("id, offer_id, title, company, url, stage, applied_at, interview_at, followed_up_at, created_at").eq("user_id", userId),
     supabase.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
-    supabase.from("offer_scores").select("offer_id", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version),
+    supabase.from("offer_scores").select("offer_id, offer:offers!inner(archived_at)", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version).is("offer.archived_at", null),
   ]);
 
   // eslint-disable-next-line react-hooks/purity -- server component, rendered once per request

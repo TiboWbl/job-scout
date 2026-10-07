@@ -18,7 +18,8 @@ for (const { id } of profiles ?? []) {
   let failures = 0;
   for (let call = 0; call < 40; call++) {
     // A model hiccup (rate limit, network) waits and retries; it never stops the others.
-    const progress = await runScoring(db, id, 50_000, db).catch(() => null);
+    // Four minutes per pass: no serverless limit here, many batches in flight at the allowed pace.
+    const progress = await runScoring(db, id, 240_000, db).catch(() => null);
     if (!progress) {
       if (++failures >= 3) {
         unfinished++;
