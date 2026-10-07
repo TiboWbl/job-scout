@@ -272,7 +272,9 @@ function scoreRow(
   wanted: string[] = [],
   companyId: string | null = null,
 ): Record<string, unknown> {
-  const { experience_years: found, contract_found: contract, company_product: product, ...rest } = judged;
+  const { experience_years: found, contract_found: contract, company_product: product, skills, ...rest } = judged;
+  // The posting's skills, read once for everyone.
+  if (service && skills && skills.length) service.from("offers").update({ skills }).eq("id", offerId).is("skills", null).then(() => undefined);
   // The company learns what it does, once, for every offer and everyone.
   if (service && companyId && product) service.from("companies").update({ product }).eq("id", companyId).is("product", null).then(() => undefined);
   // Same for the contract: an internship found in the text never reaches a CDI-only search.

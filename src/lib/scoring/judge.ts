@@ -69,6 +69,23 @@ export function verifiedSalary(salary: string | null, description: string): stri
   return numbers && numbers.every((n) => text.includes(n)) ? salary : null;
 }
 
+export type Skill = { name: string; kind: "outil" | "methode" | "savoir_etre" | "langue" };
+const SKILL_KINDS = ["outil", "methode", "savoir_etre", "langue"] as const;
+
+// Skills kept only if each of their words is in the posting: never a skill the model imagined.
+export function checkedSkills(list: { nom: string; type?: string | null }[], description: string): Skill[] {
+  const text = foldAccents(description);
+  const out: Skill[] = [];
+  for (const s of list) {
+    const name = plain(s.nom).replace(/\s+/g, " ").trim();
+    const words = foldAccents(name).split(/[^a-z0-9+#]+/).filter((w) => w.length >= 2);
+    if (!name || name.length > 40 || words.length === 0 || !words.every((w) => text.includes(w))) continue;
+    const kind = SKILL_KINDS.find((k) => fold(s.type ?? "").startsWith(k.slice(0, 5))) ?? "methode";
+    if (!out.some((o) => foldAccents(o.name) === foldAccents(name))) out.push({ name, kind });
+  }
+  return out.slice(0, 10);
+}
+
 export type Judgement = {
   level: Level;
   missions: string[];
@@ -80,6 +97,8 @@ export type Judgement = {
   contract_found: string | null;
   // What the company makes or sells, from the posting: stored on the company, shown in the offer detail.
   company_product: string | null;
+  // What the posting asks for, each checked in its text: stored on the offer (Mon CV sums them up).
+  skills: Skill[] | null;
   score_interet: number;
   score_chances: number;
   score_tremplin: number;
@@ -127,6 +146,10 @@ const Item = z.object({
   citation_contrat: Text,
   en_bref: Text,
   activite_entreprise: Text,
+  competences: z
+    .array(z.object({ nom: z.string(), type: z.string().nullish() }).passthrough())
+    .nullish()
+    .transform((v) => v ?? []),
   points_forts: List,
   points_d_attention: List,
   leviers_cv: List,
@@ -207,9 +230,10 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "citation_experience" : la phrase exacte de l'offre, recopiée mot pour mot, qui indique cette expérience (ex. « 3+ years in product management »), sinon null.
 - "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
 - "activite_entreprise" : ce que l'entreprise fait concrètement, d'après l'offre : son produit ou service et pour qui, en 20 mots maximum (ex. « Application de suivi de rééducation pour les kinésithérapeutes et leurs patients »). Jamais de slogan, de promesse ni de valeurs ; null si l'offre ne le dit pas.
+- "competences" : 4 à 10 compétences demandées par l'offre, chacune en 1 à 3 mots recopiés de l'offre, avec "type" : "outil" (logiciel, langage), "methode" (méthode, pratique, domaine de savoir-faire), "savoir_etre" (qualité humaine) ou "langue". Rien qui ne soit écrit dans l'offre.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -330,6 +354,7 @@ export async function judgeBatch(
       experience_years: experience.years,
       contract_found: verifiedContract(item.contrat, item.citation_contrat, input.description),
       company_product: item.activite_entreprise && !input.excerpt ? plain(item.activite_entreprise).slice(0, 200) : null,
+      skills: input.excerpt ? null : checkedSkills(item.competences, input.description),
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,

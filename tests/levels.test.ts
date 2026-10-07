@@ -99,3 +99,12 @@ describe("contrat lu dans l'offre (avec preuve)", async () => {
     expect(verifiedContract("stage", "à Paris", text)).toBeNull();
   });
 });
+
+describe("pré-tri par intitulé : abréviations", async () => {
+  const { titleRelevance } = await import("@/lib/scoring/relevance");
+  const qa = Criteria.parse({ targetRoles: ["Product Manager"], bridgeRoles: ["QA avec évolution vers le produit"] });
+  it("« Quality Assurance Analyst » est reconnu comme « QA »", () => {
+    expect(titleRelevance("Quality Assurance Analyst, Paris", qa)).toBeGreaterThanOrEqual(5);
+    expect(titleRelevance("Comptable fournisseurs", qa)).toBe(0);
+  });
+});

@@ -75,6 +75,14 @@ export function withoutEngineCopies<T extends { offer: Pick<FeedOffer, "title" |
   });
 }
 
+// "Nouveau": published (or, without a date, first seen) in the last 48 hours. One rule everywhere.
+export function isNewOffer(offer: Pick<FeedOffer, "published_at" | "first_seen_at">, now = Date.now()) {
+  return now - new Date(offer.published_at ?? offer.first_seen_at).getTime() < 48 * 3_600_000;
+}
+
+// The "Nouveau" pill, shared by the cards and Aujourd'hui.
+export const NEW_PILL = "rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white";
+
 export const LEVEL_ORDER: Record<Level, number> = { coeur: 0, solide: 1, tremplin: 2, ecartee: 3 };
 
 // "Seulement si exceptionnelle": an out-of-zone offer only surfaces when everything else is excellent.

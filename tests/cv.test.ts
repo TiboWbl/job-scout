@@ -63,3 +63,27 @@ describe("mots-clés et chiffres", async () => {
     expect(figures.ok).toBe(true);
   });
 });
+
+describe("compétences demandées par la sélection", async () => {
+  const { topSkills } = await import("@/lib/views/skills");
+  const { checkedSkills } = await import("@/lib/scoring/judge");
+  it("garde seulement les compétences écrites dans l'offre", () => {
+    expect(checkedSkills([{ nom: "SQL", type: "outil" }, { nom: "Kubernetes", type: "outil" }, { nom: "Esprit d'équipe", type: "savoir_etre" }], "Tu maîtrises SQL et tu as l'esprit d'équipe.")).toEqual([
+      { name: "SQL", kind: "outil" },
+      { name: "Esprit d'équipe", kind: "savoir_etre" },
+    ]);
+  });
+  it("compte chaque compétence une fois par offre, réunit les pluriels et la compare au CV", () => {
+    const offers = [
+      { skills: [{ name: "Roadmap", kind: "methode" as const }, { name: "SQL", kind: "outil" as const }] },
+      { skills: [{ name: "roadmaps", kind: "methode" as const }, { name: "Figma", kind: "outil" as const }] },
+      { skills: [{ name: "Roadmap", kind: "methode" as const }, { name: "SQL", kind: "outil" as const }] },
+      { skills: null },
+    ];
+    const r = topSkills(offers, "Compétences : SQL, Jira");
+    expect(r.read).toBe(3);
+    expect(r.byKind.methode[0]).toMatchObject({ name: "Roadmap", count: 3, share: 100, inCv: false });
+    expect(r.byKind.outil[0]).toMatchObject({ name: "SQL", count: 2, inCv: true });
+    expect(r.byKind.outil.some((s) => s.name === "Figma")).toBe(false);
+  });
+});

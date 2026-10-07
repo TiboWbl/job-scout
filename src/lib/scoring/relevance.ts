@@ -5,11 +5,19 @@ import type { Criteria } from "@/lib/domain/criteria";
 
 const STOP = new Set(["de", "du", "des", "la", "le", "les", "et", "en", "a", "the", "of", "and", "for", "h", "f", "x", "m", "w"]);
 
+// Abbreviations and their spelled-out forms are the same words for the pre-sort.
+const SYNONYMS: [RegExp, string][] = [
+  [/\bquality assurance\b/g, "qa"],
+  [/\bproduct owner\b/g, "product owner po"],
+  [/\bproduct manager\b/g, "product manager pm"],
+  [/\buser experience\b/g, "ux"],
+  [/\buser interface\b/g, "ui"],
+];
+
 function tokens(s: string): string[] {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  let text = s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  for (const [re, add] of SYNONYMS) text = text.replace(re, (m) => `${m} ${add}`);
+  return text
     .split(/[^a-z0-9+#]+/)
     .filter((t) => t.length >= 2 && !STOP.has(t));
 }

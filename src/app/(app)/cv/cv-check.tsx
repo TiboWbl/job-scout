@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { AtsResult } from "@/lib/cv/ats";
+import type { Skill } from "@/lib/scoring/judge";
+import type { SkillStat } from "@/lib/views/skills";
 import type { Level } from "@/lib/domain/offer";
 import { LevelBadge } from "@/components/level-badge";
 import { readCv } from "@/lib/cv/extract";
@@ -19,7 +21,7 @@ type Analysis = { id: string | null; createdAt: string | null; filename: string;
 const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-export function CvCheck({ history, offers, initialOfferId }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null }) {
+export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; hasCv: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -127,6 +129,8 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
       )}
 
       {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
+
+      <Demand demand={demand} hasCv={hasCv} />
 
       {rows.length > 0 && (
         <section className="mt-12">
@@ -327,6 +331,29 @@ function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value
   const [query, setQuery] = useState("");
   const [picking, setPicking] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  // A click beside the search, or Escape, closes it.
+  useEffect(() => {
+    if (!listOpen) return;
+    const away = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) {
+        setListOpen(false);
+        setPicking(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setListOpen(false);
+        setPicking(false);
+      }
+    };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [listOpen]);
   const chosen = offers.find((o) => o.id === value) ?? null;
   const q = foldText(query.trim());
   const shown = (q ? offers.filter((o) => foldText(`${o.title} ${o.company}`).includes(q)) : offers).slice(0, 8);
@@ -363,7 +390,7 @@ function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value
           </button>
         </div>
       ) : (
-        <div className="mt-2 rounded-2xl border border-line bg-surface p-2">
+        <div ref={box} className="mt-2 rounded-2xl border border-line bg-surface p-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -397,5 +424,47 @@ function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value
         </div>
       )}
     </div>
+  );
+}
+
+const KIND_LABELS: [Skill["kind"], string][] = [
+  ["outil", "Outils"],
+  ["methode", "Méthodes et savoir-faire"],
+  ["savoir_etre", "Savoir-être"],
+  ["langue", "Langues"],
+];
+
+// What the offers of the selection ask for most: where to put the effort, on the CV and beyond.
+function Demand({ demand, hasCv }: { demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; hasCv: boolean }) {
+  const kinds = KIND_LABELS.filter(([k]) => demand.byKind[k].length > 0);
+  if (demand.read < 5 || kinds.length === 0) return null;
+  return (
+    <section className="mt-12">
+      <h2 className="font-display text-2xl font-bold">Ce que demandent tes offres</h2>
+      <p className="mt-1 text-sm text-muted">
+        D&apos;après les {demand.read} offres de ta sélection lues en détail, ce qui revient le plus souvent{hasCv ? ", et ce que ton CV mentionne déjà" : ""}.
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {kinds.map(([kind, label]) => (
+          <div key={kind} className="rounded-[22px] border border-line bg-surface p-5">
+            <h3 className="font-display text-lg font-bold">{label}</h3>
+            <ul className="mt-3 space-y-2.5">
+              {demand.byKind[kind].map((s) => (
+                <li key={s.name} className="grid grid-cols-[minmax(0,1fr)_6rem_3rem] items-center gap-3 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium">{s.name}</span>
+                    {hasCv && (s.inCv ? <span className="shrink-0 rounded-full bg-mint-soft px-2 py-0.5 text-[11px] font-semibold text-mint-ink">dans ton CV</span> : null)}
+                  </span>
+                  <span className="h-2 overflow-hidden rounded-full bg-pill-solid">
+                    <span className="block h-full rounded-full bg-brand" style={{ width: `${s.share}%` }} />
+                  </span>
+                  <span className="text-right tabular-nums text-muted">{s.share} %</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

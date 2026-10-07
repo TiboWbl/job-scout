@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { followUpDue, isUpcoming, type Application } from "@/lib/domain/application";
 import { Criteria } from "@/lib/domain/criteria";
-import { isStaleOffer, LEVEL_ORDER, SCORE_SELECT, withoutEngineCopies, type FeedItem } from "@/lib/domain/feed";
+import { isNewOffer, isStaleOffer, LEVEL_ORDER, NEW_PILL, SCORE_SELECT, withoutEngineCopies, type FeedItem } from "@/lib/domain/feed";
 import { tintStyle } from "@/lib/design/color";
 import { rank } from "@/lib/scoring/judge";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -9,7 +9,6 @@ import { CompanyLogo } from "@/components/company-logo";
 import { LevelBadge } from "@/components/level-badge";
 
 const SELECTION_SIZE = 6;
-const NEW_HOURS = 72;
 const DAY = 86_400_000;
 
 // Monday 00:00, local to the server: "this week" for the progress line.
@@ -45,7 +44,7 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
   const candidates = withoutEngineCopies((scores.data ?? []) as unknown as Row[]).filter(
     (r) => r.offer && !r.offer.archived_at && !r.out_of_zone && !handled.has(r.offer.id) && !isStaleOffer(r.offer),
   );
-  const isNew = (r: Row) => now - new Date(r.offer.first_seen_at).getTime() < NEW_HOURS * 3_600_000;
+  const isNew = (r: Row) => isNewOffer(r.offer, now);
   // A finished list: what arrived lately first, then by level and fit. Never an endless scroll.
   const selection = candidates
     .sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || rank(b, criteria.openness) - rank(a, criteria.openness))
@@ -108,7 +107,10 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
                       </span>
                     </span>
                     <span className="hidden sm:inline">
-                      <LevelBadge level={r.level} prefix={isNew(r) ? "Nouvelle · " : ""} />
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {isNew(r) && <span className={NEW_PILL}>Nouveau</span>}
+                        <LevelBadge level={r.level} />
+                      </span>
                     </span>
                   </Link>
                 </li>

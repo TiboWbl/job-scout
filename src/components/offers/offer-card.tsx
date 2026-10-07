@@ -5,7 +5,8 @@ import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
 import { tintStyle } from "@/lib/design/color";
-import { freshness, isFresh, placeLabel } from "@/lib/format";
+import { freshness, placeLabel } from "@/lib/format";
+import { isNewOffer, NEW_PILL } from "@/lib/domain/feed";
 import { experienceText } from "@/lib/domain/signals";
 import { CompanyLogo } from "@/components/company-logo";
 import { NopeIcon, SaveIcon } from "@/components/icons";
@@ -30,7 +31,6 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
   const cover = !coverFailed ? (offer.image_url ?? offer.company.cover_url) : null;
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
   const seenAt = offer.published_at ?? offer.first_seen_at;
-  const fresh = isFresh(seenAt);
   // What the posting states (read deterministically) first, else what the model quoted from it.
   const experience = experienceText(offer.experience_min_years, offer.experience_max_years, offer.experience_level) ?? item.experience_asked;
 
@@ -56,12 +56,11 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
               </span>
             )}
           </p>
-          <p className={`text-[12.5px] ${fresh ? "font-semibold text-[var(--accent)]" : "text-muted"}`}>
-            {fresh ? "Nouvelle · " : ""}
-            {seenAt ? `Publiée ${freshness(seenAt)}` : ""}
-          </p>
+          <p className="text-[12.5px] text-muted">{seenAt ? `Publiée ${freshness(seenAt)}` : ""}</p>
         </div>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-1.5">
+          {/* Published in the last 48 hours: applying early matters. */}
+          {isNewOffer(offer) && <span className={NEW_PILL}>Nouveau</span>}
           <LevelBadge level={item.level} />
         </span>
       </header>
