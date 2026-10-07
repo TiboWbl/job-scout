@@ -15,9 +15,15 @@ export const metadata: Metadata = {
   description: "Toute ta recherche d'emploi dans un seul onglet : les offres qui te correspondent, expliquées, et le suivi de tes candidatures.",
 };
 
+const THEME_SCRIPT = `try{var t=localStorage.getItem("scout-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${bricolage.variable} h-full antialiased`}>
+    // The theme picked in Paramètres is applied before the first paint (no flash of the other theme).
+    <html lang="fr" suppressHydrationWarning className={`${inter.variable} ${bricolage.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );

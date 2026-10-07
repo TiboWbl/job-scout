@@ -8,6 +8,7 @@ import { tintStyle } from "@/lib/design/color";
 import { shortDate } from "@/lib/format";
 import { AddOffer } from "@/components/add-offer";
 import { CompanyLogo } from "@/components/company-logo";
+import { Columns } from "@/components/charts";
 import { ArrowIcon } from "@/components/icons";
 
 import type { BoardItem } from "@/lib/views/board";
@@ -32,12 +33,60 @@ const toInput = (iso: string | null, withTime: boolean) => {
 const fromInput = (value: string) => (value ? new Date(value).toISOString() : null);
 const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
+const WEEKS = 8;
+const DAY = 86_400_000;
+
+// Monday 00:00 of the week holding `t`, in local time.
+function mondayOf(t: number) {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+// Sent = applied (any stage after "À postuler"); a response = an interview, an offer or a refusal.
+function progressStats(items: BoardItem[]) {
+  const sentItems = items.filter((i) => i.stage !== "a_postuler");
+  const answered = sentItems.filter((i) => i.stage === "entretien" || i.stage === "offre" || i.stage === "refuse").length;
+  const interviews = sentItems.filter((i) => i.stage === "entretien" || i.stage === "offre" || i.interview_at).length;
+  const thisMonday = mondayOf(Date.now());
+  const weeks = Array.from({ length: WEEKS }, (_, k) => {
+    const start = thisMonday - (WEEKS - 1 - k) * 7 * DAY;
+    const value = sentItems.filter((i) => {
+      const t = new Date(i.applied_at ?? i.created_at).getTime();
+      return t >= start && t < start + 7 * DAY;
+    }).length;
+    return { label: new Date(start).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }), value };
+  });
+  return {
+    sent: sentItems.length,
+    interviews,
+    responseRate: sentItems.length ? Math.round((100 * answered) / sentItems.length) : 0,
+    thisWeek: weeks[weeks.length - 1].value,
+    weeks,
+  };
+}
+
 // demo: moves and notes work during the visit, nothing is saved; adding an offer is explained instead.
 export function Board({ items: initial, demo = false, base = "" }: { items: BoardItem[]; demo?: boolean; base?: string }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
   const [adding, setAdding] = useState(false);
   const [demoNote, setDemoNote] = useState(false);
+  // Drag and drop between columns (the stage menu on each card does the same on touch and keyboard).
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+
+  function drop(col: (typeof COLUMNS)[number]) {
+    const card = items.find((i) => i.id === dragged);
+    setDragged(null);
+    setOver(null);
+    if (!card || col.stages.includes(card.stage)) return;
+    const stage = col.stages[0];
+    // Moved to "Postulé" without a date: today is the date.
+    onPatch(card, { stage, ...(stage !== "a_postuler" && !card.applied_at ? { applied_at: new Date().toISOString() } : {}) });
+  }
+  const onPatch = (card: BoardItem, body: Patch) => patch(card.id, body);
 
   async function patch(id: string, body: Patch) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...body } : i)));
@@ -56,6 +105,7 @@ export function Board({ items: initial, demo = false, base = "" }: { items: Boar
 
   const sent = items.filter((i) => i.stage !== "a_postuler").length;
   const interviews = items.filter((i) => i.stage === "entretien" || i.stage === "offre").length;
+  const stats = useMemo(() => progressStats(items), [items]);
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
@@ -90,20 +140,72 @@ export function Board({ items: initial, demo = false, base = "" }: { items: Boar
           {COLUMNS.map((col) => {
             const cards = items.filter((i) => col.stages.includes(i.stage));
             return (
-              <section key={col.title} className="min-w-[230px]">
+              <section
+                key={col.title}
+                onDragOver={(e) => {
+                  if (!dragged) return;
+                  e.preventDefault();
+                  setOver(col.title);
+                }}
+                onDragLeave={() => setOver((o) => (o === col.title ? null : o))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  drop(col);
+                }}
+                className={`min-w-[230px] rounded-[22px] p-1.5 transition-colors ${over === col.title ? "bg-brand-soft" : ""}`}
+              >
                 <h2 className="mb-3 flex items-baseline gap-2 font-display text-lg font-bold">
                   {col.title}
                   <span className="text-sm font-medium text-muted">{cards.length}</span>
                 </h2>
                 <div className="space-y-3">
                   {cards.map((card) => (
-                    <Card key={card.id} item={card} onPatch={(b) => patch(card.id, b)} onRemove={() => remove(card.id)} />
+                    <div
+                      key={card.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragged(card.id);
+                      }}
+                      onDragEnd={() => {
+                        setDragged(null);
+                        setOver(null);
+                      }}
+                      className={`cursor-grab active:cursor-grabbing ${dragged === card.id ? "opacity-50" : ""}`}
+                    >
+                      <Card item={card} onPatch={(b) => patch(card.id, b)} onRemove={() => remove(card.id)} />
+                    </div>
                   ))}
+                  {cards.length === 0 && dragged && <div className="h-20 rounded-[20px] border-2 border-dashed border-line" />}
                 </div>
               </section>
             );
           })}
         </div>
+      )}
+
+      {stats.sent > 0 && (
+        <section className="mt-12">
+          <h2 className="font-display text-2xl font-bold">Ta progression</h2>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              ["Candidatures envoyées", String(stats.sent), "bg-violet-soft text-violet-ink"],
+              ["Entretiens", String(stats.interviews), "bg-mint-soft text-mint-ink"],
+              ["Taux de réponse", `${stats.responseRate} %`, "bg-sky-soft text-sky-ink"],
+              ["Cette semaine", String(stats.thisWeek), "bg-peach-soft text-peach-ink"],
+            ].map(([label, value, tone]) => (
+              <p key={label} className={`rounded-[20px] p-4 ${tone}`}>
+                <span className="block font-display text-3xl font-extrabold tabular-nums">{value}</span>
+                <span className="text-sm">{label}</span>
+              </p>
+            ))}
+          </div>
+          <div className="mt-4 rounded-[22px] border border-line bg-surface p-5">
+            <h3 className="font-display text-lg font-bold">Candidatures par semaine</h3>
+            <p className="mb-4 text-sm text-muted">Les {WEEKS} dernières semaines. Une réponse : un entretien, une offre ou un refus.</p>
+            <Columns data={stats.weeks} label="Candidatures envoyées par semaine" />
+          </div>
+        </section>
       )}
 
       {adding && (

@@ -34,8 +34,14 @@
   --overlay: rgba(23, 21, 31, 0.35);
 }
 
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+/* Dark mode follows the system ("Automatique"), unless the person picked a theme in Paramètres:
+   <html data-theme="light|dark"> then wins. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --page: #100f14;
     --surface: #17161d;
     --rail: #1b1922;
@@ -66,6 +72,37 @@
     --warn-soft: #3a2316;
     --overlay: rgba(0, 0, 0, 0.55);
   }
+}
+:root[data-theme="dark"] {
+  --page: #100f14;
+  --surface: #17161d;
+  --rail: #1b1922;
+  --rail-ink: #a9a4b6;
+  --rail-text: #f4f2f7;
+  --rail-active: #2a2545;
+  --rail-active-ink: #d4c9ff;
+  --violet-soft: #2a2545;
+  --violet-ink: #d4c9ff;
+  --mint-soft: #16301f;
+  --mint-ink: #8fdcb4;
+  --peach-soft: #3a2316;
+  --peach-ink: #f5b48c;
+  --sky-soft: #15283a;
+  --sky-ink: #9cc8f0;
+  --ink: #f4f2f7;
+  --muted: #b9b4c6;
+  --line: rgba(255, 255, 255, 0.08);
+  --pill: rgba(255, 255, 255, 0.07);
+  --pill-solid: #222029;
+  --button: #f4f2f7;
+  --button-ink: #17151f;
+  --brand: #b9a8ff;
+  --brand-soft: #2a2545;
+  --success: #7dd3a8;
+  --success-soft: #16301f;
+  --warn: #f0a37a;
+  --warn-soft: #3a2316;
+  --overlay: rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
@@ -125,16 +162,24 @@ body {
   background: var(--bg-l);
 }
 @media (prefers-color-scheme: dark) {
-  .tinted,
-  .tinted-vars {
+  :root:not([data-theme="light"]) :is(.tinted, .tinted-vars) {
     --accent: var(--accent-d);
     --halo: var(--halo-d);
     --band: var(--band-d);
     --tint: var(--bg-d);
   }
-  .tinted {
+  :root:not([data-theme="light"]) .tinted {
     background: var(--bg-d);
   }
+}
+:root[data-theme="dark"] :is(.tinted, .tinted-vars) {
+  --accent: var(--accent-d);
+  --halo: var(--halo-d);
+  --band: var(--band-d);
+  --tint: var(--bg-d);
+}
+:root[data-theme="dark"] .tinted {
+  background: var(--bg-d);
 }
 
 @keyframes rise {

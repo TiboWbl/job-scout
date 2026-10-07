@@ -4,7 +4,7 @@ import { isAdminEmail } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { CollectButton } from "./collect-button";
-import { Columns, Rows } from "./charts";
+import { Columns, Rows } from "@/components/charts";
 import { Invitations } from "./invitations";
 
 export const metadata = { title: "Admin" };

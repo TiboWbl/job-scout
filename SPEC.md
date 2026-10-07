@@ -214,7 +214,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Suivi des candidatures
 
-- Kanban : À postuler → Postulé → Entretien → Offre → Refusé / Archivé.
+- Kanban : À postuler → Postulé → Entretien → Offre → Refusé / Archivé. Les cartes se déplacent par glisser-déposer (le menu d'étape de chaque carte fait de même au toucher et au clavier) ; passer une carte en « Postulé » sans date lui donne la date du jour.
+- « Ta progression » : candidatures envoyées, entretiens, taux de réponse (entretien, offre ou refus) et candidatures de la semaine, plus un graphique des 8 dernières semaines.
 - Par candidature : date de candidature, contact, notes, date d'entretien, origine (repérée par Scout ou ajoutée). Version du CV utilisée plus tard.
 - Relance suggérée 7 jours après la candidature, puis 7 jours après la dernière relance (« Une relance peut aider », bouton « J'ai relancé »), sur la carte et sur l'écran Aujourd'hui, sans harcèlement.
 - Récap hebdomadaire positif centré sur les actions (« 4 candidatures envoyées, 1 entretien obtenu »), pas sur les refus.
@@ -273,7 +274,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
   - tableau de bord sobre, avec graphiques, utile pour suivre le produit et le présenter en entretien : offres actives et nouvelles par jour, entreprises dans l'annuaire et leur origine, sources et leur santé, utilisateurs actifs, offres triées par l'IA, répartition des niveaux, candidatures suivies (agrégées, jamais nominatives).
 - **Barre latérale** : en bas, la photo du compte Google et le prénom ; un clic ouvre un petit menu (Admin pour l'admin, Se déconnecter).
 - **Jamais d'attente muette** : toute opération en arrière-plan (analyse, tri, ajout, collecte, import) montre une progression ou un indicateur de chargement.
-- RGPD : page publique « Confidentialité » (`/confidentialite` : données gardées, usage de Mistral sans nom ni coordonnées, sous-traitants, cookie unique, droits ; contact par la variable facultative `CONTACT_EMAIL`) et suppression complète du compte en deux clics dans « Ma recherche » (l'utilisateur est supprimé et tout ce qui lui est rattaché suit en cascade ; l'invitation reste valable, l'admin peut la retirer). Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
+- RGPD : page publique « Confidentialité » (`/confidentialite` : données gardées, usage de Mistral sans nom ni coordonnées, sous-traitants, cookie unique, droits ; contact par la variable facultative `CONTACT_EMAIL`) et suppression complète du compte en deux clics dans « Paramètres » (menu du compte, avec le thème Automatique, Clair ou Sombre gardé sur l'appareil) (l'utilisateur est supprimé et tout ce qui lui est rattaché suit en cascade ; l'invitation reste valable, l'admin peut la retirer). Nécessaire pour les CV d'amis et pour la vérification de marque Google. Le texte du CV n'est pas conservé ; aucune donnée personnelle dans le repo, dans les logs ni dans les requêtes LLM.
 - Clés API en variables d'environnement (et secrets GitHub), jamais dans le code.
 
 ## Repo public
@@ -334,7 +335,7 @@ Priorité absolue : la pertinence des offres proposées et ne rater aucune offre
    - Doublons d'entreprise (« Robeaute » / « Robeaute-1 »).
 2. **V2.2 Vitesse** (faite) : onglets de la barre latérale chargés en arrière-plan et onglets visités gardés 30 s dans le navigateur (rafraîchis après chaque action), cartes des offres dessinées par 24 au fil du défilement (page Offres de 638 à 300 Ko), vérifications d'accès en parallèle à chaque page.
 3. **V2.3 Simplicité et finitions** (faite) : photos aussi tirées de la page de l'offre et de la page carrière, site des employeurs connus par leur seul nom deviné puis confirmé par le LLM face à leurs offres (jamais de logo ou de photo d'une autre entreprise), offres écartées en cartes avec une étiquette de raison (Contrat, Expérience, Lieu, Métier éloigné, Secteur, Contenu du poste, Ton choix), critères de Ma recherche en blocs colorés (clair et sombre), filtre « Écartées » parmi les filtres, recherche alignée au pixel sur les filtres, couleurs plus marquées, plus de photos, titre d'onglet par page, « Ma recherche » allégée (moins de texte, favorites compactes, pleine largeur), critères modifiables depuis Offres, étoile pour les favorites, plus de page /login ni de « Se connecter » (la page d'accueil suffit), déconnexion vers l'accueil, bannière de démo « rien n'est enregistré », lien Confidentialité de l'accueil, passe sur tout le site pour retirer le superflu.
-4. **V2.4 Suivi et Paramètres** : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
+4. **V2.4 Suivi et Paramètres** (faite) : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
 5. **V2.5 CV** : analyse ATS sur 100 avec recommandations et comparaison à une offre.
 6. **V2.6 Le reste du backlog** :
    - notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ;

@@ -28,11 +28,10 @@ export function DeleteAccount() {
     <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
       <h2 className="font-display text-xl font-bold tracking-tight">Ton compte</h2>
       <p className="mt-1 text-sm text-muted">
-        Tu peux supprimer ton compte à tout moment : ta recherche, ce que Scout a retenu de ton CV, tes offres, ton suivi et tes favorites sont effacés aussitôt et définitivement.{" "}
-        <a href="/confidentialite" className="font-medium text-ink underline underline-offset-4">Confidentialité</a>
+        Ta recherche, ce que Scout a retenu de ton CV, tes offres, ton suivi et tes favorites sont effacés aussitôt et définitivement.
       </p>
       {!confirming ? (
-        <button type="button" onClick={() => setConfirming(true)} className="mt-4 rounded-xl border border-line px-4 py-2.5 text-sm font-medium text-muted hover:border-ink hover:text-ink">
+        <button type="button" onClick={() => setConfirming(true)} className="btn-soft mt-4">
           Supprimer mon compte
         </button>
       ) : (

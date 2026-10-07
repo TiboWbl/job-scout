@@ -32,8 +32,8 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
               Admin
             </Link>
           )}
-          <Link href="/confidentialite" role="menuitem" onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 font-medium hover:bg-pill-solid">
-            Confidentialité
+          <Link href="/parametres" role="menuitem" onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 font-medium hover:bg-pill-solid">
+            Paramètres
           </Link>
           <form action="/auth/signout" method="post">
             <button type="submit" role="menuitem" className="w-full rounded-xl px-3 py-2.5 text-left font-medium hover:bg-pill-solid">
@@ -47,7 +47,7 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-[14px] px-2 py-2 text-left text-rail-text hover:bg-pill-solid"
+        className="flex w-full items-center gap-2.5 rounded-[14px] border border-line bg-surface px-2 py-2 text-left text-rail-text shadow-sm hover:border-ink"
       >
         {avatarUrl && !avatarFailed ? (
           // eslint-disable-next-line @next/next/no-img-element -- Google profile photo, external
