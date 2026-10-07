@@ -226,7 +226,7 @@ Si "extrait_seulement" est vrai, tu n'as qu'un extrait de l'offre : remplis "mis
 
 Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoiement, ton bienveillant et factuel.
 - "pourquoi" : une phrase concrète de 25 mots maximum qui dit ce qui fait correspondre cette offre à la recherche de la personne : le métier réel et ses missions, le secteur, le niveau d'expérience demandé face au sien, l'entreprise si elle fait partie de ses favorites. Uniquement ce qui correspond, aucune réserve ici. Sans répéter l'intitulé ni le nom de l'entreprise. Ex. « PM d'une app santé grand public, ouvert aux profils juniors : discovery et roadmap comme chez ton dernier poste. »
-- "reserve" : la principale réserve en 12 mots maximum, concrète (ex. « 3 ans demandés, un de plus que toi », « Secteur bancaire, hors de tes priorités »), sinon null.
+- "reserve" : la principale réserve en 12 mots maximum, concrète, hors expérience demandée (Scout la calcule lui-même) : secteur, type de poste, contexte (ex. « Secteur bancaire, hors de tes priorités », « Poste en conseil, chez des clients »). null s'il n'y en a pas : jamais une phrase qui dit que tout va bien.
 - "missions" : les 2 ou 3 missions principales du poste, 8 mots maximum chacune (ex. « Piloter la roadmap de l'app patient »).
 - "salaire" : le salaire tel qu'il est écrit dans l'offre (ex. « 45-55 k€ brut annuel »), sinon null. N'estime jamais.
 - "experience_demandee" : l'expérience minimale demandée, lue partout dans l'offre (profil recherché, must-haves, requirements, qualifications…), en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
@@ -353,12 +353,26 @@ export async function judgeBatch(
     const unproven = item.deal_breaker && !dealBreaker ? [`À vérifier : ${item.deal_breaker}`] : [];
     // The main reservation leads the points to check; "pourquoi" says only what fits, so it never
     // contradicts the level.
-    const reservation = item.reserve ? plain(item.reserve) : null;
+    // The experience gap is computed, never written by the model: "3 ans demandés, 2 de plus que toi".
+    const years = (n: number) => `${n} an${n > 1 ? "s" : ""}`;
+    const gap = asked !== null && experienceYears !== null ? asked - experienceYears : null;
+    const experienceNote =
+      gap !== null && gap > 0
+        ? `${years(asked!)} demandé${asked! > 1 ? "s" : ""}, ${gap} de plus que toi`
+        : asked === null && input.experienceLevel === "experienced"
+          ? "Expérience significative demandée"
+          : null;
+    // A "reservation" that says all is well, or speaks of experience (computed above), is dropped.
+    const modelNote = item.reserve && !/align|correspond|coherent|adapte|ok\b|exp[ée]rience|\bans?\b|years?/i.test(item.reserve) ? plain(item.reserve) : null;
+    const reservation = experienceNote ?? modelNote;
     const watch = [
       ...(item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege] : []),
       ...unproven,
       ...(reservation && !item.points_d_attention.includes(reservation) ? [reservation] : []),
-      ...item.points_d_attention,
+      ...(experienceNote && modelNote ? [modelNote] : []),
+      // Years written by the model could contradict the computed gap: Scout's own reading speaks for them.
+      // Experience is Scout's own reading (above): the model's words on it could guess or contradict.
+      ...item.points_d_attention.filter((p) => !/exp[ée]rience|\d+\s*(ans?|years?)\b|seniorit|niveau/i.test(p)),
     ];
     results.set(id, {
       level,
