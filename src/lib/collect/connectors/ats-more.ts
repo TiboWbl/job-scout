@@ -398,7 +398,8 @@ export async function workday(board: BoardRef, keep?: Keep, wanted?: Wanted): Pr
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { total?: number; jobPostings?: WdItem[] };
     if (page === 0 && data.total) total = data.total;
-    items.push(...(data.jobPostings ?? []));
+    // Workday sometimes lists a posting without its title or link: there is nothing to read in it.
+    items.push(...(data.jobPostings ?? []).filter((j) => j?.title && j.externalPath));
     if (!data.jobPostings || data.jobPostings.length < 20 || items.length >= total) break;
   }
   const out: NormalizedOffer[] = [];
@@ -410,7 +411,7 @@ export async function workday(board: BoardRef, keep?: Keep, wanted?: Wanted): Pr
     if (keep && listed.places.length > 0 && !keep(listed.places, listed.remote)) continue;
     const detail = (await (await get(`${api}${item.externalPath}`)).json().catch(() => null)) as WdDetail | null;
     const info = detail?.jobPostingInfo;
-    if (!info) continue;
+    if (!info?.title) continue;
     const country = info.country?.descriptor ?? "";
     const raw = [info.location, ...(info.additionalLocations ?? [])].filter(Boolean).map((l) => (country ? `${l}, ${country}` : l)).join("; ");
     const loc = parseLocation(raw, info.title);

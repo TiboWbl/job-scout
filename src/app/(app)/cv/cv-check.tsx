@@ -11,12 +11,13 @@ import { readCv } from "@/lib/cv/extract";
 import { createClient } from "@/lib/supabase/browser";
 import { TrashIcon } from "@/components/icons";
 
-export type HistoryRow = { id: string; created_at: string; filename: string; total: number; result: AtsResult | null; suggestions: Suggestion[]; comparison: Comparison | null };
+export type HistoryRow = { id: string; created_at: string; filename: string; total: number; result: AtsResult | null; suggestions: Suggestion[]; comparison: Comparison | null; recruiter: Recruiter | null };
 export type OfferOption = { id: string; title: string; company: string; place: string | null; level: Level; tracked: boolean };
 type Suggestion = { ligne: string; proposition: string; pourquoi?: string | null };
 type Comparison = { title: string; company: string; score: number; present: string[]; missing: string[]; tips: string[] };
+type Recruiter = { target: string; avis: string; atouts: { point: string; citation: string }[]; manques: { point: string; citation: string | null }[]; conseils: string[] };
 // `text` exists only right after an analysis: the CV is never stored, so a saved one has no ATS view.
-type Analysis = { id: string | null; createdAt: string | null; filename: string; result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; text: string | null };
+type Analysis = { id: string | null; createdAt: string | null; filename: string; result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; recruiter: Recruiter | null; text: string | null };
 
 const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
@@ -40,7 +41,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
 
   function openSaved(h: HistoryRow) {
     if (!h.result) return;
-    setAnalysis({ id: h.id, createdAt: h.created_at, filename: h.filename, result: h.result, suggestions: h.suggestions ?? [], comparison: h.comparison, text: null });
+    setAnalysis({ id: h.id, createdAt: h.created_at, filename: h.filename, result: h.result, suggestions: h.suggestions ?? [], comparison: h.comparison, recruiter: h.recruiter ?? null, text: null });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -74,7 +75,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "L'analyse n'a pas abouti, réessaie.");
       setAnalysis({ ...data, filename: chosen.name, text });
-      setRows((r) => [{ id: data.id, created_at: data.createdAt, filename: chosen.name, total: data.result.total, result: data.result, suggestions: data.suggestions, comparison: data.comparison }, ...r].filter((h) => h.id));
+      setRows((r) => [{ id: data.id, created_at: data.createdAt, filename: chosen.name, total: data.result.total, result: data.result, suggestions: data.suggestions, comparison: data.comparison, recruiter: data.recruiter }, ...r].filter((h) => h.id));
       // The page kept in the browser cache must list this analysis when the person comes back.
       router.refresh();
     } catch (e) {
@@ -89,7 +90,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
     <div className="px-1 pb-16 pt-3 md:px-2">
       <h1 className="font-display text-5xl font-extrabold tracking-tight">Mon CV</h1>
       <p className="mt-2 max-w-2xl text-[15px] text-muted">
-        Une note sur 100 selon la grille de Scout, et ce qu&apos;il faut corriger. Il n&apos;existe pas de score ATS universel : celui-ci est indicatif, mais chaque point a une raison.
+        Deux lectures de ton CV. Le test ATS vérifie qu&apos;un logiciel de recrutement le lit bien : une note sur 100 où chaque point a une raison. La lecture recruteur dit ce qui convainc et ce qui manque pour ton métier, ou pour une offre que tu choisis.
       </p>
 
       <section className="mt-6 rounded-[22px] bg-brand-soft/50 p-5 md:p-6">
@@ -123,7 +124,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
       {busy && (
         <p role="status" className="mt-6 flex items-center gap-3 text-sm text-muted">
           <span aria-hidden className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-brand" />
-          Scout lit ton CV comme un ATS, puis le compare au métier que tu vises. Compte une dizaine de secondes.
+          Scout lit ton CV comme un ATS, puis comme un recruteur pour le poste visé. Compte une vingtaine de secondes.
         </p>
       )}
 
@@ -169,7 +170,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
 }
 
 function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | null }) {
-  const { result, suggestions, comparison, text } = analysis;
+  const { result, suggestions, comparison, recruiter, text } = analysis;
   return (
     <div className="mt-8 space-y-6">
       <p className="text-sm text-muted">
@@ -178,13 +179,13 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
       </p>
       <p className="rounded-2xl bg-pill-solid px-4 py-3 text-[14px]">
         {result.total >= 85
-          ? "Très bon CV. Ce qui suit, ce sont des pistes : rien n'est obligatoire, garde ce qui te ressemble."
+          ? "Ton CV passe bien les logiciels de recrutement. Pour savoir s'il convainc, lis la lecture recruteur : rien n'est obligatoire, garde ce qui te ressemble."
           : "Ce sont des recommandations, pas des obligations : commence par ce qui rapporte le plus de points, et garde ce qui te ressemble."}
       </p>
       <section className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_1fr]">
         <div className="rounded-[22px] bg-violet-soft p-6 text-violet-ink">
           <p className="font-display text-6xl font-extrabold tabular-nums">{result.total}</p>
-          <p className="text-sm">sur 100, grille Scout</p>
+          <p className="text-sm">sur 100, test ATS</p>
         </div>
         <div className="space-y-3 rounded-[22px] border border-line bg-surface p-5">
           {result.categories.map((c) => (
@@ -201,13 +202,62 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
         </div>
       </section>
 
+      {recruiter && (recruiter.avis || recruiter.atouts.length > 0) && (
+        <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+          <h2 className="font-display text-xl font-bold">Lecture recruteur</h2>
+          <p className="mt-1 text-sm text-muted">Pour « {recruiter.target} ». Chaque atout cite ton CV{comparison ? ", chaque manque cite l'offre" : ""}.</p>
+          {recruiter.avis && <p className="mt-4 text-[15px] leading-relaxed">{recruiter.avis}</p>}
+          <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {recruiter.atouts.length > 0 && (
+              <div>
+                <h3 className="text-[13px] font-semibold text-muted">Ce qui convainc</h3>
+                <ul className="mt-2 space-y-2.5">
+                  {recruiter.atouts.map((a) => (
+                    <li key={a.point} className="flex gap-2.5 text-[14px] leading-snug">
+                      <span aria-hidden className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-mint-soft text-[11px] font-bold text-mint-ink">✓</span>
+                      <span>
+                        {a.point}
+                        <span className="mt-0.5 block text-[13px] italic text-muted">« {a.citation} »</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {recruiter.manques.length > 0 && (
+              <div>
+                <h3 className="text-[13px] font-semibold text-muted">Ce qui manque</h3>
+                <ul className="mt-2 space-y-2.5">
+                  {recruiter.manques.map((m) => (
+                    <li key={m.point} className="flex gap-2.5 text-[14px] leading-snug">
+                      <span aria-hidden className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-peach-soft text-[11px] font-bold text-peach-ink">!</span>
+                      <span>
+                        {m.point}
+                        {m.citation && <span className="mt-0.5 block text-[13px] italic text-muted">L&apos;offre : « {m.citation} »</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          {recruiter.conseils.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-[13px] font-semibold text-muted">Pour personnaliser ton CV</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-[14.5px]">{recruiter.conseils.map((c) => <li key={c}>{c}</li>)}</ul>
+            </div>
+          )}
+          <p className="mt-4 text-[13px] text-muted">N&apos;ajoute que ce qui correspond vraiment à ton expérience.</p>
+        </section>
+      )}
+
       {comparison && (
         <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
           <h2 className="font-display text-xl font-bold">
-            Face à « {comparison.title} »{comparison.company ? ` · ${comparison.company}` : ""}
+            Mots-clés de l&apos;offre « {comparison.title} »{comparison.company ? ` · ${comparison.company}` : ""}
           </h2>
           <p className="mt-1 text-sm text-muted">
-            {comparison.score} % des mots-clés de l&apos;offre se retrouvent dans ton CV.
+            {comparison.score} % des mots-clés de l&apos;offre se retrouvent tels quels dans ton CV : c&apos;est ce qu&apos;un ATS compare.
           </p>
           {comparison.missing.length > 0 && (
             <div className="mt-4">
@@ -232,7 +282,7 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
           {comparison.tips.length > 0 && (
             <ul className="mt-4 list-disc space-y-1 pl-5 text-[14.5px]">{comparison.tips.map((t) => <li key={t}>{t}</li>)}</ul>
           )}
-          <p className="mt-3 text-[13px] text-muted">N&apos;ajoute que ce qui correspond vraiment à ton expérience.</p>
+          {!recruiter && <p className="mt-3 text-[13px] text-muted">N&apos;ajoute que ce qui correspond vraiment à ton expérience.</p>}
         </section>
       )}
 
@@ -369,7 +419,7 @@ function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value
 
   return (
     <div className="mt-4">
-      <p className="text-sm font-semibold">Comparer à une offre <span className="font-normal text-muted">(facultatif)</span></p>
+      <p className="text-sm font-semibold">Cibler une offre <span className="font-normal text-muted">(facultatif, sinon la lecture se fait pour ton métier)</span></p>
       {chosen && !picking ? (
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-sm">
           {line(chosen)}

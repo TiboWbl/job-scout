@@ -34,8 +34,9 @@ const SECTIONS: [string, RegExp][] = [
 ];
 const LANGUAGES = /\b(langues?|languages?)\b/;
 
+// Read at the start of a mission line only: "crédit" or "créatif" inside a sentence is not an action.
 const ACTION_VERBS =
-  /\b(pilot|lanc|concu|developp|cre|optimis|ameliore|augment|redui|gere|dirig|coordonn|mis en place|deploy|analys|automatis|negoci|conduit|realis|organis|livr|anim|defini|construi|led|launched|built|designed|developed|improved|increased|reduced|managed|delivered|created|drove|owned|shipped|implemented|analy[sz]ed)\w*/g;
+  /^(pilot|lanc|concu|developp|cre|optimis|ameliore|augment|redui|gere|dirig|coordonn|mis en place|deploy|analys|automatis|negoci|conduit|realis|organis|livr|anim|defini|construi|led|launched|built|designed|developed|improved|increased|reduced|managed|delivered|created|drove|owned|shipped|implemented|analy[sz]ed)\w*/;
 // Figures that show a result: percentages, money, multipliers, counts of people or things.
 const QUANTIFIED =
   /(?:[+−-]\s?)?\d+(?:[.,]\d+)?\s?(?:%|k€|m€|€|k\b|m\b|x\b|×|pts?\b|points?\b)|(?:\bx|×)\s?\d+\b|\b\d{1,3}(?:[ .,]?\d{3})*\+?\s(?:\w+\s)?(?:utilisateurs?|clients?|users?|personnes|people|entreprises|equipes?|developpeurs|devs|projets?|pays|ventes|leads|telechargements|downloads|membres|participants|collaborateurs|magasins|sites|produits|fonctionnalites|features|commandes|orders|transactions|abonnes|followers|visites|sessions|entretiens|interviews|tickets|candidats|partenaires|marches|langues|stakeholders|squads|sprints|releases|apps?)\b/gi;
@@ -112,12 +113,13 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
   ];
 
   // Contenu (25)
-  const verbs = (n.match(ACTION_VERBS) ?? []).length;
+  const lines = text.split(/\n|•|·|▪|◦|‣/).map((l) => l.trim()).filter((l) => l.split(/\s+/).length >= 4);
+  // Mission lines that open on an action verb, each counted once.
+  const verbs = lines.filter((l) => ACTION_VERBS.test(fold(l).replace(/^[^a-z]+/, ""))).length;
   const numbers = new Set((fold(text).match(QUANTIFIED) ?? []).map((m) => m.trim())).size;
-  const lines = text.split(/\n|•|·|▪/).map((l) => l.trim()).filter((l) => l.split(/\s+/).length >= 4);
   const longLines = lines.filter((l) => l.split(/\s+/).length > 35).length;
   const contenu: Check[] = [
-    check(verbs >= 8, "Verbes d'action", 10, `Commence chaque mission par un verbe d'action (piloté, lancé, conçu, réduit…) : ${verbs} trouvé${verbs > 1 ? "s" : ""}, vise au moins 8.`, Math.min(10, Math.round((10 * verbs) / 8))),
+    check(verbs >= 8, "Verbes d'action", 10, `Commence chaque mission par un verbe d'action (piloté, lancé, conçu, réduit…) : ${verbs} ligne${verbs > 1 ? "s" : ""} sur ${lines.length} commence${verbs > 1 ? "nt" : ""} ainsi, vise au moins 8.`, Math.min(10, Math.round((10 * verbs) / 8))),
     check(numbers >= 4, "Résultats chiffrés", 10, `Chiffre tes résultats (+30 % d'adoption, 2 000 utilisateurs, −15 % de churn) : ${numbers} trouvé${numbers > 1 ? "s" : ""}, vise au moins 4.`, Math.min(10, Math.round((10 * numbers) / 4))),
     check(longLines <= 2, "Phrases courtes", 5, "Certaines lignes dépassent 35 mots : coupe-les en puces d'une ligne, une idée par puce.", longLines <= 2 ? 5 : longLines <= 5 ? 2 : 0),
   ];
@@ -147,13 +149,20 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
   return { total: categories.reduce((s, c) => s + c.score, 0), categories };
 }
 
-// A keyword is in the CV when each of its words is ("user research" in "research with users"); a slash
+// A keyword is in the CV when each of its words is, as a whole word ("API" is not in "rapide"); a slash
 // means alternatives ("Agile/Scrum", "Jira/Confluence"): one of them is enough. Plurals count ("OKRs", "OKR").
+const AB = /\ba\s*\/\s*b\b/g;
+const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export function hasKeyword(foldedCv: string, keyword: string) {
-  const alternatives = fold(keyword).split(/\s*\/\s*/).filter(Boolean);
+  const cv = foldedCv.replace(AB, "a/b");
+  const k = fold(keyword).replace(AB, "a/b");
+  const alternatives = (/a\/b/.test(k) ? [k] : k.split(/\s*\/\s*/)).filter(Boolean);
   return alternatives.some((alt) => {
-    const words = alt.split(/[^a-z0-9+#]+/).filter((w) => w.length >= 2);
-    return words.length > 0 && words.every((w) => foldedCv.includes(w.length > 3 ? w.replace(/s$/, "") : w));
+    const words = alt.split(/[^a-z0-9+#/]+/).filter((w) => w.length >= 2);
+    return (
+      words.length > 0 &&
+      words.every((w) => new RegExp(`(?:^|[^a-z0-9])${escape(w.length > 3 ? w.replace(/s$/, "") : w)}(?:s|x|es|ing)?(?![a-z0-9])`).test(cv))
+    );
   });
 }
 

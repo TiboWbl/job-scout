@@ -9,7 +9,6 @@ const SOURCE_LABELS: Record<string, string> = {
   adzuna: "Adzuna",
   jooble: "Jooble",
   manual: "Ajoutées par URL",
-  "france-travail": "France Travail",
   greenhouse: "Greenhouse",
   lever: "Lever",
   ashby: "Ashby",

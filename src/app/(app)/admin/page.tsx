@@ -31,7 +31,12 @@ export default async function AdminPage() {
   // Latest run per source, plus the previous one to spot a sudden drop.
   const bySource = new Map<string, Run[]>();
   for (const r of (runs.data ?? []) as Run[]) bySource.set(r.source, [...(bySource.get(r.source) ?? []), r]);
-  const rows = [...bySource.entries()].map(([source, list]) => ({ source, last: list[0], prev: list[1] })).sort((a, b) => a.source.localeCompare(b.source));
+  // A source missing from the latest collections is no longer collected (France Travail): not listed.
+  const newest = Math.max(0, ...((runs.data ?? []) as Run[]).map((r) => new Date(r.started_at).getTime()));
+  const rows = [...bySource.entries()]
+    .map(([source, list]) => ({ source, last: list[0], prev: list[1] }))
+    .filter((r) => new Date(r.last.started_at).getTime() > newest - 2 * 86_400_000)
+    .sort((a, b) => a.source.localeCompare(b.source));
 
   return (
     <div className="max-w-5xl px-1 pb-16 pt-3 md:px-2">

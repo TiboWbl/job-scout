@@ -57,7 +57,8 @@ export async function fetchCareerjet(queries: SearchQuery[]): Promise<Normalized
       url.searchParams.set("user_ip", process.env.CAREERJET_USER_IP ?? "76.76.21.21");
       url.searchParams.set("user_agent", "Mozilla/5.0 (compatible; Scout job aggregator)");
       const res = await fetch(url, { headers: { Authorization: auth, Accept: "application/json" }, signal: AbortSignal.timeout(20_000) });
-      if (!res.ok) throw new Error(`search HTTP ${res.status}`);
+      // Careerjet says why it refuses (key, address of the site): its words go in the source health.
+      if (!res.ok) throw new Error(`search HTTP ${res.status}${await res.json().then((e: { error?: string }) => (e.error ? ` : ${e.error.slice(0, 160)}` : "")).catch(() => "")}`);
       const data = (await res.json()) as { jobs?: CareerjetJob[] };
       for (const j of data.jobs ?? []) {
         if (wanted && companyKey(j.company ?? "") !== wanted) continue;

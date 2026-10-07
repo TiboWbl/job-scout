@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
-import { compareKeywords, scoreCv } from "@/lib/cv/ats";
+import { compareKeywords, hasKeyword, scoreCv } from "@/lib/cv/ats";
 import { cvSkillsFrom } from "@/lib/views/skills";
 import { Criteria } from "@/lib/domain/criteria";
 import { getLlm, LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
 import { redactPersonalData } from "@/lib/privacy/redact";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const Body = z.object({
   text: z.string().max(60_000),
@@ -23,12 +23,22 @@ const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string =>
 // The role's keywords, asked once per set of roles and kept: the same CV always gets the same score.
 const KEYWORDS_SYSTEM = `Pour un métier visé, donne les 12 compétences, outils ou méthodes que les offres de ce métier demandent le plus souvent, en 1 ou 2 mots, sous leur forme la plus courante dans les offres (ex. « roadmap », « backlog », « discovery », « SQL », « A/B test », « Jira », « OKR »). Pas de qualités générales (communication, rigueur). Réponds uniquement avec {"mots_cles": [...]}.`;
 
-const SUGGEST_SYSTEM = `Tu aides à améliorer un CV (données personnelles retirées) pour un métier visé. Réponds uniquement avec {"suggestions": [{"ligne", "proposition", "pourquoi"}]} :
-jusqu'à 3 lignes d'expérience du CV (des missions, jamais la formation ni les compétences) qui gagneraient le plus à être réécrites. "ligne" : la ligne exacte du CV, recopiée mot pour mot. "proposition" : la même ligne réécrite avec un verbe d'action et un résultat ; n'invente aucun chiffre, écris [chiffre] là où la personne doit mettre le sien. "pourquoi" : en une phrase, ce que la réécriture apporte à un recruteur pour ce métier. Si une ligne est déjà bonne, ne la propose pas ; s'il n'y a rien à améliorer, renvoie une liste vide.`;
+// The recruiter's reading: what convinces, what is missing, how to tailor. Every strength quotes the CV,
+// every gap of an offer quotes the offer, and Scout drops what it cannot find: nothing is invented.
+const RECRUITER_SYSTEM = `Tu es recruteur. Tu lis un CV (données personnelles retirées) pour un poste cible, et tu dis franchement, sans flatter ni sévérité gratuite, comment il se présente. Réponds uniquement avec {"avis", "atouts", "manques", "personnaliser", "lignes"} :
+- "avis" : un texte de 2 phrases au plus, ce qu'un recruteur retient de ce CV pour ce poste et si le profil serait convoqué en entretien. Juge au niveau du poste cible : un poste junior n'attend pas l'expérience d'un confirmé.
+- "atouts" : 2 ou 3 objets {"point", "citation_cv"} : ce qui convaincrait un recruteur pour ce poste. "citation_cv" : un seul passage du CV qui le prouve à lui seul, recopié mot pour mot.
+- "manques" : 0 à 3 objets {"point", "citation_poste"} : ce que le poste attend et que le CV ne montre pas. Ne cite jamais un manque si le CV en parle. "citation_poste" : s'il y a une offre, les mots de l'offre qui le demandent, recopiés mot pour mot ; sinon, le mot-clé exact de la liste « demandé par les offres du métier ».
+- "personnaliser" : 2 ou 3 actions concrètes pour adapter ce CV à ce poste (quoi remonter, quel intitulé ou quels mots reprendre, quoi raccourcir), en une phrase chacune. N'invente rien sur la personne.
+- "lignes" : jusqu'à 3 lignes de missions du CV (jamais la formation ni les compétences) qui gagneraient le plus à être réécrites pour ce poste, en objets {"ligne", "proposition", "pourquoi"}. "ligne" : recopiée mot pour mot. "proposition" : toujours la ligne réécrite, au même temps que le reste du CV, avec un verbe d'action et un résultat ; n'invente aucun chiffre, écris [chiffre] là où la personne doit mettre le sien. "pourquoi" : une phrase. Liste vide si tout est déjà bon.
+Écris en français, en tutoyant la personne, sans tiret cadratin.`;
 
-const OFFER_SYSTEM = `Tu lis une offre d'emploi. Réponds uniquement avec {"mots_cles": [...], "ajustements": [...]} :
-- "mots_cles" : les 10 à 12 compétences, outils, méthodes ou expériences que l'offre demande, en 1 ou 2 mots chacun, recopiés tels qu'écrits dans l'offre.
-- "ajustements" : 3 conseils concrets et courts pour adapter un CV à cette offre (quoi mettre en avant, quel intitulé reprendre), sans rien inventer sur la personne.`;
+// Keywords of one offer, for the ATS comparison: written in the offer, checked word for word in the CV.
+const OFFER_SYSTEM = `Tu lis une offre d'emploi. Réponds uniquement avec {"mots_cles": [...]} : les 10 à 12 compétences, outils, méthodes ou expériences que l'offre demande, en 1 ou 2 mots chacun, recopiés tels qu'écrits dans l'offre.`;
+
+type Recruiter = { target: string; avis: string; atouts: { point: string; citation: string }[]; manques: { point: string; citation: string | null }[]; conseils: string[] };
+const quoted = (whole: string, part: unknown) => typeof part === "string" && part.trim().length >= 8 && fold(whole).includes(fold(part.trim().replace(/^[«"“]\s*|\s*[»"”]$/g, "")));
+const objects = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null) : []);
 
 // Scores a CV against Scout's grid, optionally compares it with one offer. Keeps only the scores.
 export async function POST(request: Request) {
@@ -56,24 +66,55 @@ export async function POST(request: Request) {
       if (keywords.length) await supabase.from("profiles").update({ cv_keywords: { roles, keywords } }).eq("id", user.id);
     }
     const result = scoreCv({ text, layout, filename, sizeBytes }, { expected: keywords });
-    const read = text.trim().length >= 300 ? ((await llm.json({ system: SUGGEST_SYSTEM, user: `Métier visé : ${roles}\n\nCV :\n${redacted}`, tier: "fast" })) as { suggestions?: unknown }) : {};
-    // A suggestion counts only if its line is really in the CV.
-    const cv = fold(text);
-    const suggestions = (Array.isArray(read.suggestions) ? read.suggestions : [])
-      .filter((s): s is { ligne: string; proposition: string; pourquoi?: string } => typeof s?.ligne === "string" && typeof s?.proposition === "string" && s.ligne.length > 15)
-      .filter((s) => cv.includes(fold(s.ligne)))
-      .map((s) => ({ ligne: s.ligne, proposition: s.proposition, pourquoi: typeof s.pourquoi === "string" ? s.pourquoi : null }))
-      .slice(0, 3);
+
+    const { data: offer } = offerId ? await supabase.from("offers").select("title, description, company:companies(name)").eq("id", offerId).single() : { data: null };
+    const company = (offer?.company as unknown as { name: string } | null)?.name ?? "";
+    const offerText = offer?.description ? offer.description.slice(0, 8000) : null;
+    const target = offer && offerText ? `${offer.title}${company ? ` chez ${company}` : ""}` : roles;
+    const level = criteria.experienceYears !== null ? `, ${criteria.experienceYears} an${criteria.experienceYears > 1 ? "s" : ""} d'expérience` : "";
+    const brief =
+      offer && offerText
+        ? `Poste cible : l'offre ci-dessous.\n\nOFFRE : ${offer.title}${company ? ` · ${company}` : ""}\n${offerText}`
+        : `Poste cible : ${roles} (métier visé, pas d'offre précise)${level}.\nDemandé par les offres du métier : ${keywords.join(", ")}.`;
+
+    let recruiter: Recruiter | null = null;
+    let suggestions: { ligne: string; proposition: string; pourquoi: string | null }[] = [];
+    if (text.trim().length >= 300) {
+      const read = (await llm.json({ system: RECRUITER_SYSTEM, user: `${brief}\n\nCV :\n${redacted}`, tier: "fast" })) as Record<string, unknown>;
+      const cv = fold(text);
+      const missingKeyword = (k: unknown) => {
+        const parts = typeof k === "string" ? k.split(/,| et /).map((x) => x.trim()).filter(Boolean) : [];
+        return parts.length > 0 && parts.every((p) => keywords.some((w) => fold(w) === fold(p)) && !hasKeyword(cv, p));
+      };
+      recruiter = {
+        target,
+        avis: (typeof read.avis === "string" ? read.avis : strings(read.avis).join(" ")).trim().slice(0, 600),
+        // A strength counts only with its proof in the CV, a gap of an offer only with its words in the offer.
+        atouts: objects(read.atouts)
+          .filter((x) => typeof x.point === "string" && quoted(text, x.citation_cv))
+          .map((x) => ({ point: String(x.point), citation: String(x.citation_cv).trim() }))
+          .slice(0, 3),
+        manques: objects(read.manques)
+          // Without an offer, a gap must be one of the role's keywords, and really absent from the CV.
+          .filter((x) => typeof x.point === "string" && (offerText ? quoted(offerText, x.citation_poste) : missingKeyword(x.citation_poste)))
+          .map((x) => ({ point: String(x.point), citation: offerText ? String(x.citation_poste).trim() : null }))
+          .slice(0, 3),
+        conseils: strings(read.personnaliser).map((c) => c.replace(/\*\*/g, "")).slice(0, 3),
+      };
+      // A rewrite counts only if its line is really in the CV.
+      suggestions = objects(read.lignes)
+        .filter((x): x is { ligne: string; proposition: string; pourquoi?: unknown } => typeof x.ligne === "string" && typeof x.proposition === "string" && x.ligne.length > 15)
+        .filter((x) => cv.includes(fold(x.ligne)))
+        .map((x) => ({ ligne: x.ligne, proposition: x.proposition, pourquoi: typeof x.pourquoi === "string" ? x.pourquoi : null }))
+        .slice(0, 3);
+    }
 
     let comparison: { title: string; company: string; score: number; present: string[]; missing: string[]; tips: string[] } | null = null;
-    if (offerId) {
-      const { data: offer } = await supabase.from("offers").select("title, description, company:companies(name)").eq("id", offerId).single();
-      if (offer?.description) {
-        const read = (await llm.json({ system: OFFER_SYSTEM, user: `${offer.title}\n\n${offer.description.slice(0, 8000)}`, tier: "fast" })) as { mots_cles?: unknown; ajustements?: unknown };
-        // Keywords kept only if they are written in the offer.
-        const keywords = strings(read.mots_cles).filter((k) => fold(offer.description!).includes(fold(k))).slice(0, 12);
-        comparison = { title: offer.title, company: (offer.company as unknown as { name: string } | null)?.name ?? "", ...compareKeywords(text, keywords), tips: strings(read.ajustements).slice(0, 3) };
-      }
+    if (offer && offerText) {
+      const read = (await llm.json({ system: OFFER_SYSTEM, user: `${offer.title}\n\n${offerText}`, tier: "fast" })) as { mots_cles?: unknown };
+      // Keywords kept only if they are written in the offer.
+      const keywords = strings(read.mots_cles).filter((k) => fold(offer.description!).includes(fold(k))).slice(0, 12);
+      comparison = { title: offer.title, company, ...compareKeywords(text, keywords), tips: [] };
     }
 
     // Which skills asked by the person's offers this CV mentions: kept (the CV itself is not).
@@ -92,10 +133,11 @@ export async function POST(request: Request) {
         result,
         suggestions,
         comparison,
+        recruiter,
       })
       .select("id, created_at")
       .single();
-    return NextResponse.json({ id: saved?.id ?? null, createdAt: saved?.created_at ?? null, result, suggestions, comparison });
+    return NextResponse.json({ id: saved?.id ?? null, createdAt: saved?.created_at ?? null, result, suggestions, comparison, recruiter });
   } catch (error) {
     console.error("cv analysis failed:", (error as Error).name);
     if (error instanceof LlmUnavailableError) return NextResponse.json({ error: LLM_UNAVAILABLE_MESSAGE }, { status: 503 });

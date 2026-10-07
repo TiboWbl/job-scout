@@ -56,6 +56,16 @@ describe("mots-clés et chiffres", async () => {
     expect(hasKeyword(cv, "Jira/Confluence")).toBe(true);
     expect(hasKeyword(cv, "A/B testing")).toBe(false);
   });
+  it("un mot-clé se lit en mot entier, jamais dans un autre mot", () => {
+    expect(hasKeyword("un parcours rapide et simple", "API")).toBe(false);
+    expect(hasKeyword("integration d'une api de paiement", "API")).toBe(true);
+    expect(hasKeyword("campagnes d'a/b tests sur l'onboarding", "A/B test")).toBe(true);
+  });
+  it("un verbe d'action compte en début de mission, une fois par ligne", () => {
+    const text = "• Piloté la roadmap produit de bout en bout\n• Responsable du crédit et de la relation créative avec les clients\n• Lancé et piloté deux nouvelles offres B2B";
+    const r = scoreCv({ text, layout: { pages: 1, columnRatio: 0, spacedTitles: 0 }, filename: "cv.pdf", sizeBytes: 1000 }, { expected: [] });
+    expect(r.categories[2].checks.find((c) => c.label === "Verbes d'action")!.points).toBe(3);
+  });
   it("compte les résultats chiffrés sous leurs formes courantes", () => {
     const text = "Augmenté la conversion de 25 %. Divisé par 2 le délai (x2). Accompagné 12 clients grands comptes. Lancé une app pour 3 000 utilisateurs. Budget de 50 k€.";
     const r = scoreCv({ text, layout: { pages: 1, columnRatio: 0, spacedTitles: 0 }, filename: "cv.pdf", sizeBytes: 1000 }, { expected: [] });
