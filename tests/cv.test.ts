@@ -46,3 +46,20 @@ describe("grille CV", () => {
     expect(compareKeywords("Analyse SQL, découverte utilisateur", ["sql", "Découverte", "Amplitude"])).toEqual({ present: ["sql", "Découverte"], missing: ["Amplitude"], score: 67 });
   });
 });
+
+describe("mots-clés et chiffres", async () => {
+  const { hasKeyword, scoreCv } = await import("@/lib/cv/ats");
+  it("une barre est une alternative, le pluriel compte", () => {
+    const cv = "methodes agile (scrum), okr trimestriels, suivi dans jira";
+    expect(hasKeyword(cv, "Agile/Scrum")).toBe(true);
+    expect(hasKeyword(cv, "OKRs")).toBe(true);
+    expect(hasKeyword(cv, "Jira/Confluence")).toBe(true);
+    expect(hasKeyword(cv, "A/B testing")).toBe(false);
+  });
+  it("compte les résultats chiffrés sous leurs formes courantes", () => {
+    const text = "Augmenté la conversion de 25 %. Divisé par 2 le délai (x2). Accompagné 12 clients grands comptes. Lancé une app pour 3 000 utilisateurs. Budget de 50 k€.";
+    const r = scoreCv({ text, layout: { pages: 1, columnRatio: 0, spacedTitles: 0 }, filename: "cv.pdf", sizeBytes: 1000 }, { expected: [] });
+    const figures = r.categories[2].checks.find((c) => c.label === "Résultats chiffrés")!;
+    expect(figures.ok).toBe(true);
+  });
+});

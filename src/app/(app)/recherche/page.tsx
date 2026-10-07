@@ -1,6 +1,5 @@
 import { Criteria, CvSummary } from "@/lib/domain/criteria";
 import { getUser } from "@/lib/supabase/server";
-import { Favorites } from "@/components/favorites";
 import { SearchSetup } from "@/components/search-setup";
 
 export const metadata = { title: "Ma recherche" };
@@ -18,9 +17,6 @@ export default async function RecherchePage() {
         <SearchSetup mode="edit" initialText={profile?.search_text ?? ""} initialCriteria={parsed.success ? parsed.data : null} initialCvSummary={cv.success ? cv.data : null}
           savedCv={cv.success ? { filename: profile?.cv_filename ?? null, updatedAt: profile?.cv_updated_at ?? null } : null}
         />
-      </div>
-      <div className="mt-8">
-        <Favorites />
       </div>
     </div>
   );

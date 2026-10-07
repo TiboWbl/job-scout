@@ -8,7 +8,7 @@ export default async function CvPage({ searchParams }: { searchParams: Promise<{
   const { supabase, user } = await getUser();
   const { data: profile } = await supabase.from("profiles").select("criteria_version").eq("id", user!.id).single();
   const [history, applications, best] = await Promise.all([
-    supabase.from("cv_analyses").select("id, created_at, filename, total").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("cv_analyses").select("id, created_at, filename, total, result, suggestions, comparison").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(12),
     supabase.from("applications").select("offer_id, title, company").eq("user_id", user!.id).not("offer_id", "is", null).order("updated_at", { ascending: false }).limit(15),
     supabase
       .from("offer_scores")

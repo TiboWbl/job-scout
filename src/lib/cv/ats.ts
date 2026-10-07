@@ -12,7 +12,8 @@ export type Layout = {
 
 export type CvInput = { text: string; layout: Layout; filename: string; sizeBytes: number };
 
-export type Check = { ok: boolean; label: string; points: number; max: number; fix?: string };
+// `why`: why it matters, so the person can decide; nothing here is mandatory.
+export type Check = { ok: boolean; label: string; points: number; max: number; fix?: string; why?: string };
 export type Category = { key: "lisibilite" | "structure" | "contenu" | "adequation"; label: string; score: number; max: number; checks: Check[] };
 export type AtsResult = { total: number; categories: Category[] };
 
@@ -34,11 +35,32 @@ const LANGUAGES = /\b(langues?|languages?)\b/;
 
 const ACTION_VERBS =
   /\b(pilot|lanc|concu|developp|cre|optimis|ameliore|augment|redui|gere|dirig|coordonn|mis en place|deploy|analys|automatis|negoci|conduit|realis|organis|livr|anim|defini|construi|led|launched|built|designed|developed|improved|increased|reduced|managed|delivered|created|drove|owned|shipped|implemented|analy[sz]ed)\w*/g;
-const QUANTIFIED = /(\d+(?:[.,]\d+)?\s?(?:%|k€|m€|€|k\b|m\b|x\b|pts?\b|points?\b|utilisateurs|clients|users|personnes|jours|semaines|mois))|(\+|−|-)\s?\d+\s?%/gi;
+// Figures that show a result: percentages, money, multipliers, counts of people or things.
+const QUANTIFIED =
+  /(?:[+−-]\s?)?\d+(?:[.,]\d+)?\s?(?:%|k€|m€|€|k\b|m\b|x\b|×|pts?\b|points?\b)|(?:\bx|×)\s?\d+\b|\b\d{1,3}(?:[ .,]?\d{3})*\+?\s(?:\w+\s)?(?:utilisateurs?|clients?|users?|personnes|people|entreprises|equipes?|developpeurs|devs|projets?|pays|ventes|leads|telechargements|downloads|membres|participants|collaborateurs|magasins|sites|produits|fonctionnalites|features|commandes|orders|transactions|abonnes|followers|visites|sessions|entretiens|interviews|tickets|candidats|partenaires|marches|langues|stakeholders|squads|sprints|releases|apps?)\b/gi;
 
 function check(ok: boolean, label: string, max: number, fix: string, points = ok ? max : 0): Check {
   return { ok, label, points, max, ...(ok ? {} : { fix }) };
 }
+
+// Why each point matters: the argument behind the advice, so the person decides with full knowledge.
+const WHY: [string, string][] = [
+  ["Texte lisible", "Un logiciel de recrutement ne lit que le texte : ce qui est en image (scan, capture, icônes) n'existe pas pour lui, ton CV peut sortir vide de son filtre."],
+  ["Une seule colonne", "Beaucoup d'ATS lisent de gauche à droite sur toute la largeur : deux colonnes se mélangent ligne à ligne, et tes expériences deviennent illisibles."],
+  ["Titres de section", "L'ATS range ton CV grâce aux titres de section ; « E X P É R I E N C E » est lu comme dix lettres isolées, la section n'est pas reconnue."],
+  ["Email détecté", "Sans email lisible, le recruteur qui a ton CV dans son outil ne peut pas te répondre d'un clic."],
+  ["Téléphone détecté", "Un recruteur appelle souvent avant d'écrire : le numéro doit être copiable."],
+  ["Deux pages", "Un recruteur passe en moyenne moins d'une minute sur un CV : l'essentiel doit tenir sur la première page."],
+  ["Fichier léger", "Certains formulaires refusent les fichiers lourds, ou les compressent mal."],
+  ["Nom de fichier", "Le fichier passe de boîte mail en boîte mail : « CV Prénom Nom » se retrouve, « document.pdf » se perd."],
+  ["Section «", "Les ATS remplissent ton profil candidat section par section : un titre standard est reconnu à coup sûr."],
+  ["Dates des expériences", "L'ATS calcule tes années d'expérience à partir des dates, et beaucoup de filtres reposent sur ce calcul."],
+  ["Longueur adaptée", "Trop court, on ne voit pas ce que tu as fait ; trop long, l'essentiel se dilue."],
+  ["Verbes d'action", "Un verbe d'action montre ce que tu as fait toi-même, pas seulement le contexte : c'est ce que le recruteur cherche en lisant."],
+  ["Résultats chiffrés", "Un chiffre rend un résultat vérifiable et mémorable : « +30 % d'adoption » pèse plus que « amélioration de l'adoption »."],
+  ["Phrases courtes", "Les recruteurs lisent en diagonale : une idée par ligne se lit, un paragraphe se saute."],
+  ["Mots-clés du métier", "Les recruteurs filtrent les candidatures avec les mots des offres : les écrire tels quels, quand ils sont vrais pour toi, te rend trouvable."],
+];
 
 export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): AtsResult {
   const text = input.text;
@@ -75,7 +97,7 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
 
   // Contenu (25)
   const verbs = (n.match(ACTION_VERBS) ?? []).length;
-  const numbers = (text.match(QUANTIFIED) ?? []).length;
+  const numbers = new Set((fold(text).match(QUANTIFIED) ?? []).map((m) => m.trim())).size;
   const lines = text.split(/\n|•|·|▪/).map((l) => l.trim()).filter((l) => l.split(/\s+/).length >= 4);
   const longLines = lines.filter((l) => l.split(/\s+/).length > 35).length;
   const contenu: Check[] = [
@@ -93,6 +115,9 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
     check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, 15, `Absents de ton CV : ${missing.join(", ")}. Ajoute ceux qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),
   ];
 
+  const why = (label: string) => WHY.find(([start]) => label.startsWith(start))?.[1];
+  for (const c of [...lisibilite, ...structure, ...contenu, ...adequation]) c.why = why(c.label);
+
   const categories: Category[] = [
     { key: "lisibilite", label: "Lisibilité machine", max: 40, checks: lisibilite, score: 0 },
     { key: "structure", label: "Structure", max: 20, checks: structure, score: 0 },
@@ -102,10 +127,14 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
   return { total: categories.reduce((s, c) => s + c.score, 0), categories };
 }
 
-// A keyword is in the CV when each of its words is ("user research" in "research with users").
+// A keyword is in the CV when each of its words is ("user research" in "research with users"); a slash
+// means alternatives ("Agile/Scrum", "Jira/Confluence"): one of them is enough. Plurals count ("OKRs", "OKR").
 export function hasKeyword(foldedCv: string, keyword: string) {
-  const words = fold(keyword).split(/[^a-z0-9+#/]+/).filter((w) => w.length >= 2);
-  return words.length > 0 && words.every((w) => foldedCv.includes(w.length > 4 ? w.replace(/s$/, "") : w));
+  const alternatives = fold(keyword).split(/\s*\/\s*/).filter(Boolean);
+  return alternatives.some((alt) => {
+    const words = alt.split(/[^a-z0-9+#]+/).filter((w) => w.length >= 2);
+    return words.length > 0 && words.every((w) => foldedCv.includes(w.length > 3 ? w.replace(/s$/, "") : w));
+  });
 }
 
 // Keywords of an offer found or missing in the CV: the comparison mode.

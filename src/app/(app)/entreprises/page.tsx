@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CompanyLogo } from "@/components/company-logo";
+import { Favorites } from "@/components/favorites";
 import { withoutEngineCopies } from "@/lib/domain/feed";
 import { getUser } from "@/lib/supabase/server";
 import { loadFeed } from "@/lib/views/feed";
@@ -29,6 +30,7 @@ export default async function EntreprisesPage() {
     .filter((c): c is Company => Boolean(c))
     .sort((a, b) => (count.get(b.id)?.total ?? 0) - (count.get(a.id)?.total ?? 0) || a.name.localeCompare(b.name));
   const favIds = new Set(favorites.map((f) => f.id));
+  const withOffers = favorites.filter((c) => count.has(c.id));
   const others = [...known.values()].filter((c) => !favIds.has(c.id)).sort((a, b) => (count.get(b.id)?.total ?? 0) - (count.get(a.id)?.total ?? 0)).slice(0, 40);
 
   const row = (c: Company, favorite: boolean) => {
@@ -57,13 +59,20 @@ export default async function EntreprisesPage() {
     <div className="px-1 pb-16 pt-3 md:px-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-5xl font-extrabold tracking-tight">Entreprises</h1>
-        <Link href="/recherche" className="btn-soft">
-          Gérer mes favorites
-        </Link>
       </div>
-      <section className="mt-8">
-        <h2 className="font-display text-2xl font-bold">Mes favorites · {favorites.length}</h2>
-        {favorites.length ? <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">{favorites.map((c) => row(c, true))}</ul> : <p className="mt-3 text-muted">Ajoute tes entreprises de rêve dans Ma recherche : Scout surveille leur page carrière.</p>}
+      <div className="mt-8">
+        <Favorites />
+      </div>
+      <section className="mt-10">
+        <h2 className="font-display text-2xl font-bold">Leurs offres pour toi</h2>
+        {withOffers.length > 0 && <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">{withOffers.map((c) => row(c, true))}</ul>}
+        <p className="mt-3 text-sm text-muted">
+          {favorites.length === 0
+            ? "Ajoute tes entreprises de rêve ci-dessus : Scout surveille leur page carrière à chaque collecte."
+            : withOffers.length < favorites.length
+              ? `${favorites.length - withOffers.length} autre${favorites.length - withOffers.length > 1 ? "s" : ""} favorite${favorites.length - withOffers.length > 1 ? "s" : ""} sans offre pour toi en ce moment : Scout continue de les surveiller.`
+              : ""}
+        </p>
       </section>
       {others.length > 0 && (
         <section className="mt-12">

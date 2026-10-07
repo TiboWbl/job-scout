@@ -7,10 +7,10 @@ import { CloseIcon } from "@/components/icons";
 
 const COUNTRY_LABELS: Record<string, string> = { FR: "France", BE: "Belgique", CH: "Suisse", LU: "Luxembourg", CA: "Canada", GB: "Royaume-Uni", US: "États-Unis", DE: "Allemagne", ES: "Espagne", PT: "Portugal", NL: "Pays-Bas", IE: "Irlande", IT: "Italie" };
 
-// One light touch of the site's colour, in light and dark mode alike: warmer than a grey form.
+// Plain blocks: the orange tags carry the colour and show what is selected.
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[22px] bg-brand-soft/50 p-5">
+    <section className="rounded-[22px] border border-line bg-surface p-5">
       <h3 className="font-display text-lg font-bold tracking-tight">{title}</h3>
       {hint && <p className="mt-0.5 text-sm text-muted">{hint}</p>}
       <div className="mt-3">{children}</div>

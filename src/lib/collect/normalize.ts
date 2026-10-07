@@ -1,5 +1,8 @@
 function decodeEntitiesOnce(text: string): string {
   return text
+    // Any numeric entity (&#xa0;, &#8211;…), then the named ones below.
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d{1,7});/g, (_, d: string) => String.fromCodePoint(Number(d)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;|&#160;/g, " ")

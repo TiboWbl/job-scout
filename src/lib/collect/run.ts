@@ -4,7 +4,7 @@ import type { NormalizedOffer } from "@/lib/domain/offer";
 import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats";
 import type { Keep, Wanted } from "./connectors/ats-more";
 import { titleRelevance } from "@/lib/scoring/relevance";
-import { detectExperience, detectExperienceLevel } from "@/lib/domain/signals";
+import { detectExperience, detectExperienceLevel, detectSalary } from "@/lib/domain/signals";
 import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
@@ -269,6 +269,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
         experience_min_years: o.experienceMinYears ?? range.min,
         experience_max_years: range.max,
         experience_level: detectExperienceLevel(o.description),
+        salary_text: detectSalary(o.description),
         description: o.description.length >= prevDesc.length ? o.description : prevDesc,
         apply_url: direct?.url ?? o.applyUrl,
         ...(o.imageUrl ? { image_url: o.imageUrl } : {}),

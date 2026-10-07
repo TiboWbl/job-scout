@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { AtsResult } from "@/lib/cv/ats";
 import { readCv } from "@/lib/cv/extract";
+import { createClient } from "@/lib/supabase/browser";
 
-export type HistoryRow = { id: string; created_at: string; filename: string; total: number };
+export type HistoryRow = { id: string; created_at: string; filename: string; total: number; result: AtsResult | null; suggestions: Suggestion[]; comparison: Comparison | null };
 export type OfferOption = { id: string; label: string; group: string };
-type Suggestion = { ligne: string; proposition: string };
+type Suggestion = { ligne: string; proposition: string; pourquoi?: string | null };
 type Comparison = { title: string; company: string; score: number; present: string[]; missing: string[]; tips: string[] };
-type Analysis = { result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; text: string };
+// `text` exists only right after an analysis: the CV is never stored, so a saved one has no ATS view.
+type Analysis = { id: string | null; createdAt: string | null; filename: string; result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; text: string | null };
 
 const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
@@ -23,6 +25,20 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [rows, setRows] = useState(history);
+
+  function openSaved(h: HistoryRow) {
+    if (!h.result) return;
+    setAnalysis({ id: h.id, createdAt: h.created_at, filename: h.filename, result: h.result, suggestions: h.suggestions ?? [], comparison: h.comparison, text: null });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function removeSaved(id: string) {
+    setRows((r) => r.filter((h) => h.id !== id));
+    if (analysis?.id === id) setAnalysis(null);
+    await createClient().from("cv_analyses").delete().eq("id", id);
+    router.refresh();
+  }
 
   // The PDF is shown from the browser's memory, next to what an ATS reads; it is never uploaded.
   useEffect(() => {
@@ -46,8 +62,8 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "L'analyse n'a pas abouti, réessaie.");
-      setAnalysis({ ...data, text });
-      router.refresh();
+      setAnalysis({ ...data, filename: chosen.name, text });
+      setRows((r) => [{ id: data.id, created_at: data.createdAt, filename: chosen.name, total: data.result.total, result: data.result, suggestions: data.suggestions, comparison: data.comparison }, ...r].filter((h) => h.id));
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Ce PDF ne se lit pas bien. Essaie une autre version.");
     } finally {
@@ -118,17 +134,24 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
 
       {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
 
-      {history.length > 0 && (
+      {rows.length > 0 && (
         <section className="mt-12">
           <h2 className="font-display text-2xl font-bold">Tes analyses</h2>
+          <p className="mt-1 text-sm text-muted">Clique sur une analyse pour la relire. Seuls le nom du fichier et l&apos;analyse sont gardés, jamais ton CV.</p>
           <ul className="mt-4 space-y-2">
-            {history.map((h) => (
-              <li key={h.id} className="grid grid-cols-[7rem_1fr_3rem] items-center gap-3 text-sm">
-                <span className="text-muted">{date(h.created_at)}</span>
-                <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid" title={h.filename}>
-                  <span className={`block h-full rounded-full ${tone(h.total / 100)}`} style={{ width: `${h.total}%` }} />
-                </span>
-                <span className="text-right font-semibold tabular-nums">{h.total}</span>
+            {rows.map((h) => (
+              <li key={h.id} className={`flex items-center gap-2 rounded-2xl border p-2 ${analysis?.id === h.id ? "border-ink bg-surface" : "border-line bg-surface"}`}>
+                <button type="button" onClick={() => openSaved(h)} disabled={!h.result} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1 text-left text-sm hover:bg-pill-solid disabled:cursor-default">
+                  <span className="text-muted">{date(h.created_at)}</span>
+                  <span className="truncate font-medium">{h.filename || "CV"}</span>
+                  <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid">
+                    <span className={`block h-full rounded-full ${tone(h.total / 100)}`} style={{ width: `${h.total}%` }} />
+                  </span>
+                  <span className="text-right font-semibold tabular-nums">{h.total}</span>
+                </button>
+                <button type="button" onClick={() => removeSaved(h.id)} aria-label={`Supprimer l'analyse du ${date(h.created_at)}`} className="btn-soft shrink-0 px-3 py-1.5 text-[13px]">
+                  Supprimer
+                </button>
               </li>
             ))}
           </ul>
@@ -142,6 +165,15 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
   const { result, suggestions, comparison, text } = analysis;
   return (
     <div className="mt-8 space-y-6">
+      <p className="text-sm text-muted">
+        {analysis.filename || "Ton CV"}
+        {analysis.createdAt ? ` · analysé le ${date(analysis.createdAt)}` : ""}
+      </p>
+      <p className="rounded-2xl bg-pill-solid px-4 py-3 text-[14px]">
+        {result.total >= 85
+          ? "Très bon CV. Ce qui suit, ce sont des pistes : rien n'est obligatoire, garde ce qui te ressemble."
+          : "Ce sont des recommandations, pas des obligations : commence par ce qui rapporte le plus de points, et garde ce qui te ressemble."}
+      </p>
       <section className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_1fr]">
         <div className="rounded-[22px] bg-violet-soft p-6 text-violet-ink">
           <p className="font-display text-6xl font-extrabold tabular-nums">{result.total}</p>
@@ -214,9 +246,12 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
                     <span>
                       <span className="font-medium">{k.label}</span>
                       {!k.ok && (
-                        <span className="block text-muted">
-                          {k.fix} <span className="whitespace-nowrap">({k.points}/{k.max})</span>
-                        </span>
+                        <>
+                          <span className="block text-muted">
+                            {k.fix} <span className="whitespace-nowrap">({k.points}/{k.max})</span>
+                          </span>
+                          {k.why && <span className="mt-1 block text-[13px] italic text-muted">Pourquoi : {k.why}</span>}
+                        </>
                       )}
                     </span>
                   </li>
@@ -232,9 +267,12 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
           <h2 className="font-display text-xl font-bold">Lignes à renforcer</h2>
           <ul className="mt-4 space-y-4">
             {suggestions.map((s) => (
-              <li key={s.ligne} className="grid grid-cols-1 gap-2 text-[14px] md:grid-cols-2">
-                <p className="rounded-xl bg-pill-solid p-3 text-muted">{s.ligne}</p>
-                <p className="rounded-xl bg-mint-soft p-3 text-mint-ink">{s.proposition}</p>
+              <li key={s.ligne} className="text-[14px]">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <p className="rounded-xl bg-pill-solid p-3 text-muted">{s.ligne}</p>
+                  <p className="rounded-xl bg-mint-soft p-3 text-mint-ink">{s.proposition}</p>
+                </div>
+                {s.pourquoi && <p className="mt-1.5 text-[13px] italic text-muted">Pourquoi : {s.pourquoi}</p>}
               </li>
             ))}
           </ul>
@@ -242,6 +280,7 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
         </section>
       )}
 
+      {text !== null && (
       <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
         <h2 className="font-display text-xl font-bold">Ce que voit un ATS</h2>
         <p className="mt-1 text-sm text-muted">À gauche ton CV, à droite le texte qu&apos;un logiciel de recrutement en extrait, dans l&apos;ordre où il le lit. Des blocs mélangés ou manquants à droite sont à corriger.</p>
@@ -250,6 +289,7 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
           <pre className="h-[640px] overflow-auto whitespace-pre-wrap rounded-xl bg-pill-solid p-4 font-sans text-[13px] leading-relaxed">{text || "Aucun texte extrait."}</pre>
         </div>
       </section>
+      )}
     </div>
   );
 }

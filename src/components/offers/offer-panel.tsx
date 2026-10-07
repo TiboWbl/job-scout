@@ -104,7 +104,7 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
     ["Télétravail", REMOTE_LABELS[offer.remote]],
     ["Contrat", offer.contract === "unknown" ? "Non précisé" : (CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS] ?? "Non précisé")],
     ["Expérience demandée", experienceText(offer.experience_min_years, offer.experience_max_years, offer.experience_level) ?? item.experience_asked ?? "Non précisée"],
-    ["Salaire", item.salary ?? "Non indiqué"],
+    ["Salaire", offer.salary_text ?? item.salary ?? "Non indiqué"],
     ["Publiée", freshness(seenAt).replace(/^./, (c) => c.toUpperCase())],
   ];
 

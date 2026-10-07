@@ -165,6 +165,18 @@ describe("expérience en fourchette", async () => {
     ["Moins de 3 ans d'expérience", 0, 3, "0 à 3 ans"],
     ["Diplômé·e d'une grande école d'ingénieur, entre 2 et 5 ans d'expérience, idéalement en conseil", 2, 5, "2 à 5 ans"],
     ["Between 1 and 3 years of experience in product", 1, 3, "1 à 3 ans"],
+    // Cases seen in real postings (texts rewritten, no company named).
+    ["Expérience : 4 à 8 ans en Product Management, idéalement sur un produit e-commerce", 4, 8, "4 à 8 ans"],
+    ["An office manager with 2–4 years of experience, from a scale-up", 2, 4, "2 à 4 ans"],
+    ["Expérience confirmée (7+ ans) en environnement Android", 7, null, "7 ans et plus"],
+    ["Vous disposez d’une expérience professionnelle significative (> 5 ans) dans l’industrie", 5, null, "5 ans et plus"],
+    ["Une expérience en droit privé d’au moins 5/6 ans au sein d’une direction juridique", 5, 6, "5 à 6 ans"],
+    ["Expérience minimale de&#xa0;3 ans&#xa0;en assurance qualité", 3, null, "3 ans et plus"],
+    ["Profil recherché - expérience, minium 3 ans, en gestion de projets digitaux", 3, null, "3 ans et plus"],
+    ["Avec près de 80 ans d'expérience à l'échelle mondiale, nous accompagnons les entreprises", null, null, null],
+    ["Nos 50 ans d'expérience au service de l'industrie. Contrat CDD de 2 ans, expérience en vente souhaitée", null, null, null],
+    ["8–12+ years of engineering experience, including 3–5+ years managing multiple teams", 8, 12, "8 à 12 ans"],
+    ["Avantages : prime d'ancienneté à partir de 3 ans. Diplôme bac+2/3 ans en sciences", null, null, null],
   ];
   for (const [text, min, max, label] of cases) {
     it(`« ${text.slice(0, 45)} » → ${label}`, () => {
@@ -208,4 +220,18 @@ describe("lieux français moins connus", () => {
     const idf = { places: [{ label: "Île-de-France", kind: "region" as const, country: "FR" }], remoteOk: false };
     expect(zoneVerdict(offerAt("12 rue X, 92130 Ville Inconnue"), idf)).toBe("in");
   });
+});
+
+describe("salaire lu dans l'offre", async () => {
+  const { detectSalary } = await import("@/lib/domain/signals");
+  const cases: [string, string | null][] = [
+    ["Salaire : 45-55 k€ brut annuel selon profil", "45 à 55 k€ brut par an"],
+    ["Rémunération : entre 50 000 € et 60 000 € bruts par an", "50 à 60 k€ brut par an"],
+    ["Compensation: €60,000 – €75,000 base salary", "60 à 75 k€ par an"],
+    ["Salaire : 1867.02 € à 2133.68 € + variable", "1 867 € à 2 134 € par mois"],
+    ["Nous avons levé 30 M€ en 2024, rémunération selon profil", null],
+    ["Ticket restaurant 9,48€ / jour travaillé", null],
+    ["Négociation sur les projets inférieurs à 100k€", null],
+  ];
+  for (const [text, salary] of cases) it(`« ${text.slice(0, 40)} » → ${salary}`, () => expect(detectSalary(text)).toBe(salary));
 });

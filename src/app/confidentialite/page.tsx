@@ -18,7 +18,7 @@ export default function PrivacyPage() {
             <li>Ton compte Google : prénom, nom, adresse email et photo, pour te connecter.</li>
             <li>Ta recherche : le texte que tu as écrit et les critères qui en sont tirés.</li>
             <li>
-              Ton CV, s&apos;il est fourni : le fichier est lu dans ton navigateur et n&apos;est jamais conservé. Scout n&apos;en garde qu&apos;un résumé (formation, expériences, compétences, langues), ainsi que le nom du fichier et la date de lecture. L&apos;analyse de « Mon CV » ne garde que la note obtenue, jamais le texte.
+              Ton CV, s&apos;il est fourni : le fichier est lu dans ton navigateur et n&apos;est jamais conservé. Scout n&apos;en garde qu&apos;un résumé (formation, expériences, compétences, langues), ainsi que le nom du fichier et la date de lecture. Une analyse de « Mon CV » garde le nom du fichier, la note, les corrections conseillées et les quelques lignes dont une réécriture est proposée, jamais le CV entier ; tu peux supprimer chaque analyse.
             </li>
             <li>Ce que tu fais dans Scout : offres sauvegardées ou écartées (avec la raison), candidatures suivies (dates, contact, notes), entreprises favorites.</li>
           </ul>

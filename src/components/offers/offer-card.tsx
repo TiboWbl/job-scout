@@ -78,7 +78,7 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         {offer.contract !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS]}</span>}
         {/* Missing facts are said so, in a dashed chip: worth a look in the posting itself. */}
         {item.watch[0]?.startsWith("Extrait seulement") && <span className="rounded-full border border-dashed border-line px-2.5 py-1">Extrait seulement</span>}
-        {item.salary ? <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{item.salary}</span> : <span className="rounded-full border border-dashed border-line px-2.5 py-1">Salaire non indiqué</span>}
+        {(offer.salary_text ?? item.salary) ? <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{offer.salary_text ?? item.salary}</span> : <span className="rounded-full border border-dashed border-line px-2.5 py-1">Salaire non indiqué</span>}
         {experience ? (
           <span className="rounded-full bg-pill px-2.5 py-1 text-ink">Expérience : {experience}</span>
         ) : (

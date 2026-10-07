@@ -38,43 +38,48 @@ export function detectContract(title: string, explicit?: string | null, descript
   return "unknown";
 }
 
-// A number of years, alone or as a range: "3", "3+", "3 ou plus", "3-5", "3 à 5".
-// A number of years, alone or as a range: "3", "3+", "3 ou plus", "3-5", "3 à 5" (the upper bound is captured).
-const YEARS = String.raw`(\d{1,2})\s*(?:\+|ou plus|or more)?\s*(?:(?:a|-|to|–)\s*(\d{1,2})\s*\+?\s*)?`;
-const UNIT = String.raw`(?:ans?|annees?|years?|yrs?)\b['’]?`;
-// What follows the years when they describe the candidate's experience, not the company's history.
-const CONTEXT = String.raw`(?:in|as|of|on|at|working|within|en|dans|comme|chez|sur|d['’ ]?|de|minimum|min\b|(?:\w+\s+){0,3}experience|(?:\w+\s+){0,3}exp\b)`;
-// Each pattern: [regex, index of the lower bound, index of the upper bound or null, implicit lower bound].
-const EXPERIENCE_PATTERNS: [RegExp, number, number | null, number | null][] = [
-  [new RegExp(`${YEARS}${UNIT}\\s+(?:minimum\\s+)?(?:d['’ ]\\s*)?(?:experience|exp\\b)`, "g"), 1, 2, null],
-  [/(?:minimum|au moins|at least|min\.?)\s+(?:de\s+)?(\d{1,2})\s*\+?\s*(?:ans?|annees?|years?|yrs?)\b/g, 1, null, null],
-  [/experience\s+(?:de\s+|of\s+|minimum\s+de\s+|d['’ ]au moins\s+)?(\d{1,2})\s*\+?\s*(?:(?:a|-|to|–)\s*(\d{1,2})\s*)?(?:ans?|annees?|years?|yrs?)\b/g, 1, 2, null],
-  // "3+ years in product management", "5 years as a PM", "3 ans en gestion de produit", "2 ans sur un poste similaire"
-  [new RegExp(`${YEARS}${UNIT}\\s+${CONTEXT}`, "g"), 1, 2, null],
-  // "entre 2 et 5 ans d'expérience", "between 2 and 5 years": without it, "5 ans d'expérience" alone was read.
-  [/(?:entre|between)\s+(\d{1,2})\s*(?:ans?|annees?|years?)?\s*(?:et|and|a|-|–)\s*(\d{1,2})\s*(?:ans?|annees?|years?|yrs?)\b/g, 1, 2, null],
-  // "jusqu'à 2 ans d'expérience", "up to 2 years", "moins de 3 ans": a ceiling, so from 0.
-  [/(?:jusqu['’ ]?a|up to|moins de|less than|maximum|max\.?)\s+(\d{1,2})\s*(?:ans?|annees?|years?|yrs?)\b/g, 0, 1, 0],
-];
-// Years that describe the company or a past period, never a requirement.
-const NOT_A_REQUIREMENT = /(?:depuis|since|founded|fondee?|cree+e?|il y a|ago|over the (?:past|last)|for the (?:past|last)|pendant|during|age|old|garantie|guarantee|anniversaire)\s*(?:\w+\s+){0,2}$/;
+// The experience asked, read in the posting (the first requirement stated): every duration in years ("3 ans", "3+ years",
+// "4 à 8 ans", "(> 5 ans)", "8–12 ans", "jusqu'à 2 ans", "au moins 5/6 ans") is kept when the words around it
+// speak of experience, and dropped when they describe the company ("nos 50 ans d'expérience") or a
+// contract ("CDD de 2 ans").
+const NUM = String.raw`(\d{1,2}(?:[.,]5)?)`;
+const DURATION = new RegExp(
+  String.raw`(jusqu'? ?a|up to|moins de|less than|max(?:imum)?\.?|plus de|more than|over|au moins|at least|minimum|minimun|minium|min\.?|>=?|≥|entre|between|de|from|d|sur|of)?\s*` +
+    String.raw`${NUM}\s*(\+|ou plus|or more|et plus|and more|or above)?\s*(?:(?:a|-|to|/|et|and|ou|or)\s*${NUM}\s*\+?\s*)?(?:ans?|annees?|years?|yrs?)\b`,
+  "g",
+);
+const EXPERIENCE_WORDS = /experien|\bexp\b|years of|years in|years as|background|track record|seniorit|poste similaire|similar role|role similaire|in product|en product|en gestion|in management|au sein d|minimum|au moins|at least|profil/;
+// Right before the duration: the company's history, a contract, an age, a past period.
+const NOT_A_REQUIREMENT = /\b(depuis|since|founded|fondee?s?|creee?s?|il y a|ago|over the (past|last)|for the (past|last)|pendant|during|age|old|aged|garantie|guarantee|anniversaire|nos|our|fort de|forte de|pres de|nearly|almost|contrat|cdd|duree|duration|programme|program|mission|alternance|apprentissage|engagement|tous les|every|prime|anciennete|a partir de|bac\+?\d?|diplome|etudes|cursus|formation)\b[ ,'-]*(\w+[ ,'-]+){0,2}$/;
+const CEILING = /^(jusqu'? ?a|up to|moins de|less than|max(?:imum)?\.?)$/;
 
 export type ExperienceRange = { min: number | null; max: number | null };
 
-// The experience the offer asks for: the lowest requirement found, with its upper bound if it gives one.
 export function detectExperience(description: string): ExperienceRange {
-  const n = norm(description);
+  const n = norm(description)
+    .replace(/&#?[a-z0-9]+;/g, " ")
+    .replace(/[\u00a0\u202f]/g, " ")
+    .replace(/[–—‑−]/g, "-")
+    .replace(/[’`]/g, "'");
   let best: ExperienceRange = { min: null, max: null };
-  for (const [re, minIndex, maxIndex, implicitMin] of EXPERIENCE_PATTERNS) {
-    for (const m of n.matchAll(re)) {
-      const before = n.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0);
-      if (NOT_A_REQUIREMENT.test(before)) continue;
-      const min = implicitMin ?? Number(m[minIndex]);
-      const rawMax = maxIndex !== null && m[maxIndex] !== undefined ? Number(m[maxIndex]) : null;
-      const max = rawMax !== null && rawMax >= min && rawMax <= 20 ? rawMax : null;
-      if (!Number.isFinite(min) || min > 15) continue;
-      if (best.min === null || min < best.min || (min === best.min && best.max === null && max !== null)) best = { min, max };
-    }
+  for (const m of n.matchAll(DURATION)) {
+    const at = m.index ?? 0;
+    const end = at + m[0].length;
+    const before = n.slice(Math.max(0, at - 110), at);
+    const around = `${before}${m[0]}${n.slice(end, end + 70)}`;
+    if (!EXPERIENCE_WORDS.test(around)) continue;
+    if (NOT_A_REQUIREMENT.test(n.slice(Math.max(0, at - 30), at + (m[1] ? m[1].length + 1 : 0)))) continue;
+    const prefix = (m[1] ?? "").trim();
+    const a = Math.floor(Number(m[2].replace(",", ".")));
+    const b = m[4] !== undefined ? Math.floor(Number(m[4].replace(",", "."))) : null;
+    let min: number;
+    let max: number | null;
+    if (CEILING.test(prefix)) [min, max] = [0, a];
+    else [min, max] = [a, b !== null && b >= a && b <= 20 ? b : null];
+    if (!Number.isFinite(min) || min > 15) continue;
+    // The first requirement stated is the main one ("8–12 years, including 3–5 managing teams").
+    best = { min, max };
+    break;
   }
   return best;
 }
@@ -127,4 +132,46 @@ export function titleSeniorityYears(title: string): number {
   if (/\b(iii|iv|v)\b|\s[3-5]\s*$|\s[3-5]\s*[-–(]/.test(n)) return 5;
   if (/\b(confirme|confirmee|confirmed|experimente|experimentee|experienced|ii)\b|\s2\s*$|\s2\s*[-–(,]/.test(n)) return 3;
   return 0;
+}
+
+// The salary as the posting writes it ("45-55 k€ brut annuel", "50 000 € à 60 000 €", "€60,000 – €75,000"),
+// only next to words about pay, and only for plausible annual or monthly amounts. Never estimated.
+// A whole number: grouped thousands (50 000, 60,000) or plain digits (2133), with optional cents.
+const MONEY = String.raw`(?:\d{1,3}(?:[ .,]\d{3})+|\d+)(?:[.,]\d{1,2})?(?![\d])`;
+const AMOUNT = String.raw`(${MONEY})\s*(k|K|000)?\s*(?:€|eur(?:os?)?|k€)?`;
+const SALARY = new RegExp(String.raw`(?<![\d.,])(?:€\s*)?${AMOUNT}\s*(?:-|a|à|to|et|and)\s*(?:€\s*)?${AMOUNT}|(?<![\d.,])(?:€\s*)?(${MONEY})\s*(k€|k|K€|000\s*€|\s?€)`, "g");
+const PAY_WORDS = /salaire|remuneration|package|salary|compensation|pay range|brut|gross|fixe|base|annuel|annual|par an|per year|\/an|k€/;
+const NOT_PAY = /levee|leve|raised|funding|financement|chiffre d.affaires|revenue|ca de|turnover|budget|capital|valoris|ticket|panier|jour travaille|par jour|\/jour|cheques?|projets?|inferieur|superieur|montant|achats?|economies|commandes?|marches?|portefeuille|encours|actifs/;
+
+function annualThousands(raw: string, unit: string | undefined): number | null {
+  const digits = raw.replace(/[ .,](?=\d{3}(?!\d))/g, "").replace(",", ".");
+  let v = Number(digits);
+  if (!Number.isFinite(v)) return null;
+  if (unit && /k/i.test(unit)) return v;
+  if (unit === "000") return v;
+  if (v >= 1000) v = v / 1000;
+  return v;
+}
+
+export function detectSalary(description: string): string | null {
+  const n = norm(description).replace(/[  ]/g, " ").replace(/[–—‑−]/g, "-");
+  for (const m of n.matchAll(SALARY)) {
+    const at = m.index ?? 0;
+    // Pay words right before the amount (or just after it), never a budget or a deal size.
+    const around = n.slice(Math.max(0, at - 45), at + m[0].length + 30);
+    if (!PAY_WORDS.test(around) || NOT_PAY.test(n.slice(Math.max(0, at - 50), at + m[0].length + 15))) continue;
+    const low = m[1] !== undefined ? annualThousands(m[1], m[2] ?? m[4]) : annualThousands(m[5], m[6]);
+    const high = m[3] !== undefined ? annualThousands(m[3], m[4] ?? m[2]) : null;
+    if (low === null) continue;
+    // "1 867 € à 2 134 €" without "k": a monthly pay, even when the posting does not say so.
+    const plainEuros = (m[2] ?? m[4] ?? m[6]) === undefined || /€/.test(m[6] ?? "") ? Number((m[1] ?? m[5]).replace(/[ .,](?=\d{3}\b)/g, "").replace(",", ".")) : 0;
+    const monthly = /par mois|mensuel|\/mois|per month|monthly/.test(around) || (plainEuros >= 1000 && plainEuros < 15000 && !/annuel|par an|\/an|per year|annual/.test(around));
+    const ok = (v: number) => (monthly ? v >= 1.2 && v <= 15 : v >= 18 && v <= 250);
+    if (!ok(low) || (high !== null && (!ok(high) || high < low))) continue;
+    const fmt = (v: number) => (monthly ? `${Math.round(v * 1000).toLocaleString("fr-FR").replace(/\s/g, " ")} €` : `${Math.round(v)} k€`);
+    const value = high !== null && high !== low ? (monthly ? `${fmt(low)} à ${fmt(high)}` : `${Math.round(low)} à ${Math.round(high)} k€`) : fmt(low);
+    const gross = /brut|gross/.test(around) ? " brut" : /net\b/.test(around) ? " net" : "";
+    return `${value}${gross} ${monthly ? "par mois" : "par an"}`;
+  }
+  return null;
 }
