@@ -19,7 +19,7 @@ export function DigestToggle({ initial, email }: { initial: boolean; email: stri
     <div>
       <button type="button" role="switch" aria-checked={on} onClick={toggle} className="flex items-center gap-3 text-sm font-medium">
         <span className={`relative h-6 w-11 rounded-full transition-colors ${on ? "bg-brand" : "bg-pill-solid"}`}>
-          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+          <span className={`absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
         </span>
         {on ? "Activé" : "Désactivé"}
       </button>

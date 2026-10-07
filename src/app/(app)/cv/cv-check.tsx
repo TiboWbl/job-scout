@@ -100,19 +100,18 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
             accept="application/pdf"
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              setFile(f);
+              // Choosing the file does not start the analysis: an offer to compare with can be picked first.
+              setFile(e.target.files?.[0] ?? null);
               setAnalysis(null);
-              if (f) analyse(f);
               e.target.value = "";
             }}
           />
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50">
-            {busy ? "Analyse en cours…" : file ? "Analyser une autre version" : "Choisir mon CV (PDF)"}
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className={file ? "btn-soft" : "rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50"}>
+            {file ? `CV : ${file.name}` : "Choisir mon CV (PDF)"}
           </button>
-          {file && !busy && (
-            <button type="button" onClick={() => analyse()} className="btn-soft">
-              Relancer l&apos;analyse
+          {file && (
+            <button type="button" onClick={() => analyse()} disabled={busy} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50">
+              {busy ? "Analyse en cours…" : analysis ? "Relancer l'analyse" : "Analyser mon CV"}
             </button>
           )}
         </div>
@@ -442,7 +441,7 @@ function Demand({ demand, hasCv }: { demand: { read: number; byKind: Record<Skil
     <section className="mt-12">
       <h2 className="font-display text-2xl font-bold">Ce que demandent tes offres</h2>
       <p className="mt-1 text-sm text-muted">
-        D&apos;après les {demand.read} offres que Scout a lues en détail pour ta recherche, ce qui revient le plus souvent{hasCv ? ", et ce que ton CV mentionne déjà" : ""}.
+        D&apos;après les {demand.read} offres de ton métier que Scout connaît (tous niveaux et contrats confondus, plus ta sélection), la part qui cite chaque compétence{hasCv ? ", et ce que ton CV mentionne déjà" : ""}.
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         {kinds.map(([kind, label]) => (

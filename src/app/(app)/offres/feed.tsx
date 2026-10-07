@@ -65,7 +65,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
       role="checkbox"
       aria-checked={on}
       onClick={onClick}
-      className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium ${on ? "border-transparent bg-violet-soft text-violet-ink" : "border-line bg-surface text-muted hover:text-ink"}`}
+      className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2.5 text-sm font-medium ${on ? "border-transparent bg-violet-soft text-violet-ink" : "border-line bg-surface text-muted hover:text-ink"}`}
     >
       <span aria-hidden className={`grid h-4 w-4 place-items-center rounded-[5px] border text-[11px] leading-none ${on ? "border-violet-ink bg-violet-ink text-surface" : "border-line"}`}>
         {on ? "✓" : ""}
@@ -272,7 +272,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </p>
       )}
 
-      {progress && <SortingBanner progress={progress} total={total} />}
+      {progress && <SortingBanner progress={progress} total={total} excluded={excludedCount} />}
 
       <div className="mb-5 mt-5">
         {/* The search takes exactly the width of the level selector under it; refinements sit on the selector's line. */}

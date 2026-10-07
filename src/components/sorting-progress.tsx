@@ -56,7 +56,9 @@ export function useSorting(pending: number, enabled = true) {
   return progress;
 }
 
-export function SortingBanner({ progress, total }: { progress: Progress; total: number }) {
+// `excluded`: offers already set aside (place, contract, experience, role): said, so an empty selection
+// during the sort never looks like a bug.
+export function SortingBanner({ progress, total, excluded = null }: { progress: Progress; total: number; excluded?: number | null }) {
   const done = Math.max(0, total - progress.remaining);
   return (
     <div className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
@@ -69,13 +71,16 @@ export function SortingBanner({ progress, total }: { progress: Progress; total: 
       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
         <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${total ? Math.round((100 * done) / total) : 0}%` }} />
       </div>
-      <p className="mt-2 text-muted">{progress.note ?? "Les offres les plus proches de ta recherche arrivent en premier : ta sélection se remplit au fur et à mesure."}</p>
+      <p className="mt-2 text-muted">
+        {progress.note ??
+          `${excluded ? `Déjà mis de côté : ${excluded.toLocaleString("fr-FR")} offres hors de ta recherche (lieu, contrat, expérience ou métier). ` : ""}Scout lit maintenant une à une les offres proches de ton métier, les plus proches d'abord : ta sélection se remplit au fur et à mesure.`}
+      </p>
     </div>
   );
 }
 
 // For a server-rendered page (Aujourd'hui): runs the sort and shows its progress.
-export function SortingProgress({ pending, total }: { pending: number; total: number }) {
+export function SortingProgress({ pending, total, excluded = null }: { pending: number; total: number; excluded?: number | null }) {
   const progress = useSorting(pending);
-  return progress ? <SortingBanner progress={progress} total={total} /> : null;
+  return progress ? <SortingBanner progress={progress} total={total} excluded={excluded} /> : null;
 }

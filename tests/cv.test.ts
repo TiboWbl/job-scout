@@ -97,3 +97,23 @@ describe("email des coups de cœur", async () => {
     expect(html).toContain("Paramètres");
   });
 });
+
+describe("ce que demande le métier, compté dans les textes", async () => {
+  const { skillDemand } = await import("@/lib/views/skills");
+  const vocab = [
+    { name: "Roadmap", kind: "methode" as const },
+    { name: "roadmap produit", kind: "methode" as const },
+    { name: "Jira", kind: "outil" as const },
+    { name: "expérience utilisateur", kind: "methode" as const },
+    { name: "Swile", kind: "outil" as const },
+    { name: "Product Manager", kind: "methode" as const },
+  ];
+  it("compte chaque compétence dans le texte complet, réunit les variantes, écarte ce qui n'en est pas", () => {
+    const texts = ["Tu construis la roadmap produit avec Jira.", "Tu tiens la roadmap. Tickets Swile.", "Une belle expérience utilisateur et une roadmap claire.", "Process de recrutement en deux étapes."];
+    const r = skillDemand(texts, vocab, "Jira", ["Jira"]);
+    expect(r.read).toBe(4);
+    expect(r.byKind.methode[0]).toMatchObject({ name: "Roadmap", count: 3, share: 75 });
+    expect(r.byKind.outil.map((s) => s.name)).not.toContain("Swile");
+    expect(r.byKind.methode.map((s) => s.name)).not.toContain("Product Manager");
+  });
+});

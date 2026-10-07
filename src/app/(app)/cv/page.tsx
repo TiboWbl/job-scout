@@ -3,7 +3,7 @@ import { titleRelevance } from "@/lib/scoring/relevance";
 import type { Place } from "@/lib/domain/offer";
 import { placeLabel } from "@/lib/format";
 import type { Skill } from "@/lib/scoring/judge";
-import { topSkills } from "@/lib/views/skills";
+import { skillDemand } from "@/lib/views/skills";
 import { getUser } from "@/lib/supabase/server";
 import { CvCheck, type HistoryRow, type OfferOption } from "./cv-check";
 
@@ -36,12 +36,26 @@ export default async function CvPage({ searchParams }: { searchParams: Promise<{
   // What the selection asks for most, compared with what Scout kept from the CV.
   const cvSummary = (profile?.cv_summary ?? {}) as Record<string, unknown>;
   const cvText = ["skills", "roles", "highlights", "education", "languages"].flatMap((k) => (Array.isArray(cvSummary[k]) ? (cvSummary[k] as string[]) : [])).join(" · ");
-  // Every offer read for the search that is the role sought (by its title) or kept in the selection: not
-  // only the selection, never the unrelated roles read at a favourite company.
-  const { data: read } = await supabase.from("offer_scores").select("level, offer:offers(title, skills, archived_at)").eq("user_id", user!.id).eq("criteria_version", profile?.criteria_version ?? 0).eq("scored_by", "llm").limit(2000);
-  type ReadRow = { level: string; offer: { title: string; skills: Skill[] | null; archived_at: string | null } | null };
+  // What the role asks for: every active offer whose title is the role sought (any level, any contract:
+  // that is the market), plus the person's selection. Skills are counted in their full texts.
   const criteria = Criteria.parse(profileCriteria?.criteria ?? {});
-  const base = ((read ?? []) as unknown as ReadRow[]).filter((r) => r.offer && !r.offer.archived_at && (r.level !== "ecartee" || titleRelevance(r.offer.title, criteria) >= 5));
-  const demand = topSkills(base.map((r) => ({ skills: r.offer!.skills })), cvText, 8, Array.isArray(profile?.cv_skills) ? (profile!.cv_skills as string[]) : []);
+  const titles: { id: string; title: string }[] = [];
+  const vocabulary: Skill[] = [];
+  for (let f = 0; ; f += 1000) {
+    const { data } = await supabase.from("offers").select("id, title, skills").is("archived_at", null).range(f, f + 999);
+    for (const o of data ?? []) {
+      titles.push({ id: o.id as string, title: o.title as string });
+      if (Array.isArray(o.skills)) vocabulary.push(...(o.skills as Skill[]));
+    }
+    if (!data || data.length < 1000) break;
+  }
+  const selected = new Set(options.map((o) => o.id));
+  const baseIds = titles.filter((o) => selected.has(o.id) || titleRelevance(o.title, criteria) >= 5).map((o) => o.id).slice(0, 800);
+  const descriptions: string[] = [];
+  for (let i = 0; i < baseIds.length; i += 150) {
+    const { data } = await supabase.from("offers").select("description").in("id", baseIds.slice(i, i + 150));
+    for (const o of data ?? []) if ((o.description ?? "").length > 300) descriptions.push(o.description as string);
+  }
+  const demand = skillDemand(descriptions, vocabulary, cvText, Array.isArray(profile?.cv_skills) ? (profile!.cv_skills as string[]) : []);
   return <CvCheck demand={demand} hasCv={cvText.length > 0} history={(history.data ?? []) as HistoryRow[]} offers={options} initialOfferId={offre ?? null} />;
 }
