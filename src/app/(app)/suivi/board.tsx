@@ -68,10 +68,10 @@ function progressStats(items: BoardItem[]) {
 }
 
 // demo: moves and notes work during the visit, nothing is saved; adding an offer is explained instead.
-export function Board({ items: initial, demo = false, base = "" }: { items: BoardItem[]; demo?: boolean; base?: string }) {
+export function Board({ items: initial, demo = false, base = "", addUrl = null }: { items: BoardItem[]; demo?: boolean; base?: string; addUrl?: string | null }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(addUrl !== null && !demo);
   const [demoNote, setDemoNote] = useState(false);
   // Drag and drop between columns (the stage menu on each card does the same on touch and keyboard).
   const [dragged, setDragged] = useState<string | null>(null);
@@ -210,10 +210,11 @@ export function Board({ items: initial, demo = false, base = "" }: { items: Boar
 
       {adding && (
         <AddOffer
+          initialUrl={addUrl ?? ""}
           onClose={() => {
             setAdding(false);
-            // The server list includes what was just added.
-            window.location.reload();
+            // The server list includes what was just added (without "?ajouter", which would reopen the form).
+            window.location.replace(window.location.pathname);
           }}
         />
       )}

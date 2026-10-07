@@ -1,3 +1,4 @@
+import { CommandPalette } from "@/components/command-palette";
 import { Rail } from "@/components/rail";
 import { isAdminEmail } from "@/lib/env";
 import type { SessionUser } from "@/lib/supabase/server";
@@ -17,7 +18,8 @@ export function AppShell({ user, firstName, children }: { user: SessionUser; fir
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   return (
     <div className="flex min-h-screen flex-col gap-4 p-4 md:flex-row">
-      <Rail items={ITEMS} firstName={firstName} avatarUrl={avatarUrl} isAdmin={isAdminEmail(user.email)} />
+      <Rail items={ITEMS} firstName={firstName} avatarUrl={avatarUrl} isAdmin={isAdminEmail(user.email)} search />
+      <CommandPalette />
       <main className="min-w-0 flex-1">{children}</main>
     </div>
   );

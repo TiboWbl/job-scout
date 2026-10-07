@@ -47,7 +47,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 - Application monopage avec une navigation persistante : **Aujourd'hui**, **Offres**, **Entreprises**, **Suivi**, **Mon CV**, **Ma recherche**.
 - Les détails (offre, entreprise, candidature) s'ouvrent dans un panneau latéral, sans quitter la page.
-- Recherche universelle et actions rapides via ⌘K (offres, entreprises, candidatures, ajout d'une offre par URL).
+- Recherche rapide ⌘K (Ctrl+K), aussi par le bouton « Rechercher » de la barre latérale : une entreprise ou un intitulé ouvre les offres correspondantes, un nom de page y mène, une adresse d'offre l'ajoute au suivi.
 - **Aujourd'hui** (page d'accueil une fois connecté) : la sélection du jour, finie (pas de scroll infini), les relances à faire, les entretiens à venir, la progression de la semaine. En 30 secondes on sait quoi faire aujourd'hui.
 
 ## Comptes et onboarding
@@ -339,6 +339,6 @@ Priorité absolue : la pertinence des offres proposées et ne rater aucune offre
 4. **V2.4 Suivi et Paramètres** (faite) : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
 5. **V2.5 CV** (faite) : analyse ATS sur 100 avec recommandations et comparaison à une offre.
 6. **V2.6** (faite) : onglet **Entreprises** (favorites avec leurs offres pour la personne et ce qu'elles font, puis les entreprises qui recrutent pour elle, chacune ouvrant ses offres dans Offres) ; doublons entre sources (une offre vue seulement sur un moteur disparaît quand l'entreprise publie la même sur sa page carrière, intitulés comparés sans H/F, contrat ni ville) ; README vitrine.
-7. **Après la V3, selon les retours d'usage réel** : notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ; raccourci ⌘K ;  vérification de marque Google.
+7. **Après la V3, selon les retours d'usage réel** : notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ;  vérification de marque Google.
 
 Hors périmètre (v2) : extension « Ajouter à Scout », signaux de candidature spontanée, aide à la rédaction de messages.

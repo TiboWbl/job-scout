@@ -10,9 +10,9 @@ type Result = { diagnostic: { kind: "new" | "known" | "excluded"; text: string }
 const STEPS = ["Scout lit l'offre…", "Il la compare à ce qu'il connaît déjà…", "Il la juge pour ta recherche…", "Il l'ajoute à ton suivi…"];
 
 // Offers found on WTTJ, LinkedIn or elsewhere join the tracking, with what Scout knew about them.
-export function AddOffer({ onClose }: { onClose: () => void }) {
+export function AddOffer({ onClose, initialUrl = "" }: { onClose: () => void; initialUrl?: string }) {
   const router = useRouter();
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(initialUrl);
   const [text, setText] = useState("");
   const [needText, setNeedText] = useState(false);
   const [applied, setApplied] = useState(false);
