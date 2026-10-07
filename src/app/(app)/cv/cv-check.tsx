@@ -26,6 +26,12 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [rows, setRows] = useState(history);
+  // Fresh server data (after a refresh) replaces the list kept in memory.
+  const [lastHistory, setLastHistory] = useState(history);
+  if (lastHistory !== history) {
+    setLastHistory(history);
+    setRows(history);
+  }
 
   function openSaved(h: HistoryRow) {
     if (!h.result) return;
@@ -64,6 +70,8 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
       if (!res.ok) throw new Error(data?.error ?? "L'analyse n'a pas abouti, réessaie.");
       setAnalysis({ ...data, filename: chosen.name, text });
       setRows((r) => [{ id: data.id, created_at: data.createdAt, filename: chosen.name, total: data.result.total, result: data.result, suggestions: data.suggestions, comparison: data.comparison }, ...r].filter((h) => h.id));
+      // The page kept in the browser cache must list this analysis when the person comes back.
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Ce PDF ne se lit pas bien. Essaie une autre version.");
     } finally {
@@ -229,16 +237,35 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
         </section>
       )}
 
+      {(() => {
+        const strengths = result.categories.flatMap((c) => c.checks).filter((k) => k.ok && k.good);
+        return strengths.length > 0 ? (
+          <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+            <h2 className="font-display text-xl font-bold">Ce qui fonctionne déjà</h2>
+            <p className="mt-1 text-sm text-muted">Pourquoi ton CV passe bien les logiciels de recrutement et retient l&apos;attention d&apos;un recruteur.</p>
+            <ul className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {strengths.map((k) => (
+                <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
+                  <span aria-hidden className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-mint-soft text-[11px] font-bold text-mint-ink">✓</span>
+                  <span>{k.good}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null;
+      })()}
+
+      {result.categories.some((c) => c.checks.some((k) => !k.ok)) && (
       <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
-        <h2 className="font-display text-xl font-bold">Ce qu&apos;il faut corriger</h2>
+        <h2 className="font-display text-xl font-bold">Ce que tu peux encore améliorer</h2>
         <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {result.categories.map((c) => (
+          {result.categories.filter((c) => c.checks.some((k) => !k.ok)).map((c) => (
             <div key={c.key}>
               <h3 className="text-[13px] font-semibold text-muted">
                 {c.label} · {c.score}/{c.max}
               </h3>
               <ul className="mt-2 space-y-2">
-                {c.checks.map((k) => (
+                {c.checks.filter((k) => !k.ok).map((k) => (
                   <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
                     <span aria-hidden className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${k.ok ? "bg-mint-soft text-mint-ink" : "bg-peach-soft text-peach-ink"}`}>
                       {k.ok ? "✓" : "!"}
@@ -261,6 +288,8 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
           ))}
         </div>
       </section>
+
+      )}
 
       {suggestions.length > 0 && (
         <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">

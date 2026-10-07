@@ -18,9 +18,42 @@ type Props = {
 };
 
 // One line proving the CV was read: education, experience, key skills.
-function cvLine(cv: CvSummary) {
-  const parts = [cv.education.slice(0, 1).join(""), cv.roles.slice(0, 2).join(", "), cv.skills.slice(0, 5).join(", ")].filter(Boolean);
-  return parts.join(" · ");
+// Everything Scout kept from the CV, laid out so the person sees it was really read.
+function CvDigest({ cv, title }: { cv: CvSummary; title: React.ReactNode }) {
+  const rows: [string, string[]][] = [
+    ["Expérience", cv.experienceYears !== null && cv.experienceYears !== undefined ? [`${cv.experienceYears} an${cv.experienceYears > 1 ? "s" : ""} au total, stages compris`] : []],
+    ["Postes", cv.roles],
+    ["Formation", cv.education],
+    ["Réalisations", cv.highlights],
+    ["Langues", cv.languages],
+  ];
+  return (
+    <div className="mt-4 rounded-2xl bg-pill-solid p-4 text-[14px] leading-relaxed">
+      <p className="font-semibold">{title}</p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
+        {rows
+          .filter(([, values]) => values.length > 0)
+          .map(([label, values]) => (
+            <div key={label}>
+              <dt className="text-[12.5px] font-semibold text-muted">{label}</dt>
+              <dd>
+                <ul className="mt-0.5 space-y-0.5">{values.map((v) => <li key={v}>{v}</li>)}</ul>
+              </dd>
+            </div>
+          ))}
+        {cv.skills.length > 0 && (
+          <div className="md:col-span-2">
+            <dt className="text-[12.5px] font-semibold text-muted">Compétences</dt>
+            <dd className="mt-1 flex flex-wrap gap-1.5">
+              {cv.skills.map((k) => (
+                <span key={k} className="rounded-full bg-surface px-2.5 py-1 text-[13px]">{k}</span>
+              ))}
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
 }
 
 // Shared by onboarding and "Ma recherche": free text (+ optional CV) → editable chips → saved.
@@ -112,10 +145,10 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         />
 
         {savedCv && !cvName && initialCvSummary && (
-          <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
-            <span className="font-semibold">Ton CV{savedCv.filename ? ` (${savedCv.filename})` : ""}</span>
-            {savedCv.updatedAt ? `, lu le ${new Date(savedCv.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""}. Scout en a retenu : {cvLine(initialCvSummary) || "ton expérience et tes compétences"}.
-          </p>
+          <CvDigest
+            cv={initialCvSummary}
+            title={`Ce que Scout a retenu de ton CV${savedCv.filename ? ` (${savedCv.filename})` : ""}${savedCv.updatedAt ? `, lu le ${new Date(savedCv.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""}`}
+          />
         )}
 
         {mode === "onboarding" && (
@@ -177,12 +210,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
           <div>
             <h2 className="font-display text-2xl font-bold tracking-tight">Ce que j&apos;ai compris</h2>
             <p className="mt-1 text-sm text-muted">Une puce se retire d&apos;un clic ; Entrée en ajoute une.</p>
-            {shownCv && cvLine(shownCv) && (
-              <p className="mt-3 rounded-xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
-                <span className="font-semibold">Depuis ton CV : </span>
-                {cvLine(shownCv)}
-              </p>
-            )}
+            {shownCv && cvName && <CvDigest cv={shownCv} title="Ce que Scout a retenu de ton CV" />}
           </div>
           <CriteriaEditor value={criteria} onChange={setCriteria} />
           <div className="flex flex-wrap items-center gap-3">

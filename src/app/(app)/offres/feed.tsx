@@ -11,6 +11,7 @@ import { isFresh, placeLabel, STALE_DAYS } from "@/lib/format";
 import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
 import { CompanyLogo } from "@/components/company-logo";
+import { EditSearchButton, SearchPanel } from "@/components/search-panel";
 import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
 
 type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
@@ -79,9 +80,11 @@ type Props = { items: FeedItem[]; openness: number; pending: number; total: numb
   base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
   // A fresh collection runs for a search the person just changed.
   collecting?: boolean;
-  initialQuery?: string };
+  initialQuery?: string;
+  // "Ma recherche", opened over the page by "Modifier ma recherche".
+  searchEditor?: React.ReactNode };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, base = "", criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "" }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -300,9 +303,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
     <div className="px-1 pb-16 pt-3 md:px-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-5xl font-extrabold tracking-tight">Offres</h1>
-        <Link href={`${base}/recherche`} className="btn-soft">
-          Modifier ma recherche
-        </Link>
+        <EditSearchButton />
       </div>
       <p className="mt-2 text-[15px] text-muted">
         {main.length - staleCount > 0
@@ -415,9 +416,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             ) : (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-6 text-muted">
                 Rien ici pour l&apos;instant.
-                <Link href={`${base}/recherche`} className="btn-soft">
-                  Élargir ma recherche
-                </Link>
+                <EditSearchButton label="Élargir ma recherche" />
               </div>
             )
           )}
@@ -448,6 +447,8 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
           )}
         </>
       )}
+
+      {searchEditor && <SearchPanel>{searchEditor}</SearchPanel>}
 
       {open && <OfferPanel
           key={open.offer.id}

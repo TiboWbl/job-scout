@@ -34,8 +34,6 @@ jobs:
       ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
       JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
       CAREERJET_API_KEY: ${{ secrets.CAREERJET_API_KEY }}
-      FRANCE_TRAVAIL_CLIENT_ID: ${{ secrets.FRANCE_TRAVAIL_CLIENT_ID }}
-      FRANCE_TRAVAIL_CLIENT_SECRET: ${{ secrets.FRANCE_TRAVAIL_CLIENT_SECRET }}
       LLM_PROVIDER: mistral
       LLM_MODEL_FAST: ministral-14b-2512
       LLM_MODEL_STRONG: ministral-14b-2512

@@ -5,7 +5,6 @@ import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats"
 import type { Keep, Wanted } from "./connectors/ats-more";
 import { titleRelevance } from "@/lib/scoring/relevance";
 import { detectExperience, detectExperienceLevel, detectRemote, detectSalary } from "@/lib/domain/signals";
-import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchCareerjet, isCareerjetConfigured } from "./connectors/careerjet";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
@@ -45,7 +44,6 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
   if (scope.queries.length && isAdzunaConfigured()) engines.push({ source: "adzuna", run: () => fetchAdzuna(scope.queries) });
   if (scope.queries.length && isJoobleConfigured()) engines.push({ source: "jooble", run: () => fetchJooble(scope.queries) });
   if (scope.queries.length && isCareerjetConfigured()) engines.push({ source: "careerjet", run: () => fetchCareerjet(scope.queries) });
-  if (scope.queries.length && isFranceTravailConfigured()) engines.push({ source: "france-travail", run: () => fetchFranceTravail(scope.queries.map((q) => q.what)) });
   reports.push(...(await Promise.all(engines.map((e) => collectSource(db, e.source, e.run, false, keep)))));
 
   // Then career pages, least recently collected first, as many as the time budget allows.

@@ -4,6 +4,7 @@ import { isAdminEmail } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { loadFeed } from "@/lib/views/feed";
+import { SearchEditor } from "@/components/search-editor";
 import { Feed } from "./feed";
 
 export const metadata = { title: "Offres" };
@@ -34,5 +35,5 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
       if (await requestCollection()) await createAdminClient().from("profiles").update({ collect_requested_at: new Date().toISOString() }).eq("id", userId);
     });
   }
-  return <Feed {...data} collecting={collecting} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} isAdmin={isAdminEmail(user!.email)} />;
+  return <Feed {...data} collecting={collecting} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} searchEditor={<SearchEditor />} isAdmin={isAdminEmail(user!.email)} />;
 }

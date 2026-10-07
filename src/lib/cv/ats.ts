@@ -12,8 +12,9 @@ export type Layout = {
 
 export type CvInput = { text: string; layout: Layout; filename: string; sizeBytes: number };
 
-// `why`: why it matters, so the person can decide; nothing here is mandatory.
-export type Check = { ok: boolean; label: string; points: number; max: number; fix?: string; why?: string };
+// `why`: why it matters, so the person can decide; nothing here is mandatory. `good`: what a passed
+// point brings, so a good CV knows why it works.
+export type Check = { ok: boolean; label: string; points: number; max: number; fix?: string; why?: string; good?: string };
 export type Category = { key: "lisibilite" | "structure" | "contenu" | "adequation"; label: string; score: number; max: number; checks: Check[] };
 export type AtsResult = { total: number; categories: Category[] };
 
@@ -60,6 +61,21 @@ const WHY: [string, string][] = [
   ["Résultats chiffrés", "Un chiffre rend un résultat vérifiable et mémorable : « +30 % d'adoption » pèse plus que « amélioration de l'adoption »."],
   ["Phrases courtes", "Les recruteurs lisent en diagonale : une idée par ligne se lit, un paragraphe se saute."],
   ["Mots-clés du métier", "Les recruteurs filtrent les candidatures avec les mots des offres : les écrire tels quels, quand ils sont vrais pour toi, te rend trouvable."],
+];
+
+const GOOD: [string, string][] = [
+  ["Texte lisible", "Tout ton CV est du vrai texte : un ATS en lit chaque mot."],
+  ["Une seule colonne", "Une seule colonne : l'ordre de lecture d'un ATS est le tien, rien ne se mélange."],
+  ["Titres de section", "Tes titres sont reconnus tels quels par les logiciels."],
+  ["Email détecté", "Ton email est lisible : on peut te répondre d'un clic."],
+  ["Téléphone détecté", "Ton numéro est copiable : un recruteur peut t'appeler tout de suite."],
+  ["Deux pages", "Ton CV est court : l'essentiel se voit en moins d'une minute."],
+  ["Section «", "Section standard : l'ATS range cette partie au bon endroit de ton profil."],
+  ["Dates des expériences", "Tes dates permettent à un ATS de calculer ton expérience correctement."],
+  ["Verbes d'action", "Tes missions disent ce que tu as fait, pas seulement le contexte : c'est ce qu'un recruteur cherche."],
+  ["Résultats chiffrés", "Tes résultats sont chiffrés : ils restent en tête et sont vérifiables."],
+  ["Phrases courtes", "Des lignes courtes : ton CV se lit en diagonale sans rien perdre."],
+  ["Mots-clés du métier", "Tu emploies les mots des offres : les recherches des recruteurs te trouvent."],
 ];
 
 export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): AtsResult {
@@ -116,7 +132,11 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
   ];
 
   const why = (label: string) => WHY.find(([start]) => label.startsWith(start))?.[1];
-  for (const c of [...lisibilite, ...structure, ...contenu, ...adequation]) c.why = why(c.label);
+  const good = (label: string) => GOOD.find(([start]) => label.startsWith(start))?.[1];
+  for (const c of [...lisibilite, ...structure, ...contenu, ...adequation]) {
+    c.why = why(c.label);
+    if (c.ok) c.good = good(c.label);
+  }
 
   const categories: Category[] = [
     { key: "lisibilite", label: "Lisibilité machine", max: 40, checks: lisibilite, score: 0 },

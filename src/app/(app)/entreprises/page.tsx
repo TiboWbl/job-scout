@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CompanyLogo } from "@/components/company-logo";
 import { Favorites } from "@/components/favorites";
+import { RemoveFavorite } from "@/components/remove-favorite";
 import { withoutEngineCopies } from "@/lib/domain/feed";
 import { getUser } from "@/lib/supabase/server";
 import { loadFeed } from "@/lib/views/feed";
@@ -44,42 +45,47 @@ export default async function EntreprisesPage() {
             {favorite && <span className="text-[15px] leading-none text-[#f5a524]" aria-label="Entreprise favorite">★</span>}
           </span>
           <span className="block truncate text-[13px] text-muted">
-            {n ? `${n.total} offre${n.total > 1 ? "s" : ""} pour toi${n.coeur ? `, dont ${n.coeur} coup${n.coeur > 1 ? "s" : ""} de cœur` : ""}` : favorite && !c.ats ? "Page carrière introuvable, cherchée sur les moteurs" : "Aucune offre pour toi en ce moment"}
+            {n ? `${n.total} offre${n.total > 1 ? "s" : ""} pour toi${n.coeur ? `, dont ${n.coeur} coup${n.coeur > 1 ? "s" : ""} de cœur` : ""}` : c.ats ? "Page carrière lue à chaque collecte" : "Page carrière introuvable : cherchée sur les moteurs d'emploi"}
             {c.product ? ` · ${c.product}` : ""}
           </span>
         </span>
-        <Link href={`/offres?q=${encodeURIComponent(c.name)}`} className="btn-soft shrink-0">
-          Voir les offres
-        </Link>
+        {n && (
+          <Link href={`/offres?q=${encodeURIComponent(c.name)}`} className="btn-soft shrink-0">
+            Voir les offres
+          </Link>
+        )}
+        {favorite && <RemoveFavorite companyId={c.id} name={c.name} />}
       </li>
     );
   };
+  const quiet = favorites.filter((c) => !count.has(c.id));
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-5xl font-extrabold tracking-tight">Entreprises</h1>
-      </div>
+      <h1 className="font-display text-5xl font-extrabold tracking-tight">Entreprises</h1>
       <div className="mt-8">
-        <Favorites />
+        <Favorites list={false} />
       </div>
-      <section className="mt-10">
-        <h2 className="font-display text-2xl font-bold">Leurs offres pour toi</h2>
-        {withOffers.length > 0 && <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">{withOffers.map((c) => row(c, true))}</ul>}
-        <p className="mt-3 text-sm text-muted">
-          {favorites.length === 0
-            ? "Ajoute tes entreprises de rêve ci-dessus : Scout surveille leur page carrière à chaque collecte."
-            : withOffers.length < favorites.length
-              ? `${favorites.length - withOffers.length} autre${favorites.length - withOffers.length > 1 ? "s" : ""} favorite${favorites.length - withOffers.length > 1 ? "s" : ""} sans offre pour toi en ce moment : Scout continue de les surveiller.`
-              : ""}
-        </p>
-      </section>
+      {withOffers.length > 0 && (
+        <section className="mt-10">
+          <h2 className="font-display text-2xl font-bold">Tes favorites qui recrutent pour toi · {withOffers.length}</h2>
+          <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">{withOffers.map((c) => row(c, true))}</ul>
+        </section>
+      )}
       {others.length > 0 && (
         <section className="mt-12">
-          <h2 className="font-display text-2xl font-bold">Elles recrutent pour toi</h2>
+          <h2 className="font-display text-2xl font-bold">Elles recrutent aussi pour toi</h2>
           <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">{others.map((c) => row(c, false))}</ul>
         </section>
       )}
+      {quiet.length > 0 && (
+        <section className="mt-12">
+          <h2 className="font-display text-2xl font-bold">Tes favorites sans offre pour toi en ce moment · {quiet.length}</h2>
+          <p className="mt-1 text-sm text-muted">Scout continue de les surveiller : leurs offres apparaîtront dès qu&apos;elles correspondront à ta recherche.</p>
+          <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">{quiet.map((c) => row(c, true))}</ul>
+        </section>
+      )}
+      {favorites.length === 0 && <p className="mt-6 text-muted">Ajoute tes entreprises de rêve ci-dessus : Scout surveille leur page carrière à chaque collecte.</p>}
     </div>
   );
 }

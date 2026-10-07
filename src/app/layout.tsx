@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   // Each page names itself: "Offres · Scout".
   title: { default: "Scout", template: "%s · Scout" },
   description: "Toute ta recherche d'emploi dans un seul onglet : les offres qui te correspondent, expliquées, et le suivi de tes candidatures.",
+  // Google Search Console proof of ownership, needed for the brand verification of the Google sign-in screen.
+  ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),
 };
 
 const THEME_SCRIPT = `try{var t=localStorage.getItem("scout-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;

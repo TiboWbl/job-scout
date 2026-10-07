@@ -36,7 +36,8 @@ export async function addFavorites(entries: Entry[], onProgress: (done: number) 
   }
 }
 
-export function Favorites() {
+// `list`: the chips of current favourites (the Entreprises page lists them itself, with their offers).
+export function Favorites({ list = true }: { list?: boolean } = {}) {
   const router = useRouter();
   const [items, setItems] = useState<Favorite[] | null>(null);
   const [draft, setDraft] = useState("");
@@ -117,7 +118,7 @@ export function Favorites() {
         </div>
       )}
 
-      {items === null ? (
+      {!list ? null : items === null ? (
         <p className="mt-4 text-sm text-muted">Chargement…</p>
       ) : items.length > 0 ? (
         <>

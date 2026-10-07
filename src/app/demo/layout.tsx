@@ -7,7 +7,6 @@ const ITEMS = [
   { href: "/demo", label: "Aujourd'hui" },
   { href: "/demo/offres", label: "Offres" },
   { href: "/demo/suivi", label: "Suivi" },
-  { href: "/demo/recherche", label: "Ma recherche" },
 ];
 
 // The public demo: the real product on real offers, for a fictional persona, without an account.

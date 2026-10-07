@@ -1,4 +1,5 @@
 import { Feed } from "@/app/(app)/offres/feed";
+import { DemoSearchEditor } from "@/components/demo-search-editor";
 import { demoContext } from "@/lib/demo-page";
 import { loadFeed } from "@/lib/views/feed";
 
@@ -9,5 +10,5 @@ export default async function DemoOffresPage({ searchParams }: { searchParams: P
   const { db, userId } = await demoContext();
   const data = await loadFeed(db, userId);
   // Visitors never start a sort (no model call): the scheduled job sorts for the persona.
-  return <Feed {...data} pending={0} initialOpenId={offre ?? null} isAdmin={false} demo base="/demo" />;
+  return <Feed {...data} pending={0} initialOpenId={offre ?? null} isAdmin={false} demo base="/demo" searchEditor={<DemoSearchEditor />} />;
 }

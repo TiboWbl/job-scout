@@ -20,7 +20,7 @@ export const REMOTE_LABELS: Record<Remote, string> = {
 
 // What every connector produces, whatever its source.
 export type NormalizedOffer = {
-  sourceKey: string; // e.g. "greenhouse:doctolib", "france-travail"
+  sourceKey: string; // e.g. "greenhouse:doctolib", "adzuna"
   sourceUrl: string;
   company: { name: string; domain?: string; ats?: string; atsToken?: string };
   title: string;
