@@ -6,9 +6,9 @@ import { Feed } from "./feed";
 
 export const metadata = { title: "Offres" };
 
-// ?offre=<id> opens that offer directly (links from Aujourd'hui).
-export default async function OffresPage({ searchParams }: { searchParams: Promise<{ offre?: string }> }) {
-  const { offre } = await searchParams;
+// ?offre=<id> opens that offer directly (links from Aujourd'hui); ?q= starts with a search (Entreprises).
+export default async function OffresPage({ searchParams }: { searchParams: Promise<{ offre?: string; q?: string }> }) {
+  const { offre, q } = await searchParams;
   const { supabase, user } = await getUser();
   const [data, { data: profile }, { data: lastRun }] = await Promise.all([
     loadFeed(supabase, user!.id),
@@ -21,5 +21,5 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
   // eslint-disable-next-line react-hooks/purity -- server component, rendered once per request
   const now = Date.now();
   const collecting = requested > now - 45 * 60_000 && (!lastRun || new Date(lastRun.started_at).getTime() < requested);
-  return <Feed {...data} collecting={collecting} initialOpenId={offre ?? null} isAdmin={isAdminEmail(user!.email)} />;
+  return <Feed {...data} collecting={collecting} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} isAdmin={isAdminEmail(user!.email)} />;
 }

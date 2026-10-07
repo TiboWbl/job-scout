@@ -78,9 +78,10 @@ type Props = { items: FeedItem[]; openness: number; pending: number; total: numb
   demo?: boolean;
   base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
   // A fresh collection runs for a search the person just changed.
-  collecting?: boolean };
+  collecting?: boolean;
+  initialQuery?: string };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, base = "", criteriaVersion, hasOffers, isAdmin, collecting = false }: Props) {
+export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, base = "", criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "" }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -103,7 +104,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [freshOnly, setFreshOnly] = useState(false);
   const [juniorOnly, setJuniorOnly] = useState(false);
   const [showStale, setShowStale] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [drawn, setDrawn] = useState(BATCH);
   const drawMore = useCallback(() => setDrawn((n) => n + BATCH), []);
   // A new filter or search starts again from the top of its list.

@@ -52,6 +52,28 @@ export function isStaleOffer(offer: Pick<FeedOffer, "published_at" | "first_seen
   return (offer.sources ?? []).every((s) => ENGINES.has(s)) && isStale(offer.published_at ?? offer.first_seen_at, now);
 }
 
+// The same posting seen on a search engine and on the company's own page, under a slightly different
+// title ("Product Manager H/F" and "Product Manager"): only the company's version is shown.
+const titleWords = (title: string, company: string) => {
+  const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const noise = new Set(["cdi", "cdd", "stage", "alternance", "paris", "france", "remote", "hybride", ...fold(company).split(/[^a-z0-9]+/)]);
+  return new Set(fold(title).replace(/\((?:h|f|x|m|n|w|d)(?:\/(?:h|f|x|m|n|w|d))+\)|\b(?:h|f|x|m|n|w|d)(?:\/(?:h|f|x|m|n|w|d))+\b/g, " ").split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !noise.has(w)));
+};
+export function withoutEngineCopies<T extends { offer: Pick<FeedOffer, "title" | "sources" | "company"> }>(items: T[]): T[] {
+  const own = items.filter((i) => !(i.offer.sources ?? []).every((s) => ENGINES.has(s)));
+  return items.filter((i) => {
+    if (!(i.offer.sources ?? []).every((s) => ENGINES.has(s))) return true;
+    const mine = titleWords(i.offer.title, i.offer.company.name);
+    if (mine.size < 2) return true;
+    return !own.some((o) => {
+      if (o.offer.company.id !== i.offer.company.id) return false;
+      const theirs = titleWords(o.offer.title, o.offer.company.name);
+      const [small, big] = mine.size <= theirs.size ? [mine, theirs] : [theirs, mine];
+      return small.size >= 2 && [...small].every((w) => big.has(w));
+    });
+  });
+}
+
 export const LEVEL_ORDER: Record<Level, number> = { coeur: 0, solide: 1, tremplin: 2, ecartee: 3 };
 
 // "Seulement si exceptionnelle": an out-of-zone offer only surfaces when everything else is excellent.

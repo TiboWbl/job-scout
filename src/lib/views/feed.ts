@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria } from "@/lib/domain/criteria";
-import { SCORE_SELECT, type FeedItem } from "@/lib/domain/feed";
+import { SCORE_SELECT, withoutEngineCopies, type FeedItem } from "@/lib/domain/feed";
 
 // Data for the Offres screen. The same loader serves a signed-in person (their own client, RLS) and
 // the public demo (service role, the demo persona's id): every query filters on the user explicitly.
@@ -21,14 +21,14 @@ export async function loadFeed(db: SupabaseClient, userId: string) {
 
   const actionByOffer = new Map((actions.data ?? []).map((a) => [a.offer_id, a]));
   type Row = Omit<FeedItem, "offer" | "saved" | "dismissed"> & { offer: (FeedItem["offer"] & { archived_at: string | null }) | null };
-  const items: FeedItem[] = ((selected.data ?? []) as unknown as Row[])
+  const items: FeedItem[] = withoutEngineCopies(((selected.data ?? []) as unknown as Row[])
     .filter((r) => r.offer && !r.offer.archived_at)
     .map((r) => ({
       ...r,
       offer: r.offer!,
       saved: actionByOffer.get(r.offer!.id)?.saved ?? false,
       dismissed: actionByOffer.get(r.offer!.id)?.dismissed ?? false,
-    }));
+    })));
 
   return {
     items,

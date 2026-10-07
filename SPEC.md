@@ -338,11 +338,7 @@ Priorité absolue : la pertinence des offres proposées et ne rater aucune offre
 3. **V2.3 Simplicité et finitions** (faite) : photos aussi tirées de la page de l'offre et de la page carrière, site des employeurs connus par leur seul nom deviné puis confirmé par le LLM face à leurs offres (jamais de logo ou de photo d'une autre entreprise), offres écartées en cartes avec une étiquette de raison (Contrat, Expérience, Lieu, Métier éloigné, Secteur, Contenu du poste, Ton choix), critères de Ma recherche en blocs colorés (clair et sombre), filtre « Écartées » parmi les filtres, recherche alignée au pixel sur les filtres, couleurs plus marquées, plus de photos, titre d'onglet par page, « Ma recherche » allégée (moins de texte, favorites compactes, pleine largeur), critères modifiables depuis Offres, étoile pour les favorites, plus de page /login ni de « Se connecter » (la page d'accueil suffit), déconnexion vers l'accueil, bannière de démo « rien n'est enregistré », lien Confidentialité de l'accueil, passe sur tout le site pour retirer le superflu.
 4. **V2.4 Suivi et Paramètres** (faite) : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
 5. **V2.5 CV** (faite) : analyse ATS sur 100 avec recommandations et comparaison à une offre.
-6. **V2.6 Le reste du backlog** :
-   - notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ;
-   - onglet Entreprises ; raccourci ⌘K ;
-   - doublons d'une même offre sous des intitulés différents selon la source ;
-   - Careerjet, France Travail à retenter, Workday et autres ATS des grands groupes ;
-   - vérification de marque Google ; README vitrine.
+6. **V2.6** (faite) : onglet **Entreprises** (favorites avec leurs offres pour la personne et ce qu'elles font, puis les entreprises qui recrutent pour elle, chacune ouvrant ses offres dans Offres) ; doublons entre sources (une offre vue seulement sur un moteur disparaît quand l'entreprise publie la même sur sa page carrière, intitulés comparés sans H/F, contrat ni ville) ; README vitrine.
+7. **Après la V3, selon les retours d'usage réel** : notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ; raccourci ⌘K ; Careerjet (identifiant affilié gratuit à créer), France Travail à retenter, Workday et sites des grands groupes dessinés en JavaScript (Orange) ; vérification de marque Google.
 
 Hors périmètre (v2) : extension « Ajouter à Scout », signaux de candidature spontanée, aide à la rédaction de messages.

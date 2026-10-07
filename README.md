@@ -6,24 +6,23 @@ Toute sa recherche d'emploi dans un seul onglet : les offres qui correspondent v
 
 La spécification complète est dans [SPEC.md](SPEC.md). Les maquettes de la direction visuelle retenue sont dans [design/mockups](design/mockups/index.html).
 
-## Ce que fait la version actuelle
+## Ce que fait Scout
 
-- **Connexion Google** et profil privé (row-level security Postgres).
-- **Onboarding en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables en puces (métier, variantes d'intitulés FR/EN, passerelles, secteurs, zone, contrats, expérience).
-- **Collecte légale** : API et flux publics des pages carrière (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor, Personio), moteurs Adzuna et Jooble. Annuaire de pages carrière agrandi automatiquement (index public Common Crawl, noms d'entreprises vus dans les offres). Dédoublonnage entre sources, archivage des offres retirées, stockage limité aux pays où quelqu'un cherche.
-- **Tri en deux temps** :
-  1. des **portes** déterministes : zone, contrat, séniorité relative à l'expérience, écart d'expérience. Une offre qui en viole une est écartée ou mise à part, jamais compensée par le reste ;
-  2. un **LLM** qui lit la description complète, d'abord le profil recherché, et juge le poste réel. Il attribue un niveau (Coup de cœur, Solide, Tremplin, Écartée), un « pourquoi », des points forts et d'attention.
-- **Aujourd'hui** : la sélection du jour (finie), les relances à faire, les entretiens à venir, la semaine en chiffres.
-- **Fil d'offres** : cartes avec missions, salaire et expérience demandée, panneau de détail ou plein écran, raisons « Pas pour moi », vue des offres écartées avec leur raison, et le flux Postuler → « Tu as postulé ? » → **Suivi** (kanban, contact, dates, relances).
+- **Connexion Google** et profil privé (row-level security Postgres), accès sur invitation.
+- **Onboarding en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables (métier, intitulés équivalents FR/EN, passerelles, secteurs, zone, contrats, expérience). Le nom et les coordonnées sont retirés du CV avant tout envoi à l'IA.
+- **Collecte légale et large** : API et flux publics de 10 ATS (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor, Personio, DigitalRecruiters, Welcome Kit), sites carrière propres lus par leur fiche schema.org `JobPosting`, moteurs Adzuna et Jooble. Annuaire de pages carrière agrandi automatiquement ; entreprises favorites surveillées à chaque collecte. Trois collectes par jour, et une de plus dès qu'une recherche change.
+- **Tri fiable, en deux temps** :
+  1. des **portes** déterministes : zone (ville, région, code postal), contrat, séniorité, écart d'expérience (années ou mots : « profil junior », « expérience significative ») ;
+  2. un **LLM** qui juge le poste réel et répond à des questions factuelles ; le niveau (Coup de cœur, Solide, Tremplin, Écartée) en découle par une règle fixe. Une exclusion exige une phrase de l'offre citée mot pour mot ; les faits affichés (expérience, contrat, salaire) sont vérifiés dans le texte. Les jugements sont réutilisés quand seule la zone change : quelques secondes au lieu d'un quart d'heure.
+- **Aujourd'hui**, **Offres** (filtres, recherche qui montre aussi les offres écartées avec leur raison, détail avec ce que fait l'entreprise), **Entreprises** (favorites et entreprises qui recrutent pour toi), **Suivi** (kanban par glisser-déposer, relances, progression), **Mon CV** (note sur 100 selon une grille transparente, vue « Ce que voit un ATS », comparaison à une offre), **Ma recherche** et **Paramètres** (thème, suppression du compte).
 - **Offres trouvées ailleurs** (WTTJ, LinkedIn…) ajoutées par URL ou par texte, avec un diagnostic : déjà trouvée, écartée, ou nouvelle pour Scout.
-- **Entreprises favorites** surveillées à chaque collecte, et un **espace admin** en tableau de bord (chiffres agrégés, invitations).
+- **Démo publique** sans compte et **espace admin** en tableau de bord (chiffres agrégés uniquement).
 
 ## Architecture
 
 ```
 GitHub Actions / bouton admin ──► collecte (TypeScript) ──► Supabase Postgres ◄── Next.js sur Vercel
-   8 ATS publics · Adzuna · Jooble         normalisation              offres, entreprises (partagées)
+  10 ATS · sites JobPosting · moteurs        normalisation              offres, entreprises (partagées)
    découverte des pages carrière         dédoublonnage              profils, scores, suivi (privés, RLS)
                                        couleur des logos
                                                      scoring à la demande (portes → Mistral par lots)

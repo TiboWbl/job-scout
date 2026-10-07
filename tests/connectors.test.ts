@@ -144,3 +144,12 @@ describe("site carrière propre", async () => {
     expect(jobLinks(shared, "https://exemple.fr/companies/fictive")).toEqual([{ url: "https://exemple.fr/companies/fictive/jobs/data-analyst_paris", label: "Data Analyst" }]);
   });
 });
+
+describe("copie d'une offre vue sur un moteur", async () => {
+  const { withoutEngineCopies } = await import("@/lib/domain/feed");
+  const item = (id: string, title: string, sources: string[], companyId = "c1") => ({ offer: { id, title, sources, company: { id: companyId, name: "Fictive" } } as never });
+  it("garde la version de la page carrière, pas la copie du moteur", () => {
+    const kept = withoutEngineCopies([item("a", "Product Manager", ["teamtailor:fictive"]), item("b", "Product Manager H/F - CDI Paris", ["adzuna"]), item("c", "Product Designer", ["adzuna"]), item("d", "Product Manager", ["adzuna"], "c2")]);
+    expect(kept.map((k) => (k.offer as { id: string }).id)).toEqual(["a", "c", "d"]);
+  });
+});
