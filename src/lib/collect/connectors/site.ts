@@ -40,27 +40,37 @@ export function jobLinks(html: string, pageUrl: string): { url: string; label: s
   return [...out].map(([url, label]) => ({ url, label }));
 }
 
-async function fromSitemap(pageUrl: string): Promise<string[]> {
-  const origin = new URL(pageUrl).origin;
+// Job addresses from the site map: those robots.txt declares, then the usual places. Maps under the listing's
+// own path ("/fr/fr/") come first. The address's last part usually holds the title ("…/product-manager-paris").
+async function fromSitemap(pageUrl: string): Promise<{ url: string; label: string }[]> {
+  const page = new URL(pageUrl);
+  const origin = page.origin;
+  const prefix = page.pathname.split("/").slice(0, 3).join("/");
+  const robots = (await text(`${origin}/robots.txt`)) ?? "";
+  const declared = [...robots.matchAll(/^sitemap:\s*(\S+)/gim)].map((m) => m[1]);
+  const queue = [...declared.sort((a, b) => Number(new URL(b).pathname.startsWith(prefix)) - Number(new URL(a).pathname.startsWith(prefix))), `${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`];
+  const seen = new Set<string>();
   const urls: string[] = [];
-  const queue = [`${origin}/sitemap.xml`];
-  for (let i = 0; i < queue.length && i < 6; i++) {
+  for (let i = 0; i < queue.length && seen.size < 12 && urls.length < 5000; i++) {
+    if (seen.has(queue[i])) continue;
+    seen.add(queue[i]);
     const xml = await text(queue[i]);
     if (!xml) continue;
     for (const [, loc] of xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
       if (/\.xml(\.gz)?$/i.test(loc)) {
-        if (/job|offre|emploi|career|carriere|poste|vacanc/i.test(loc)) queue.push(loc);
+        if (/job|offre|emploi|career|carriere|poste|vacanc|sitemap\d|sitemap_index/i.test(loc)) queue.push(loc);
       } else if (JOB_PATH.test(new URL(loc, origin).pathname)) urls.push(loc);
     }
   }
-  return urls;
+  const local = urls.filter((u) => new URL(u).pathname.startsWith(prefix));
+  return (local.length ? local : urls).map((url) => ({ url, label: decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() ?? "").replace(/[-_]+/g, " ") }));
 }
 
 export async function site(board: BoardRef, keep?: Keep, wanted?: Wanted): Promise<NormalizedOffer[]> {
   const listing = await text(board.token);
   if (listing === null) throw new Error("career page unreachable");
   let links = jobLinks(listing, board.token);
-  if (links.length === 0) links = (await fromSitemap(board.token)).map((url) => ({ url, label: "" }));
+  if (links.length === 0) links = await fromSitemap(board.token);
   // Titles visible on the list spare the requests no search could use.
   const toRead = links.filter((l) => !wanted || !l.label || l.label.length > 120 || wanted(l.label)).slice(0, MAX_JOBS);
   const out: NormalizedOffer[] = [];

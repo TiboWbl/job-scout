@@ -120,7 +120,7 @@ export async function fillOfferImages(db: SupabaseClient, limit = 150, concurren
   const list: { id: string; apply_url: string }[] = [];
   for (let i = 0; i < ids.length && list.length < limit; i += 100) {
     const { data } = await db.from("offers").select("id, apply_url").in("id", ids.slice(i, i + 100)).is("image_url", null).is("image_checked_at", null).is("archived_at", null);
-    list.push(...((data ?? []) as { id: string; apply_url: string }[]).filter((o) => o.apply_url && !/adzuna|jooble|francetravail/.test(o.apply_url)));
+    list.push(...((data ?? []) as { id: string; apply_url: string }[]).filter((o) => o.apply_url && !/adzuna|jooble|careerjet|francetravail/.test(o.apply_url)));
   }
   let next = 0;
   let found = 0;

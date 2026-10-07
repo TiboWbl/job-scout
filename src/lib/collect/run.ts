@@ -7,6 +7,7 @@ import { titleRelevance } from "@/lib/scoring/relevance";
 import { detectExperience, detectExperienceLevel, detectSalary } from "@/lib/domain/signals";
 import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
+import { fetchCareerjet, isCareerjetConfigured } from "./connectors/careerjet";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
 import { fillCovers, fillOfferImages } from "./cover";
@@ -21,7 +22,7 @@ const COLOR_BATCH = 150;
 const RETENTION_DAYS = 60;
 // Search engines never say when an offer is withdrawn: unseen for this long, it is archived.
 const ENGINE_STALE_DAYS = 21;
-const ENGINE_SOURCES = ["adzuna", "jooble", "france-travail"];
+const ENGINE_SOURCES = ["adzuna", "jooble", "careerjet", "france-travail"];
 const BOARD_CONCURRENCY = 6;
 
 // Logs stay aggregated: counts per source, never anything about a user.
@@ -43,6 +44,7 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
   const engines: { source: string; run: () => Promise<NormalizedOffer[]> }[] = [];
   if (scope.queries.length && isAdzunaConfigured()) engines.push({ source: "adzuna", run: () => fetchAdzuna(scope.queries) });
   if (scope.queries.length && isJoobleConfigured()) engines.push({ source: "jooble", run: () => fetchJooble(scope.queries) });
+  if (scope.queries.length && isCareerjetConfigured()) engines.push({ source: "careerjet", run: () => fetchCareerjet(scope.queries) });
   if (scope.queries.length && isFranceTravailConfigured()) engines.push({ source: "france-travail", run: () => fetchFranceTravail(scope.queries.map((q) => q.what)) });
   reports.push(...(await Promise.all(engines.map((e) => collectSource(db, e.source, e.run, false, keep)))));
 

@@ -3,9 +3,9 @@ import { detectContract, detectExperienceYears } from "@/lib/domain/signals";
 import type { NormalizedOffer } from "@/lib/domain/offer";
 import { htmlToText } from "../normalize";
 import { site } from "./site";
-import { digitalrecruiters, personio, recruitee, smartrecruiters, teamtailor, welcomekit, workable, type Keep, type Wanted } from "./ats-more";
+import { workday, digitalrecruiters, personio, recruitee, smartrecruiters, teamtailor, welcomekit, workable, type Keep, type Wanted } from "./ats-more";
 
-export const ATS_LIST = ["greenhouse", "lever", "ashby", "smartrecruiters", "workable", "recruitee", "teamtailor", "personio", "digitalrecruiters", "welcomekit", "site"] as const;
+export const ATS_LIST = ["greenhouse", "lever", "ashby", "smartrecruiters", "workable", "recruitee", "teamtailor", "personio", "digitalrecruiters", "welcomekit", "site", "workday"] as const;
 export type Ats = (typeof ATS_LIST)[number];
 export type Board = { name: string; domain: string | null; ats: Ats; token: string };
 
@@ -172,7 +172,7 @@ async function ashby(board: Board): Promise<NormalizedOffer[]> {
     });
 }
 
-const FETCHERS: Record<Ats, (b: Board, keep?: Keep, wanted?: Wanted) => Promise<NormalizedOffer[]>> = { greenhouse, lever, ashby, smartrecruiters, workable, recruitee, teamtailor, personio, digitalrecruiters, welcomekit, site };
+const FETCHERS: Record<Ats, (b: Board, keep?: Keep, wanted?: Wanted) => Promise<NormalizedOffer[]>> = { greenhouse, lever, ashby, smartrecruiters, workable, recruitee, teamtailor, personio, digitalrecruiters, welcomekit, site, workday };
 
 export function fetchBoard(board: Board, keep?: Keep, wanted?: Wanted) {
   return FETCHERS[board.ats](board, keep, wanted);

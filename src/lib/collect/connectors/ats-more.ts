@@ -359,3 +359,76 @@ export async function welcomekit(board: BoardRef, keep?: Keep): Promise<Normaliz
   }
   return out;
 }
+
+// Workday ---------------------------------------------------------------------------------------
+// The public endpoint behind a company's Workday career site. The board token is "host/site"
+// (e.g. "acme.wd3.myworkdayjobs.com/AcmeCareers"). The list gives titles and cities; details are read
+// only for titles a search could use and places someone looks at.
+
+type WdItem = { title: string; externalPath: string; locationsText?: string; startDate?: string };
+type WdDetail = {
+  jobPostingInfo?: {
+    title: string;
+    jobDescription?: string;
+    location?: string;
+    additionalLocations?: string[];
+    country?: { descriptor?: string };
+    timeType?: string;
+    startDate?: string;
+    externalUrl?: string;
+  };
+};
+const WD_PAGES = 60;
+const WD_DETAILS = 80;
+
+export async function workday(board: BoardRef, keep?: Keep, wanted?: Wanted): Promise<NormalizedOffer[]> {
+  const [host, site] = board.token.split("/");
+  const tenant = host.split(".")[0];
+  const api = `https://${host}/wday/cxs/${tenant}/${site}`;
+  const items: WdItem[] = [];
+  // The total comes with the first page only.
+  let total = Infinity;
+  for (let page = 0; page < WD_PAGES; page++) {
+    const res = await fetch(`${api}/jobs`, {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ appliedFacets: {}, limit: 20, offset: page * 20, searchText: "" }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { total?: number; jobPostings?: WdItem[] };
+    if (page === 0 && data.total) total = data.total;
+    items.push(...(data.jobPostings ?? []));
+    if (!data.jobPostings || data.jobPostings.length < 20 || items.length >= total) break;
+  }
+  const out: NormalizedOffer[] = [];
+  for (const item of items) {
+    if (out.length >= WD_DETAILS) break;
+    if (wanted && !wanted(item.title)) continue;
+    const listed = parseLocation(item.locationsText ?? "", item.title);
+    // "2 Locations" says nothing yet: the detail decides.
+    if (keep && listed.places.length > 0 && !keep(listed.places, listed.remote)) continue;
+    const detail = (await (await get(`${api}${item.externalPath}`)).json().catch(() => null)) as WdDetail | null;
+    const info = detail?.jobPostingInfo;
+    if (!info) continue;
+    const country = info.country?.descriptor ?? "";
+    const raw = [info.location, ...(info.additionalLocations ?? [])].filter(Boolean).map((l) => (country ? `${l}, ${country}` : l)).join("; ");
+    const loc = parseLocation(raw, info.title);
+    if (keep && !keep(loc.places, loc.remote)) continue;
+    const description = htmlToText(info.jobDescription ?? "");
+    const url = info.externalUrl ?? `https://${host}/${site}${item.externalPath}`;
+    out.push({
+      ...base("workday", board),
+      sourceUrl: url,
+      title: info.title.trim(),
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(info.title, info.timeType ?? null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: url,
+      publishedAt: info.startDate ? new Date(info.startDate).toISOString() : null,
+    });
+  }
+  return out;
+}

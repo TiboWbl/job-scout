@@ -153,3 +153,35 @@ describe("copie d'une offre vue sur un moteur", async () => {
     expect(kept.map((k) => (k.offer as { id: string }).id)).toEqual(["a", "c", "d"]);
   });
 });
+
+describe("Careerjet", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("lit les offres de l'API v4, sans les recherches par entreprise", async () => {
+    vi.stubEnv("CAREERJET_API_KEY", "cle-de-test");
+    serve(JSON.stringify({ jobs: [{ title: "Product Manager H/F", company: "Entreprise Fictive", locations: "Paris", description: "Expérience : 2 à 4 ans en produit.", url: "https://exemple.fr/offre/1", date: "2026-10-01" }] }));
+    const { fetchCareerjet } = await import("@/lib/collect/connectors/careerjet");
+    const offers = await fetchCareerjet([{ what: "product manager", where: "Paris", country: "FR" }, { what: "", where: null, country: "FR", company: "Fictive" }]);
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({ sourceKey: "careerjet", title: "Product Manager H/F", experienceMinYears: 2 });
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("Workday", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("lit la liste puis le détail des intitulés utiles", async () => {
+    const { workday } = await import("@/lib/collect/connectors/ats-more");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        String(url).endsWith("/jobs")
+          ? new Response(JSON.stringify({ total: 2, jobPostings: [{ title: "Product Manager", externalPath: "/job/Paris/PM_1", locationsText: "Paris" }, { title: "Comptable", externalPath: "/job/Paris/C_2", locationsText: "Paris" }] }))
+          : new Response(JSON.stringify({ jobPostingInfo: { title: "Product Manager", jobDescription: "<p>Au moins 3 ans d'expérience produit.</p>", location: "Paris", country: { descriptor: "France" }, timeType: "Full time", externalUrl: "https://fictive.wd3.myworkdayjobs.com/Careers/job/Paris/PM_1" } })),
+      ),
+    );
+    const offers = await workday({ ...board, token: "fictive.wd3.myworkdayjobs.com/Careers" }, undefined, (t) => /product/i.test(t));
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({ title: "Product Manager", experienceMinYears: 3, contract: "cdi" });
+    expect(offers[0].places[0]).toMatchObject({ city: "Paris", country: "FR" });
+  });
+});

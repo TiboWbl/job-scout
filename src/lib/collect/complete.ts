@@ -7,7 +7,7 @@ import { fromUrl } from "./manual";
 // archives the offer if the link says it is gone.
 
 export const EXCERPT_LENGTH = 1200;
-const ENGINES = ["adzuna", "jooble", "france-travail"];
+const ENGINES = ["adzuna", "jooble", "careerjet", "france-travail"];
 
 export const isExcerptOnly = (o: { description: string | null; sources: string[] }) =>
   (o.description ?? "").length < EXCERPT_LENGTH && o.sources.every((s) => ENGINES.includes(s));

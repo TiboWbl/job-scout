@@ -22,17 +22,19 @@ const PATTERNS: [Ats, RegExp][] = [
   ["recruitee", /([a-z0-9-]+)\.recruitee\.com/i],
   ["teamtailor", /([a-z0-9-]+)\.teamtailor\.com/i],
   ["personio", /([a-z0-9-]+)\.jobs\.personio\.(?:de|com)/i],
+  // Workday: host and site, "acme.wd3.myworkdayjobs.com/fr-FR/AcmeCareers" → "acme.wd3.myworkdayjobs.com/AcmeCareers".
+  ["workday", /([a-z0-9-]+\.wd\d+\.myworkdayjobs\.com)\/(?:[a-z]{2}-[A-Z]{2}\/)?([A-Za-z0-9_-]+)/],
   // Welcome Kit: the organisation reference in a job page or in the widget a career page embeds.
   ["welcomekit", /data-organization-reference="([A-Za-z0-9]+)"/],
   ["welcomekit", /WelcomeKitEmbed\(\s*['"]([A-Za-z0-9]+)['"]/],
 ];
 // Tokens compared in lower case, except references that are case-sensitive.
-const CASE_SENSITIVE: Ats[] = ["welcomekit"];
+const CASE_SENSITIVE: Ats[] = ["welcomekit", "workday"];
 
 export function atsFromText(text: string): { ats: Ats; token: string } | null {
   for (const [ats, re] of PATTERNS) {
     for (const m of text.matchAll(new RegExp(re, "gi"))) {
-      const token = CASE_SENSITIVE.includes(ats) ? m[1] : decodeURIComponent(m[1]).toLowerCase();
+      const token = ats === "workday" ? `${m[1].toLowerCase()}/${m[2]}` : CASE_SENSITIVE.includes(ats) ? m[1] : decodeURIComponent(m[1]).toLowerCase();
       if (!NOT_A_COMPANY.has(token)) return { ats, token };
     }
   }
@@ -50,7 +52,6 @@ const BROWSER = { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Ap
 // Career platforms Scout cannot read (no public API, or not a legal source): named, not ignored.
 const PLATFORMS: [string, RegExp][] = [
   ["Welcome to the Jungle", /welcometothejungle\.com\/[a-z]{2}\/companies\/[a-z0-9-]+|welcomekit\.co/i],
-  ["Workday", /myworkdayjobs\.com/i],
   ["SuccessFactors", /successfactors\.(com|eu)|jobs\.sap\.com/i],
   ["Taleo", /taleo\.net/i],
   ["Talentsoft", /talent-soft\.com|talentsoft/i],

@@ -18,6 +18,11 @@ const SOURCE_LABELS: Record<string, string> = {
   recruitee: "Recruitee",
   teamtailor: "Teamtailor",
   personio: "Personio",
+  digitalrecruiters: "DigitalRecruiters",
+  welcomekit: "Welcome Kit",
+  site: "Sites carrière",
+  workday: "Workday",
+  careerjet: "Careerjet",
 };
 const ORIGIN_LABELS: Record<string, string> = { seed: "Stock de départ", crawl: "Index public (Common Crawl)", name: "Nom vu dans une offre", user: "Ajoutée par un utilisateur" };
 const LEVEL_LABELS: Record<string, string> = { coeur: "Coups de cœur", solide: "Solides", tremplin: "Tremplins", ecartee: "Écartées" };

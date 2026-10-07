@@ -48,7 +48,7 @@ export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, sala
 
 // Search engines keep postings long after they close; a career page lists only open ones (an offer
 // gone from it is archived). So only an offer known from engines alone grows stale with age.
-const ENGINES = new Set(["adzuna", "jooble", "france-travail"]);
+const ENGINES = new Set(["adzuna", "jooble", "careerjet", "france-travail"]);
 export function isStaleOffer(offer: Pick<FeedOffer, "published_at" | "first_seen_at" | "sources">, now = Date.now()) {
   return (offer.sources ?? []).every((s) => ENGINES.has(s)) && isStale(offer.published_at ?? offer.first_seen_at, now);
 }
