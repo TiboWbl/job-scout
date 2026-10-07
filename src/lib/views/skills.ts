@@ -19,7 +19,7 @@ const LANGUAGES: [RegExp, string][] = [
 ];
 
 // What the offers of a selection ask for most, and whether the CV already says it.
-export function topSkills(offers: { skills: Skill[] | null }[], cvText: string, perKind = 8): { read: number; byKind: Record<Skill["kind"], SkillStat[]> } {
+export function topSkills(offers: { skills: Skill[] | null }[], cvText: string, perKind = 8, cvSkills: string[] = []): { read: number; byKind: Record<Skill["kind"], SkillStat[]> } {
   const read = offers.filter((o) => o.skills && o.skills.length > 0);
   const groups = new Map<string, { names: Map<string, number>; kind: Skill["kind"]; offers: Set<number> }>();
   read.forEach((o, index) => {
@@ -51,13 +51,26 @@ export function topSkills(offers: { skills: Skill[] | null }[], cvText: string, 
     groups.delete(long);
   }
   const cv = ` ${key(cvText)} `;
+  const fromCv = new Set(cvSkills.map((n) => ALIASES[key(n)] ?? key(n)));
   const byKind: Record<Skill["kind"], SkillStat[]> = { outil: [], methode: [], savoir_etre: [], langue: [] };
   for (const [k, g] of groups) {
     // The spelling used most often is shown.
     const name = [...g.names.entries()].sort((a, b) => b[1] - a[1])[0][0];
     const count = g.offers.size;
-    byKind[g.kind].push({ name, kind: g.kind, count, share: Math.round((100 * count) / Math.max(1, read.length)), inCv: k.split(" ").every((w) => cv.includes(` ${w}`)) });
+    byKind[g.kind].push({ name, kind: g.kind, count, share: Math.round((100 * count) / Math.max(1, read.length)), inCv: fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`)) });
   }
   for (const kind of Object.keys(byKind) as Skill["kind"][]) byKind[kind] = byKind[kind].filter((s) => s.count >= 2).sort((a, b) => b.count - a.count).slice(0, perKind);
   return { read: read.length, byKind };
+}
+
+// The skills (from Scout's list of skills asked by offers) that a CV mentions: kept instead of the CV.
+export function cvSkillsFrom(cvText: string, names: string[]): string[] {
+  const text = ` ${key(cvText)} `;
+  const out = new Map<string, string>();
+  for (const name of names) {
+    const k = ALIASES[key(name)] ?? key(name);
+    if (!k || out.has(k)) continue;
+    if (k.split(" ").every((w) => text.includes(` ${w}`))) out.set(k, name);
+  }
+  return [...out.values()];
 }

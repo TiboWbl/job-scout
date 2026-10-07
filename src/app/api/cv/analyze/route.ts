@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
 import { compareKeywords, scoreCv } from "@/lib/cv/ats";
+import { cvSkillsFrom } from "@/lib/views/skills";
 import { Criteria } from "@/lib/domain/criteria";
 import { getLlm, LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
 import { redactPersonalData } from "@/lib/privacy/redact";
@@ -74,6 +75,11 @@ export async function POST(request: Request) {
         comparison = { title: offer.title, company: (offer.company as unknown as { name: string } | null)?.name ?? "", ...compareKeywords(text, keywords), tips: strings(read.ajustements).slice(0, 3) };
       }
     }
+
+    // Which skills asked by the person's offers this CV mentions: kept (the CV itself is not).
+    const { data: asked } = await supabase.from("offer_scores").select("offer:offers(skills)").eq("user_id", user.id).eq("scored_by", "llm").limit(1500);
+    const names = ((asked ?? []) as unknown as { offer: { skills: { name: string }[] | null } | null }[]).flatMap((r) => (r.offer?.skills ?? []).map((sk) => sk.name));
+    await supabase.from("profiles").update({ cv_skills: cvSkillsFrom(text, names) }).eq("id", user.id);
 
     // Kept to be read again later: the grid, the fixes, the rewrites and the comparison, never the CV itself.
     const { data: saved } = await supabase

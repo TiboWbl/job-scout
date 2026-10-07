@@ -204,7 +204,7 @@ describe("expérience écrite en toutes lettres", async () => {
   it("une expérience significative compte comme quelques années d'écart, sans exclure", () => {
     const offer = { title: "Product Manager", companyName: "Fictive", places: [{ city: "Paris", country: "FR" }], remote: "onsite" as const, remote_scope: [], contract: "cdi", experience_min_years: null, experience_level: "experienced" as const };
     const r = prefilter(offer, { ...PROFILE, zone: { places: [], remoteOk: true }, contracts: [] }, 1);
-    expect(r.pass && r.experienceGap).toBe(2);
+    expect(r.pass && r.experienceGap).toBe(3);
   });
 });
 

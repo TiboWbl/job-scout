@@ -12,6 +12,7 @@ export type FeedOffer = {
   experience_max_years: number | null;
   experience_level: "junior" | "experienced" | null;
   salary_text: string | null;
+  seniority_estimate: "junior" | "confirme" | "senior" | null;
   image_url: string | null;
   apply_url: string;
   published_at: string | null;
@@ -41,7 +42,7 @@ export type FeedItem = {
 };
 
 const OFFER_FIELDS =
-  "id, title, location_raw, places, remote, contract, experience_min_years, experience_max_years, experience_level, salary_text, image_url, apply_url, published_at, first_seen_at, sources, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url, product)";
+  "id, title, location_raw, places, remote, contract, experience_min_years, experience_max_years, experience_level, salary_text, seniority_estimate, image_url, apply_url, published_at, first_seen_at, sources, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url, product)";
 
 // One shape for every feed query, server-side for the selection and client-side for "Écartées".
 export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, salary, experience_asked, score_interet, score_chances, score_tremplin, why, strengths, watch, cv_levers, scored_by, offer:offers(${OFFER_FIELDS})`;

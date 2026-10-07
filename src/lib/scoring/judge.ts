@@ -99,6 +99,8 @@ export type Judgement = {
   company_product: string | null;
   // What the posting asks for, each checked in its text: stored on the offer (Mon CV sums them up).
   skills: Skill[] | null;
+  // The level the responsibilities describe, when the posting gives no experience: an estimate.
+  seniority: "junior" | "confirme" | "senior" | null;
   score_interet: number;
   score_chances: number;
   score_tremplin: number;
@@ -153,6 +155,8 @@ const Item = z.object({
     .nullish()
     .transform((v) => v ?? []),
   points_forts: List,
+  secteur_prioritaire_concerne: Text,
+  niveau_missions: Text,
   points_d_attention: List,
   leviers_cv: List,
 });
@@ -213,7 +217,7 @@ Pour chaque offre, juge le POSTE RÉEL décrit par les missions, pas l'intitulé
 
 Réponds à ces questions pour chaque offre :
 - "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
-- "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne", et dans "citation_secteur" la phrase exacte de l'offre qui le montre. Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter".
+- "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne", et dans "citation_secteur" la phrase exacte de l'offre qui le montre. Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter". Le secteur est celui du produit ou du service de l'entreprise qui recrute, jamais celui de ses clients : un cabinet de conseil, une ESN, une agence ou un cabinet de recrutement relèvent du conseil ou du service, même s'ils ont des clients dans la santé ou le sport. "prioritaire" seulement si l'entreprise elle-même est dans un des secteurs_prioritaires : recopie cet élément mot pour mot dans "secteur_prioritaire_concerne".
 - "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null. Le secteur, le type de clients (B2B, B2C), la technologie (IA, data, crypto) ou le niveau technique ne sont jamais un piège : un Product Manager B2B ou IA reste un Product Manager.
 - "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte clairement un deal-breaker du profil, sinon null ; recopie ce deal-breaker mot pour mot dans "deal_breaker_concerne", et dans "citation_deal_breaker" la phrase exacte de l'offre qui le prouve. Sans phrase de l'offre qui le prouve, ce n'est pas un deal-breaker. Un secteur non prioritaire n'est jamais un deal-breaker.
 
@@ -235,8 +239,9 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "activite_entreprise" : ce que l'entreprise fait concrètement, d'après l'offre : son produit ou service et pour qui, en 20 mots maximum (ex. « Application de suivi de rééducation pour les kinésithérapeutes et leurs patients »). Jamais de slogan, de promesse ni de valeurs ; null si l'offre ne le dit pas.
 - "competences" : 3 à 6 compétences demandées par l'offre, chacune en 1 à 3 mots recopiés de l'offre, avec "type" : "outil" (logiciel, langage), "methode" (méthode, pratique, domaine de savoir-faire), "savoir_etre" (qualité humaine) ou "langue". Rien qui ne soit écrit dans l'offre.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
-- "points_d_attention" contient le piège s'il y en a un. Listes de 0 à 2 éléments de 10 mots maximum.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "reserve", "points_forts", "points_d_attention", "leviers_cv"}]} avec un élément par offre reçue, dans le même ordre.`;
+- "points_d_attention" contient le piège s'il y en a un : 0 à 2 éléments de 10 mots maximum.
+- "niveau_missions" : d'après les responsabilités décrites (autonomie, encadrement, périmètre, interlocuteurs), le poste est-il "junior", "confirme" ou "senior" ? Juge sur les missions, pas sur l'intitulé.
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "reserve", "points_d_attention", "secteur_prioritaire_concerne", "niveau_missions"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -250,7 +255,7 @@ export function focusedExcerpt(description: string, max = 3200): string {
   return `${description.slice(0, max - requirements.length - 20)}\n[…]\n${requirements}`;
 }
 
-function profileBrief(criteria: Criteria, cv: CvSummary | null, experienceYears: number | null, favorites: string[] = [], feedback: Feedback = { liked: [], disliked: [] }) {
+export function profileBrief(criteria: Criteria, cv: CvSummary | null, experienceYears: number | null, favorites: string[] = [], feedback: Feedback = { liked: [], disliked: [] }) {
   return JSON.stringify({
     metiers_vises: criteria.targetRoles,
     variantes: criteria.titleVariants.slice(0, 12),
@@ -321,7 +326,12 @@ export async function judgeBatch(
     // Exclusions need both the person's own item and the posting's words proving it.
     const quoted = (q: string | null) => Boolean(q && q.trim().length >= 8 && squash(input.description).includes(squash(q)));
     const avoided = criteria.sectorsAvoid.find((x) => namedItem(item.secteur_evite_concerne, [x]));
-    const sector = item.secteur === "a_eviter" && !(avoided && quoted(item.citation_secteur) && proves(avoided, item.citation_secteur)) ? "autre" : item.secteur;
+    const sectorRead = item.secteur === "a_eviter" && !(avoided && quoted(item.citation_secteur) && proves(avoided, item.citation_secteur)) ? "autre" : item.secteur;
+    // A preferred sector must be one of the person's, and the company's own business: a consulting firm
+    // or an agency with clients in health is not a health company.
+    const consulting = /cabinet|conseil|consulting|\besn\b|ssii|agence|recrutement|staffing|freelances?\b/i.test(item.activite_entreprise ?? "") && !criteria.sectorsPriority.some((p) => /conseil|consulting|agence/i.test(p));
+    const sector = sectorRead === "prioritaire" && (consulting || !namedItem(item.secteur_prioritaire_concerne, criteria.sectorsPriority)) ? "autre" : sectorRead;
+    const seniority = (["junior", "confirme", "senior"] as const).find((l) => fold(item.niveau_missions ?? "").startsWith(l.slice(0, 5))) ?? null;
     // A "trap" that only talks about the sector is a sector opinion, not a misleading title: kept as a note.
     const trap = item.piege && !/\b(secteurs?|prioritaires?|sant[eé]|sport)\b/i.test(item.piege) ? item.piege : null;
     // A title naming the role sought is that role. A role read only because the company is a favourite
@@ -339,6 +349,7 @@ export async function judgeBatch(
     const reach =
       (asked !== null && asked <= (experienceYears ?? 0)) ||
       input.experienceLevel === "junior" ||
+      (asked === null && !input.experienceLevel && seniority === "junior") ||
       JUNIOR.test(foldAccents(input.title)) ||
       (asked === null && input.experienceLevel !== "experienced" && experience.label !== null && !/\d/.test(experience.label));
     const breaker = criteria.dealBreakers.find((x) => namedItem(item.deal_breaker_concerne, [x]));
@@ -361,7 +372,9 @@ export async function judgeBatch(
         ? `${years(asked!)} demandé${asked! > 1 ? "s" : ""}, ${gap} de plus que toi`
         : asked === null && input.experienceLevel === "experienced"
           ? "Expérience significative demandée"
-          : null;
+          : asked === null && !input.experienceLevel && seniority && seniority !== "junior"
+            ? `Expérience non précisée, missions de niveau ${seniority === "senior" ? "senior" : "confirmé"}`
+            : null;
     // A "reservation" that says all is well, or speaks of experience (computed above), is dropped.
     const modelNote = item.reserve && !/align|correspond|coherent|adapte|ok\b|exp[ée]rience|\bans?\b|years?/i.test(item.reserve) ? plain(item.reserve) : null;
     const reservation = experienceNote ?? modelNote;
@@ -383,13 +396,15 @@ export async function judgeBatch(
       contract_found: verifiedContract(item.contrat, item.citation_contrat, input.description),
       company_product: item.activite_entreprise && !input.excerpt ? plain(item.activite_entreprise).slice(0, 200) : null,
       skills: input.excerpt ? null : checkedSkills(item.competences, input.description),
+      seniority: input.excerpt ? null : seniority,
       score_interet: interet,
       score_chances: chances,
       score_tremplin: tremplin,
       why: item.pourquoi ? plain(item.pourquoi) : item.en_bref ? plain(item.en_bref) : "",
-      strengths: item.points_forts.slice(0, 3),
+      // Read when the offer is opened (/api/offers/[id]/details): the sorting pass stays short.
+      strengths: [],
       watch: watch.slice(0, 3),
-      cv_levers: item.leviers_cv.slice(0, 3),
+      cv_levers: [],
       excluded_reason: level === "ecartee" ? (reason ?? (item.en_bref ? plain(item.en_bref) : item.pourquoi ? plain(item.pourquoi) : "Ne correspond pas à ta recherche.")) : null,
     });
   });

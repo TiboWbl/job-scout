@@ -1,0 +1,81 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+
+type Progress = { remaining: number; note?: string };
+
+// Sorts what is left in successive calls (each fits a serverless time budget), refreshing as results
+// land. Interruptions are retried on their own: the person never has to reload. Started once per visit.
+export function useSorting(pending: number, enabled = true) {
+  const router = useRouter();
+  const [progress, setProgress] = useState<Progress | null>(enabled && pending > 0 ? { remaining: pending } : null);
+  const initialPending = useRef(enabled ? pending : 0);
+  useEffect(() => {
+    if (initialPending.current <= 0) return;
+    let cancelled = false;
+    const abort = new AbortController();
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    (async () => {
+      let remaining = initialPending.current;
+      let failures = 0;
+      let idle = 0;
+      for (let call = 0; call < 120 && !cancelled && remaining > 0; call++) {
+        const res = await fetch("/api/score", { method: "POST", signal: abort.signal }).catch(() => null);
+        if (cancelled) return;
+        if (!res?.ok) {
+          const body = (await res?.json().catch(() => null)) as { error?: string; retry?: boolean } | null;
+          failures++;
+          // The model is unreachable: say so and keep trying, never fall back to a rough guess.
+          const delay = body?.retry ? 30_000 : Math.min(5_000 * failures, 30_000);
+          setProgress({ remaining, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
+          if (failures >= 10) {
+            setProgress({ remaining, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
+            return;
+          }
+          await wait(delay);
+          continue;
+        }
+        failures = 0;
+        const data = (await res.json()) as { remaining: number; scoredNow: number };
+        if (cancelled) return;
+        // Progress only moves forward on screen, even when the estimate of what is left is revised.
+        remaining = Math.min(remaining, data.remaining);
+        idle = data.scoredNow === 0 ? idle + 1 : 0;
+        setProgress({ remaining });
+        router.refresh();
+        if (idle >= 3) break;
+      }
+      if (!cancelled) setProgress(null);
+    })();
+    return () => {
+      cancelled = true;
+      abort.abort();
+    };
+  }, [router]);
+  return progress;
+}
+
+export function SortingBanner({ progress, total }: { progress: Progress; total: number }) {
+  const done = Math.max(0, total - progress.remaining);
+  return (
+    <div className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
+      <div className="flex items-center gap-3">
+        <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
+        <p className="font-semibold">
+          Scout trie les offres pour toi : {done.toLocaleString("fr-FR")} / {total.toLocaleString("fr-FR")}
+        </p>
+      </div>
+      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
+        <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${total ? Math.round((100 * done) / total) : 0}%` }} />
+      </div>
+      <p className="mt-2 text-muted">{progress.note ?? "Les offres les plus proches de ta recherche arrivent en premier : ta sélection se remplit au fur et à mesure."}</p>
+    </div>
+  );
+}
+
+// For a server-rendered page (Aujourd'hui): runs the sort and shows its progress.
+export function SortingProgress({ pending, total }: { pending: number; total: number }) {
+  const progress = useSorting(pending);
+  return progress ? <SortingBanner progress={progress} total={total} /> : null;
+}

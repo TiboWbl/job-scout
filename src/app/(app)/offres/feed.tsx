@@ -12,6 +12,7 @@ import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
 import { CompanyLogo } from "@/components/company-logo";
 import { EditSearchButton, SearchPanel } from "@/components/search-panel";
+import { SortingBanner, useSorting } from "@/components/sorting-progress";
 import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
 
 type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
@@ -122,53 +123,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ remaining: number; note?: string } | null>(pending > 0 ? { remaining: pending } : null);
-
-  // Score what's left in successive calls (each one fits in a serverless time budget), refreshing as results land.
-  // Interruptions are retried on their own: the person never has to reload.
-  // Started once per visit: refreshing the server data must not start a second loop.
-  const initialPending = useRef(demo ? 0 : pending);
-  useEffect(() => {
-    if (initialPending.current <= 0) return;
-    let cancelled = false;
-    const abort = new AbortController();
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    (async () => {
-      let remaining = initialPending.current;
-      let failures = 0;
-      let idle = 0;
-      for (let call = 0; call < 120 && !cancelled && remaining > 0; call++) {
-        const res = await fetch("/api/score", { method: "POST", signal: abort.signal }).catch(() => null);
-        if (cancelled) return;
-        if (!res?.ok) {
-          const body = (await res?.json().catch(() => null)) as { error?: string; retry?: boolean } | null;
-          failures++;
-          // The model is unreachable: say so and keep trying, never fall back to a rough guess.
-          const delay = body?.retry ? 30_000 : Math.min(5_000 * failures, 30_000);
-          setProgress({ remaining, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
-          if (failures >= 10) {
-            setProgress({ remaining, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
-            return;
-          }
-          await wait(delay);
-          continue;
-        }
-        failures = 0;
-        const data = (await res.json()) as { remaining: number; scoredNow: number };
-        if (cancelled) return;
-        remaining = data.remaining;
-        idle = data.scoredNow === 0 ? idle + 1 : 0;
-        setProgress({ remaining });
-        router.refresh();
-        if (idle >= 3) break;
-      }
-      if (!cancelled) setProgress(null);
-    })();
-    return () => {
-      cancelled = true;
-      abort.abort();
-    };
-  }, [router]);
+  const progress = useSorting(pending, !demo);
 
   // Back on the tab after opening an offer: ask, once, whether the person applied.
   useEffect(() => {
@@ -317,20 +272,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
         </p>
       )}
 
-      {progress && (
-        <div className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
-          <div className="flex items-center gap-3">
-            <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
-            <p className="font-semibold">
-              Scout trie les offres pour toi : {Math.max(0, total - progress.remaining).toLocaleString("fr-FR")} / {total.toLocaleString("fr-FR")}
-            </p>
-          </div>
-          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
-            <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${total ? Math.round((100 * (total - progress.remaining)) / total) : 0}%` }} />
-          </div>
-          <p className="mt-2 text-muted">{progress.note ?? "Garde cette page ouverte : ta sélection se complète au fur et à mesure."}</p>
-        </div>
-      )}
+      {progress && <SortingBanner progress={progress} total={total} />}
 
       <div className="mb-5 mt-5">
         {/* The search takes exactly the width of the level selector under it; refinements sit on the selector's line. */}

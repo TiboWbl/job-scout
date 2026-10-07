@@ -39,7 +39,7 @@ type LightOffer = {
 };
 
 // Bumped whenever the prompt or the level rules change: older judgements are then redone.
-const JUDGE_RULES = 9;
+const JUDGE_RULES = 10;
 
 // Everything the model's judgement depends on. A profile change outside it (zone, openness, out-of-zone
 // setting) keeps the judgements: only the gates run again, in a second.
@@ -280,7 +280,9 @@ function scoreRow(
   wanted: string[] = [],
   companyId: string | null = null,
 ): Record<string, unknown> {
-  const { experience_years: found, contract_found: contract, company_product: product, skills, ...rest } = judged;
+  const { experience_years: found, contract_found: contract, company_product: product, skills, seniority, ...rest } = judged;
+  // The level the missions describe, kept on the offer as an estimate (shown as such).
+  if (service && seniority) service.from("offers").update({ seniority_estimate: seniority }).eq("id", offerId).is("seniority_estimate", null).then(() => undefined);
   // The posting's skills, read once for everyone.
   if (service && skills && skills.length) service.from("offers").update({ skills }).eq("id", offerId).is("skills", null).then(() => undefined);
   // The company learns what it does, once, for every offer and everyone.
@@ -301,6 +303,8 @@ function scoreRow(
         return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: `${found} ans d'expérience demandés, ${experienceYears} de ton côté.`, scored_by: "llm" };
     }
   }
+  // No years anywhere: the missions' level weighs as an estimate (confirmé ≈ 3 years, senior ≈ 5).
+  if (knownYears === null && found === null && seniority && experienceYears !== null) effectiveGap = Math.max(effectiveGap, (seniority === "senior" ? 5 : seniority === "confirme" ? 3 : 0) - experienceYears);
   // A crush is a match within reach: 2 years or more above the person's experience is Solide at best.
   const level = rest.level === "coeur" && effectiveGap >= 2 ? "solide" : rest.level;
   return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level, score_chances: Math.min(rest.score_chances, chancesCap(effectiveGap)), scored_by: "llm" };

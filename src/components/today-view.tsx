@@ -1,3 +1,4 @@
+import { SortingProgress } from "@/components/sorting-progress";
 import Link from "next/link";
 import { followUpDue, isUpcoming, type Application } from "@/lib/domain/application";
 import { Criteria } from "@/lib/domain/criteria";
@@ -70,15 +71,13 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
         {followUps.length > 0 && <span className="rounded-full bg-peach-soft px-3.5 py-1.5 text-peach-ink">{plural(followUps.length, "relance", "relances")}</span>}
       </div>
 
+      {/* New offers are sorted right here, with their progress: never a silent page that looks broken. */}
+      {pending > 0 && !base && <SortingProgress pending={pending} total={activeCount.count ?? 0} />}
+
       {/* Heading outside the grid: the side panels line up with the first offer, not with the title. */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3 xl:pr-[384px]">
         <h2 className="font-display text-2xl font-bold">Ta sélection du jour</h2>
         <div className="flex flex-wrap items-center gap-2">
-          {pending > 0 && !base && (
-            <Link href={`${base}/offres`} className="btn-soft">
-              Trier les {pending.toLocaleString("fr-FR")} nouvelles offres
-            </Link>
-          )}
           <Link href={`${base}/offres`} className="btn-soft">
             Toutes mes offres
           </Link>
@@ -88,7 +87,9 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
       <div className="mt-4 grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section>
           {selection.length === 0 ? (
-            <p className="rounded-2xl bg-surface p-6 text-muted">Rien de nouveau pour l&apos;instant. Scout continue de chercher.</p>
+            <p className="rounded-2xl bg-surface p-6 text-muted">
+              {pending > 0 && !base ? "Ta sélection arrive : Scout lit les offres les plus proches de ta recherche en premier." : "Rien de nouveau pour l'instant. Scout continue de chercher."}
+            </p>
           ) : (
             <ul className="space-y-2.5">
               {selection.map((r) => (

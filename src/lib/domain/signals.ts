@@ -131,7 +131,7 @@ export function detectExperienceLevel(description: string): ExperienceLevel | nu
 }
 
 // Years an "experienced" profile implies, used only for the gap (never shown as a number).
-export const EXPERIENCED_YEARS = 3;
+export const EXPERIENCED_YEARS = 4;
 
 // Lowest number of years the offer asks for, or null when it doesn't say.
 export function detectExperienceYears(description: string): number | null {
@@ -147,8 +147,13 @@ export function experienceLabel(min: number | null, max: number | null): string 
 }
 
 // The card's reading: the years when the posting gives them, otherwise its own words.
-export function experienceText(min: number | null, max: number | null, level: ExperienceLevel | null | undefined): string | null {
-  return experienceLabel(min, max) ?? (level === "junior" ? "Profil junior accepté" : level === "experienced" ? "Expérience significative demandée" : null);
+// `estimate`: the level the missions describe when nothing is written, said as an estimate.
+export function experienceText(min: number | null, max: number | null, level: ExperienceLevel | null | undefined, estimate?: string | null): string | null {
+  return (
+    experienceLabel(min, max) ??
+    (level === "junior" ? "Profil junior accepté" : level === "experienced" ? "Expérience significative demandée" : null) ??
+    (estimate === "junior" ? "Non précisée · missions de niveau junior (estimé)" : estimate === "confirme" ? "Non précisée · missions de niveau confirmé (estimé)" : estimate === "senior" ? "Non précisée · missions de niveau senior (estimé)" : null)
+  );
 }
 
 // Minimum experience an intitulé implies, used only as a coarse, safe gate.

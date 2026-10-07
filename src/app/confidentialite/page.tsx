@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <section>
           <h2>L&apos;intelligence artificielle</h2>
           <p className="mt-2">
-            Scout utilise Mistral AI, une entreprise française, pour comprendre ta recherche, lire ton CV et juger les offres. <strong>Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA</strong> : ils sont retirés du texte du CV avant tout envoi. L&apos;utilisation des données pour l&apos;entraînement des modèles est désactivée.
+            Scout utilise Mistral AI, une entreprise française, pour comprendre ta recherche, lire ton CV et juger les offres. <strong>Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA</strong> : ils sont retirés du texte du CV avant tout envoi. L&apos;utilisation des données pour l&apos;entraînement des modèles est désactivée. Si tu actives l&apos;email des coups de cœur dans Paramètres, il t&apos;est envoyé par Gmail (Google) à l&apos;adresse de ton compte, avec seulement les offres concernées.
           </p>
         </section>
 

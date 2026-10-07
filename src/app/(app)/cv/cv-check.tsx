@@ -442,7 +442,7 @@ function Demand({ demand, hasCv }: { demand: { read: number; byKind: Record<Skil
     <section className="mt-12">
       <h2 className="font-display text-2xl font-bold">Ce que demandent tes offres</h2>
       <p className="mt-1 text-sm text-muted">
-        D&apos;après les {demand.read} offres de ta sélection lues en détail, ce qui revient le plus souvent{hasCv ? ", et ce que ton CV mentionne déjà" : ""}.
+        D&apos;après les {demand.read} offres que Scout a lues en détail pour ta recherche, ce qui revient le plus souvent{hasCv ? ", et ce que ton CV mentionne déjà" : ""}.
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         {kinds.map(([kind, label]) => (

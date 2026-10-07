@@ -32,7 +32,7 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
   const style = useMemo(() => tintStyle(offer.company.accent_color), [offer.company.accent_color]);
   const seenAt = offer.published_at ?? offer.first_seen_at;
   // What the posting states (read deterministically) first, else what the model quoted from it.
-  const experience = experienceText(offer.experience_min_years, offer.experience_max_years, offer.experience_level) ?? item.experience_asked;
+  const experience = experienceText(offer.experience_min_years, offer.experience_max_years, offer.experience_level, offer.seniority_estimate) ?? item.experience_asked;
 
   return (
     <article

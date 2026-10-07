@@ -87,3 +87,13 @@ describe("compétences demandées par la sélection", async () => {
     expect(r.byKind.outil.some((s) => s.name === "Figma")).toBe(false);
   });
 });
+
+describe("email des coups de cœur", async () => {
+  const { digestHtml } = await import("@/lib/digest");
+  it("échappe les textes des offres et rappelle comment le désactiver", () => {
+    const html = digestHtml("Camille", [{ id: "1", title: "PM <Junior>", company: "Fictive & Co", why: null }]);
+    expect(html).toContain("PM &lt;Junior&gt;");
+    expect(html).toContain("Fictive &amp; Co");
+    expect(html).toContain("Paramètres");
+  });
+});

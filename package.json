@@ -15,6 +15,7 @@
     "discover": "tsx scripts/discover.mts",
     "brand": "tsx scripts/brand.mts",
     "score:all": "tsx scripts/score-all.mts",
+    "digest": "tsx scripts/digest.mts",
     "demo:seed": "tsx scripts/demo-seed.mts"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.52.0",
     "next": "16.3.8",
+    "nodemailer": "^7.0.13",
     "pdfjs-dist": "^6.4.299",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -32,6 +34,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.19.1",
+    "@types/nodemailer": "^8.0.2",
     "@types/opentype.js": "^1.3.10",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
