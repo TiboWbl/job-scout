@@ -51,5 +51,5 @@ describe.skipIf(!LLM_ENABLED)("jugement LLM", () => {
       if (e.hasWatch && j.watch.length === 0) failures.push(`${c.name} : aucun point d'attention`);
     });
     expect(failures).toEqual([]);
-  });
+  }, 300_000);
 });
