@@ -156,7 +156,7 @@ describe("copie d'une offre vue sur un moteur", async () => {
 
 describe("Careerjet", () => {
   afterEach(() => vi.unstubAllGlobals());
-  it("lit les offres de l'API v4, sans les recherches par entreprise", async () => {
+  it("lit les offres de l'API v4 ; une recherche par entreprise ne garde que ses offres", async () => {
     vi.stubEnv("CAREERJET_API_KEY", "cle-de-test");
     serve(JSON.stringify({ jobs: [{ title: "Product Manager H/F", company: "Entreprise Fictive", locations: "Paris", description: "Expérience : 2 à 4 ans en produit.", url: "https://exemple.fr/offre/1", date: "2026-10-01" }] }));
     const { fetchCareerjet } = await import("@/lib/collect/connectors/careerjet");

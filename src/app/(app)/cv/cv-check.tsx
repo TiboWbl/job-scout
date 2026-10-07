@@ -3,11 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { AtsResult } from "@/lib/cv/ats";
+import type { Level } from "@/lib/domain/offer";
+import { LevelBadge } from "@/components/level-badge";
 import { readCv } from "@/lib/cv/extract";
 import { createClient } from "@/lib/supabase/browser";
+import { TrashIcon } from "@/components/icons";
 
 export type HistoryRow = { id: string; created_at: string; filename: string; total: number; result: AtsResult | null; suggestions: Suggestion[]; comparison: Comparison | null };
-export type OfferOption = { id: string; label: string; group: string };
+export type OfferOption = { id: string; title: string; company: string; place: string | null; level: Level; tracked: boolean };
 type Suggestion = { ligne: string; proposition: string; pourquoi?: string | null };
 type Comparison = { title: string; company: string; score: number; present: string[]; missing: string[]; tips: string[] };
 // `text` exists only right after an analysis: the CV is never stored, so a saved one has no ATS view.
@@ -79,7 +82,6 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
     }
   }
 
-  const groups = [...new Set(offers.map((o) => o.group))];
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
@@ -106,29 +108,13 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
           <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50">
             {busy ? "Analyse en cours…" : file ? "Analyser une autre version" : "Choisir mon CV (PDF)"}
           </button>
-          {offers.length > 0 && (
-            <label className="flex min-w-0 items-center gap-2 text-sm">
-              <span className="text-muted">Comparer à</span>
-              <select value={offerId} onChange={(e) => setOfferId(e.target.value)} className="max-w-[340px] rounded-xl border border-line bg-surface px-3 py-2 text-sm">
-                <option value="">aucune offre</option>
-                {groups.map((g) => (
-                  <optgroup key={g} label={g}>
-                    {offers.filter((o) => o.group === g).map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-          )}
           {file && !busy && (
             <button type="button" onClick={() => analyse()} className="btn-soft">
               Relancer l&apos;analyse
             </button>
           )}
         </div>
+        {offers.length > 0 && <OfferPicker offers={offers} value={offerId} onChange={setOfferId} />}
         <p className="mt-3 text-[13px] text-muted">Le PDF est lu dans ton navigateur. Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA, et le texte du CV n&apos;est pas conservé : seule la note l&apos;est.</p>
         {error && <p className="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>}
       </section>
@@ -148,8 +134,12 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
           <p className="mt-1 text-sm text-muted">Clique sur une analyse pour la relire. Seuls le nom du fichier et l&apos;analyse sont gardés, jamais ton CV.</p>
           <ul className="mt-4 space-y-2">
             {rows.map((h) => (
-              <li key={h.id} className={`flex items-center gap-2 rounded-2xl border p-2 ${analysis?.id === h.id ? "border-ink bg-surface" : "border-line bg-surface"}`}>
-                <button type="button" onClick={() => openSaved(h)} disabled={!h.result} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1 text-left text-sm hover:bg-pill-solid disabled:cursor-default">
+              // The whole row reacts (and grows a little): it is one thing to open.
+              <li
+                key={h.id}
+                className={`group flex items-center gap-2 rounded-2xl border bg-surface p-2 transition-transform duration-150 hover:scale-[1.01] hover:border-ink hover:shadow-md ${analysis?.id === h.id ? "border-ink" : "border-line"}`}
+              >
+                <button type="button" onClick={() => openSaved(h)} disabled={!h.result} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-sm disabled:cursor-default">
                   <span className="text-muted">{date(h.created_at)}</span>
                   <span className="truncate font-medium">{h.filename || "CV"}</span>
                   <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid">
@@ -157,8 +147,14 @@ export function CvCheck({ history, offers, initialOfferId }: { history: HistoryR
                   </span>
                   <span className="text-right font-semibold tabular-nums">{h.total}</span>
                 </button>
-                <button type="button" onClick={() => removeSaved(h.id)} aria-label={`Supprimer l'analyse du ${date(h.created_at)}`} className="btn-soft shrink-0 px-3 py-1.5 text-[13px]">
-                  Supprimer
+                <button
+                  type="button"
+                  onClick={() => removeSaved(h.id)}
+                  aria-label={`Supprimer l'analyse du ${date(h.created_at)}`}
+                  title="Supprimer cette analyse"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#d14343] hover:bg-[#d14343]/10"
+                >
+                  <TrashIcon className="h-[18px] w-[18px]" />
                 </button>
               </li>
             ))}
@@ -318,6 +314,87 @@ function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | nu
           <pre className="h-[640px] overflow-auto whitespace-pre-wrap rounded-xl bg-pill-solid p-4 font-sans text-[13px] leading-relaxed">{text || "Aucun texte extrait."}</pre>
         </div>
       </section>
+      )}
+    </div>
+  );
+}
+
+const foldText = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+// Comparing with an offer: any offer of the selection, found by title or company, shown with enough to
+// recognise it (company, place, level). Those in the tracking come first.
+function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value: string; onChange: (id: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const chosen = offers.find((o) => o.id === value) ?? null;
+  const q = foldText(query.trim());
+  const shown = (q ? offers.filter((o) => foldText(`${o.title} ${o.company}`).includes(q)) : offers).slice(0, 8);
+  const line = (o: OfferOption) => (
+    <span className="min-w-0 flex-1">
+      <span className="block truncate font-medium">{o.title}</span>
+      <span className="block truncate text-[12.5px] text-muted">
+        {o.company}
+        {o.place ? ` · ${o.place}` : ""}
+        {o.tracked ? " · dans ton suivi" : ""}
+      </span>
+    </span>
+  );
+
+  return (
+    <div className="mt-4">
+      <p className="text-sm font-semibold">Comparer à une offre <span className="font-normal text-muted">(facultatif)</span></p>
+      {chosen && !picking ? (
+        <div className="mt-2 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-sm">
+          {line(chosen)}
+          <LevelBadge level={chosen.level} />
+          <button
+            type="button"
+            onClick={() => {
+              setPicking(true);
+              setListOpen(true);
+            }}
+            className="btn-soft shrink-0"
+          >
+            Changer
+          </button>
+          <button type="button" onClick={() => onChange("")} className="btn-soft shrink-0">
+            Aucune
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 rounded-2xl border border-line bg-surface p-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setListOpen(true)}
+            placeholder={`Chercher parmi tes ${offers.length} offres : intitulé ou entreprise`}
+            aria-label="Chercher une offre à comparer"
+            className="w-full rounded-xl bg-pill-solid px-3.5 py-2.5 text-sm placeholder:text-muted focus:outline-none"
+          />
+          {listOpen && (
+          <ul className="mt-1.5 max-h-72 overflow-y-auto">
+            {shown.map((o) => (
+              <li key={o.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(o.id);
+                    setPicking(false);
+                    setListOpen(false);
+                    setQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-pill-solid"
+                >
+                  {line(o)}
+                  <LevelBadge level={o.level} />
+                </button>
+              </li>
+            ))}
+            {shown.length === 0 && <li className="px-3 py-2 text-sm text-muted">Aucune offre ne correspond.</li>}
+          </ul>
+          )}
+        </div>
       )}
     </div>
   );

@@ -44,7 +44,8 @@ export default async function AdminPage() {
         {[
           ["Offres actives en France", stats.activeOffers],
           ["Pages carrière surveillées", stats.directory],
-          ["Offres lues par l'IA", stats.judgedByAi],
+          // Only offers that pass the gates and whose title is close to a role someone seeks reach the model.
+          ["Offres proches d'un métier recherché, lues par l'IA", stats.judgedByAi],
           ["Personnes qui cherchent", stats.onboarded],
           ["Candidatures suivies", stats.applications],
           ["Offres ajoutées par URL", stats.added],

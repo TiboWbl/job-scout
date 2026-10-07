@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { TrashIcon } from "@/components/icons";
 
 export function RemoveFavorite({ companyId, name }: { companyId: string; name: string }) {
   const router = useRouter();
@@ -16,9 +17,10 @@ export function RemoveFavorite({ companyId, name }: { companyId: string; name: s
         router.refresh();
       }}
       aria-label={`Retirer ${name} de mes favorites`}
-      className="btn-soft shrink-0 px-3 py-1.5 text-[13px] disabled:opacity-50"
+      title="Retirer de mes favorites"
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#d14343] hover:bg-[#d14343]/10 disabled:opacity-50"
     >
-      Retirer
+      <TrashIcon className="h-[18px] w-[18px]" />
     </button>
   );
 }

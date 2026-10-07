@@ -1,7 +1,7 @@
 import { parseLocation } from "@/lib/domain/geo";
 import { detectContract, detectExperienceYears } from "@/lib/domain/signals";
 import type { NormalizedOffer } from "@/lib/domain/offer";
-import { htmlToText } from "../normalize";
+import { companyKey, htmlToText } from "../normalize";
 import type { SearchQuery } from "./adzuna";
 
 // Careerjet search API v4 (free publisher key, basic auth). Like Jooble it returns an excerpt; the
@@ -43,11 +43,13 @@ function normalize(j: CareerjetJob): NormalizedOffer | null {
 export async function fetchCareerjet(queries: SearchQuery[]): Promise<NormalizedOffer[]> {
   const out = new Map<string, NormalizedOffer>();
   const auth = `Basic ${Buffer.from(`${process.env.CAREERJET_API_KEY}:`).toString("base64")}`;
-  for (const q of queries.filter((x) => !x.company)) {
-    for (let page = 0; page < MAX_PAGES; page++) {
+  for (const q of queries) {
+    // A favourite without a readable career page is searched by name: only its own offers are kept.
+    const wanted = q.company ? companyKey(q.company) : null;
+    for (let page = 0; page < (q.company ? 1 : MAX_PAGES); page++) {
       const url = new URL(ENDPOINT);
       url.searchParams.set("locale_code", LOCALES[q.country ?? "FR"] ?? "fr_FR");
-      url.searchParams.set("keywords", q.what);
+      url.searchParams.set("keywords", q.company ?? q.what);
       if (q.where) url.searchParams.set("location", q.where);
       url.searchParams.set("page_size", String(PAGE_SIZE));
       url.searchParams.set("offset", String(page * PAGE_SIZE));
@@ -58,6 +60,7 @@ export async function fetchCareerjet(queries: SearchQuery[]): Promise<Normalized
       if (!res.ok) throw new Error(`search HTTP ${res.status}`);
       const data = (await res.json()) as { jobs?: CareerjetJob[] };
       for (const j of data.jobs ?? []) {
+        if (wanted && companyKey(j.company ?? "") !== wanted) continue;
         const offer = normalize(j);
         if (offer) out.set(offer.sourceUrl, offer);
       }
