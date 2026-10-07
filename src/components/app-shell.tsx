@@ -6,6 +6,7 @@ const ITEMS = [
   { href: "/aujourdhui", label: "Aujourd'hui" },
   { href: "/offres", label: "Offres" },
   { href: "/suivi", label: "Suivi" },
+  { href: "/cv", label: "Mon CV" },
   { href: "/recherche", label: "Ma recherche" },
 ];
 

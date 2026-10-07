@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
@@ -227,6 +228,12 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
         <button type="button" onClick={() => setNopeOpen((v) => !v)} aria-label="Pas pour moi" className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-pill text-muted hover:text-ink">
           <NopeIcon className="h-[18px] w-[18px]" />
         </button>
+        {!loadDescription && (
+          // Not in the demo (no account, no CV): adapt the CV to this offer before applying.
+          <Link href={`/cv?offre=${offer.id}`} className="btn-soft h-11 max-sm:hidden">
+            Adapter mon CV
+          </Link>
+        )}
         <button type="button" onClick={onApply} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-button px-4 text-sm font-semibold text-button-ink hover:opacity-90">
           {/greenhouse|lever\.co|ashbyhq/.test(offer.apply_url) ? `Postuler sur le site de ${offer.company.name}` : "Postuler sur l'annonce d'origine"}
           <ArrowIcon className="h-4 w-4" />

@@ -232,6 +232,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Mode **« Comparer à une offre »** : score d'adéquation à une offre précise, mots-clés manquants, ajustements prioritaires.
 - Historique des versions et progression de la note.
 - Afficher honnêtement qu'il n'existe pas de score ATS universel : la note est celle de la grille Scout, indicative.
+- Fonctionnement : le PDF est lu dans le navigateur (texte dans l'ordre de lecture, colonnes et titres en lettres espacées détectés par la position des mots) ; la grille est calculée par des règles fixes côté serveur. Le LLM, sur le texte sans nom ni coordonnées, propose seulement les mots-clés du métier (leur présence est vérifiée dans le texte) et jusqu'à trois lignes à renforcer (citées mot pour mot, sans chiffre inventé : « [chiffre] »). En comparaison, les mots-clés de l'offre ne comptent que s'ils sont écrits dans l'offre. Seules la note et ses parties sont gardées (historique), jamais le texte. Un bouton « Adapter mon CV » dans le détail d'une offre ouvre la comparaison.
 
 ## Design et ambiance
 
@@ -336,7 +337,7 @@ Priorité absolue : la pertinence des offres proposées et ne rater aucune offre
 2. **V2.2 Vitesse** (faite) : onglets de la barre latérale chargés en arrière-plan et onglets visités gardés 30 s dans le navigateur (rafraîchis après chaque action), cartes des offres dessinées par 24 au fil du défilement (page Offres de 638 à 300 Ko), vérifications d'accès en parallèle à chaque page.
 3. **V2.3 Simplicité et finitions** (faite) : photos aussi tirées de la page de l'offre et de la page carrière, site des employeurs connus par leur seul nom deviné puis confirmé par le LLM face à leurs offres (jamais de logo ou de photo d'une autre entreprise), offres écartées en cartes avec une étiquette de raison (Contrat, Expérience, Lieu, Métier éloigné, Secteur, Contenu du poste, Ton choix), critères de Ma recherche en blocs colorés (clair et sombre), filtre « Écartées » parmi les filtres, recherche alignée au pixel sur les filtres, couleurs plus marquées, plus de photos, titre d'onglet par page, « Ma recherche » allégée (moins de texte, favorites compactes, pleine largeur), critères modifiables depuis Offres, étoile pour les favorites, plus de page /login ni de « Se connecter » (la page d'accueil suffit), déconnexion vers l'accueil, bannière de démo « rien n'est enregistré », lien Confidentialité de l'accueil, passe sur tout le site pour retirer le superflu.
 4. **V2.4 Suivi et Paramètres** (faite) : cartes déplaçables par glisser-déposer, graphiques (candidatures, entretiens, taux de réponse, par semaine), page Paramètres depuis le menu du compte (mode clair ou sombre, suppression du compte), bouton du compte encadré.
-5. **V2.5 CV** : analyse ATS sur 100 avec recommandations et comparaison à une offre.
+5. **V2.5 CV** (faite) : analyse ATS sur 100 avec recommandations et comparaison à une offre.
 6. **V2.6 Le reste du backlog** :
    - notifications (Telegram pour un Coup de cœur, digest quotidien désactivable) ;
    - onglet Entreprises ; raccourci ⌘K ;

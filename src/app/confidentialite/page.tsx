@@ -18,7 +18,7 @@ export default function PrivacyPage() {
             <li>Ton compte Google : prénom, nom, adresse email et photo, pour te connecter.</li>
             <li>Ta recherche : le texte que tu as écrit et les critères qui en sont tirés.</li>
             <li>
-              Ton CV, s&apos;il est fourni : le fichier est lu dans ton navigateur et n&apos;est jamais conservé. Scout n&apos;en garde qu&apos;un résumé (formation, expériences, compétences, langues), ainsi que le nom du fichier et la date de lecture.
+              Ton CV, s&apos;il est fourni : le fichier est lu dans ton navigateur et n&apos;est jamais conservé. Scout n&apos;en garde qu&apos;un résumé (formation, expériences, compétences, langues), ainsi que le nom du fichier et la date de lecture. L&apos;analyse de « Mon CV » ne garde que la note obtenue, jamais le texte.
             </li>
             <li>Ce que tu fais dans Scout : offres sauvegardées ou écartées (avec la raison), candidatures suivies (dates, contact, notes), entreprises favorites.</li>
           </ul>
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
         <section>
           <h2>Combien de temps, et comment tout supprimer</h2>
           <p className="mt-2">
-            Tes données restent tant que ton compte existe. Dans « Ma recherche », le bouton « Supprimer mon compte » efface aussitôt et définitivement ta recherche, le résumé de ton CV, tes offres, ton suivi et tes favorites. Ton invitation reste valable si tu veux revenir. Tu peux aussi modifier ta recherche et remplacer ton CV à tout moment.
+            Tes données restent tant que ton compte existe. Dans « Paramètres », le bouton « Supprimer mon compte » efface aussitôt et définitivement ta recherche, le résumé de ton CV, tes offres, ton suivi et tes favorites. Ton invitation reste valable si tu veux revenir. Tu peux aussi modifier ta recherche et remplacer ton CV à tout moment.
           </p>
         </section>
 

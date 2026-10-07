@@ -1,0 +1,255 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import type { AtsResult } from "@/lib/cv/ats";
+import { readCv } from "@/lib/cv/extract";
+
+export type HistoryRow = { id: string; created_at: string; filename: string; total: number };
+export type OfferOption = { id: string; label: string; group: string };
+type Suggestion = { ligne: string; proposition: string };
+type Comparison = { title: string; company: string; score: number; present: string[]; missing: string[]; tips: string[] };
+type Analysis = { result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; text: string };
+
+const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
+const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+
+export function CvCheck({ history, offers, initialOfferId }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null }) {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [offerId, setOfferId] = useState(initialOfferId && offers.some((o) => o.id === initialOfferId) ? initialOfferId : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+
+  // The PDF is shown from the browser's memory, next to what an ATS reads; it is never uploaded.
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- object URL tied to the chosen file
+    setPdfUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  async function analyse(chosen = file) {
+    if (!chosen) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { text, layout } = await readCv(chosen);
+      const res = await fetch("/api/cv/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, layout, filename: chosen.name, sizeBytes: chosen.size, ...(offerId ? { offerId } : {}) }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "L'analyse n'a pas abouti, réessaie.");
+      setAnalysis({ ...data, text });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "Ce PDF ne se lit pas bien. Essaie une autre version.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const groups = [...new Set(offers.map((o) => o.group))];
+
+  return (
+    <div className="px-1 pb-16 pt-3 md:px-2">
+      <h1 className="font-display text-5xl font-extrabold tracking-tight">Mon CV</h1>
+      <p className="mt-2 max-w-2xl text-[15px] text-muted">
+        Une note sur 100 selon la grille de Scout, et ce qu&apos;il faut corriger. Il n&apos;existe pas de score ATS universel : celui-ci est indicatif, mais chaque point a une raison.
+      </p>
+
+      <section className="mt-6 rounded-[22px] bg-brand-soft/50 p-5 md:p-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              setFile(f);
+              setAnalysis(null);
+              if (f) analyse(f);
+              e.target.value = "";
+            }}
+          />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50">
+            {busy ? "Analyse en cours…" : file ? "Analyser une autre version" : "Choisir mon CV (PDF)"}
+          </button>
+          {offers.length > 0 && (
+            <label className="flex min-w-0 items-center gap-2 text-sm">
+              <span className="text-muted">Comparer à</span>
+              <select value={offerId} onChange={(e) => setOfferId(e.target.value)} className="max-w-[340px] rounded-xl border border-line bg-surface px-3 py-2 text-sm">
+                <option value="">aucune offre</option>
+                {groups.map((g) => (
+                  <optgroup key={g} label={g}>
+                    {offers.filter((o) => o.group === g).map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          )}
+          {file && !busy && (
+            <button type="button" onClick={() => analyse()} className="btn-soft">
+              Relancer l&apos;analyse
+            </button>
+          )}
+        </div>
+        <p className="mt-3 text-[13px] text-muted">Le PDF est lu dans ton navigateur. Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA, et le texte du CV n&apos;est pas conservé : seule la note l&apos;est.</p>
+        {error && <p className="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>}
+      </section>
+
+      {busy && (
+        <p role="status" className="mt-6 flex items-center gap-3 text-sm text-muted">
+          <span aria-hidden className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-brand" />
+          Scout lit ton CV comme un ATS, puis le compare au métier que tu vises. Compte une dizaine de secondes.
+        </p>
+      )}
+
+      {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
+
+      {history.length > 0 && (
+        <section className="mt-12">
+          <h2 className="font-display text-2xl font-bold">Tes analyses</h2>
+          <ul className="mt-4 space-y-2">
+            {history.map((h) => (
+              <li key={h.id} className="grid grid-cols-[7rem_1fr_3rem] items-center gap-3 text-sm">
+                <span className="text-muted">{date(h.created_at)}</span>
+                <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid" title={h.filename}>
+                  <span className={`block h-full rounded-full ${tone(h.total / 100)}`} style={{ width: `${h.total}%` }} />
+                </span>
+                <span className="text-right font-semibold tabular-nums">{h.total}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | null }) {
+  const { result, suggestions, comparison, text } = analysis;
+  return (
+    <div className="mt-8 space-y-6">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_1fr]">
+        <div className="rounded-[22px] bg-violet-soft p-6 text-violet-ink">
+          <p className="font-display text-6xl font-extrabold tabular-nums">{result.total}</p>
+          <p className="text-sm">sur 100, grille Scout</p>
+        </div>
+        <div className="space-y-3 rounded-[22px] border border-line bg-surface p-5">
+          {result.categories.map((c) => (
+            <div key={c.key} className="grid grid-cols-[minmax(0,11rem)_1fr_4rem] items-center gap-3 text-sm">
+              <span className="font-medium">{c.label}</span>
+              <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid">
+                <span className={`block h-full rounded-full ${tone(c.score / c.max)}`} style={{ width: `${(100 * c.score) / c.max}%` }} />
+              </span>
+              <span className="text-right tabular-nums text-muted">
+                {c.score}/{c.max}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {comparison && (
+        <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+          <h2 className="font-display text-xl font-bold">
+            Face à « {comparison.title} »{comparison.company ? ` · ${comparison.company}` : ""}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            {comparison.score} % des mots-clés de l&apos;offre se retrouvent dans ton CV.
+          </p>
+          {comparison.missing.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-[13px] font-semibold text-muted">Absents de ton CV</h3>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {comparison.missing.map((k) => (
+                  <span key={k} className="rounded-full bg-peach-soft px-3 py-1 text-[13px] font-medium text-peach-ink">{k}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {comparison.present.length > 0 && (
+            <div className="mt-3">
+              <h3 className="text-[13px] font-semibold text-muted">Déjà présents</h3>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {comparison.present.map((k) => (
+                  <span key={k} className="rounded-full bg-mint-soft px-3 py-1 text-[13px] font-medium text-mint-ink">{k}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {comparison.tips.length > 0 && (
+            <ul className="mt-4 list-disc space-y-1 pl-5 text-[14.5px]">{comparison.tips.map((t) => <li key={t}>{t}</li>)}</ul>
+          )}
+          <p className="mt-3 text-[13px] text-muted">N&apos;ajoute que ce qui correspond vraiment à ton expérience.</p>
+        </section>
+      )}
+
+      <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+        <h2 className="font-display text-xl font-bold">Ce qu&apos;il faut corriger</h2>
+        <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {result.categories.map((c) => (
+            <div key={c.key}>
+              <h3 className="text-[13px] font-semibold text-muted">
+                {c.label} · {c.score}/{c.max}
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {c.checks.map((k) => (
+                  <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
+                    <span aria-hidden className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${k.ok ? "bg-mint-soft text-mint-ink" : "bg-peach-soft text-peach-ink"}`}>
+                      {k.ok ? "✓" : "!"}
+                    </span>
+                    <span>
+                      <span className="font-medium">{k.label}</span>
+                      {!k.ok && (
+                        <span className="block text-muted">
+                          {k.fix} <span className="whitespace-nowrap">({k.points}/{k.max})</span>
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {suggestions.length > 0 && (
+        <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+          <h2 className="font-display text-xl font-bold">Lignes à renforcer</h2>
+          <ul className="mt-4 space-y-4">
+            {suggestions.map((s) => (
+              <li key={s.ligne} className="grid grid-cols-1 gap-2 text-[14px] md:grid-cols-2">
+                <p className="rounded-xl bg-pill-solid p-3 text-muted">{s.ligne}</p>
+                <p className="rounded-xl bg-mint-soft p-3 text-mint-ink">{s.proposition}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-[13px] text-muted">Remplace [chiffre] par tes vrais résultats.</p>
+        </section>
+      )}
+
+      <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+        <h2 className="font-display text-xl font-bold">Ce que voit un ATS</h2>
+        <p className="mt-1 text-sm text-muted">À gauche ton CV, à droite le texte qu&apos;un logiciel de recrutement en extrait, dans l&apos;ordre où il le lit. Des blocs mélangés ou manquants à droite sont à corriger.</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {pdfUrl && <iframe src={pdfUrl} title="Ton CV" className="h-[640px] w-full rounded-xl border border-line bg-white" />}
+          <pre className="h-[640px] overflow-auto whitespace-pre-wrap rounded-xl bg-pill-solid p-4 font-sans text-[13px] leading-relaxed">{text || "Aucun texte extrait."}</pre>
+        </div>
+      </section>
+    </div>
+  );
+}
