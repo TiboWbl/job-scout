@@ -20,7 +20,7 @@ function weekStart(now: Date) {
   return d.getTime();
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
 // In 30 seconds: what to look at today, who to follow up with, what is coming, how the week goes.
 // Shared by the app and the public demo: `base` prefixes the links ("" or "/demo").

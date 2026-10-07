@@ -88,7 +88,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, cvSource }: {
     <div className="px-1 pb-16 pt-3 md:px-2">
       <h1 className="font-display text-5xl font-extrabold tracking-tight">Mon CV</h1>
       <p className="mt-2 max-w-2xl text-[15px] text-muted">
-        Deux lectures de ton CV. Le test ATS vérifie qu&apos;un logiciel de recrutement le lit bien : une note sur 100 où chaque point a une raison. La lecture recruteur dit ce qui convainc et ce qui manque pour ton métier, ou pour une offre que tu choisis.
+        Le test ATS vérifie qu&apos;un logiciel de recrutement lit bien ton CV. La lecture recruteur dit ce qui convainc et ce qui manque.
       </p>
 
       <section className="mt-6 rounded-[22px] bg-brand-soft/50 p-5 md:p-6">
@@ -115,14 +115,14 @@ export function CvCheck({ history, offers, initialOfferId, demand, cvSource }: {
           )}
         </div>
         {offers.length > 0 && <OfferPicker offers={offers} value={offerId} onChange={setOfferId} />}
-        <p className="mt-3 text-[13px] text-muted">Le PDF est lu dans ton navigateur. Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA, et le texte du CV n&apos;est pas conservé : seule la note l&apos;est.</p>
+        <p className="mt-3 text-[13px] text-muted">Tes coordonnées ne sont jamais envoyées à l&apos;IA, et ton CV n&apos;est pas conservé.</p>
         {error && <p className="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>}
       </section>
 
       {busy && (
         <p role="status" className="mt-6 flex items-center gap-3 text-sm text-muted">
           <span aria-hidden className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-brand" />
-          Scout lit ton CV comme un ATS, puis comme un recruteur pour le poste visé. Compte une vingtaine de secondes.
+          Analyse en cours, une vingtaine de secondes.
         </p>
       )}
 
@@ -133,7 +133,6 @@ export function CvCheck({ history, offers, initialOfferId, demand, cvSource }: {
       {rows.length > 0 && (
         <section className="mt-12">
           <h2 className="font-display text-2xl font-bold">Tes analyses</h2>
-          <p className="mt-1 text-sm text-muted">Ouvre une analyse pour la relire. Seuls le nom du fichier et l&apos;analyse sont gardés, jamais ton CV.</p>
           <ul className="mt-4 space-y-2">
             {rows.map((h) => (
               // The whole row reacts (and grows a little): it is one thing to open.
@@ -176,11 +175,6 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
         {analysis.filename || "Ton CV"}
         {analysis.createdAt ? ` · analysé le ${date(analysis.createdAt)}` : ""}
       </p>
-      <p className="rounded-2xl bg-pill-solid px-4 py-3 text-[14px]">
-        {result.total >= 85
-          ? "Ton CV passe bien les logiciels de recrutement. Pour savoir s'il convainc, lis la lecture recruteur : rien n'est obligatoire, garde ce qui te ressemble."
-          : "Ce sont des recommandations, pas des obligations : commence par ce qui rapporte le plus de points, et garde ce qui te ressemble."}
-      </p>
       <section className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_1fr]">
         <div className="rounded-[22px] bg-violet-soft p-6 text-violet-ink">
           <p className="font-display text-6xl font-extrabold tabular-nums">{result.total}</p>
@@ -204,7 +198,7 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
       {recruiter && (recruiter.avis || recruiter.atouts.length > 0) && (
         <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
           <h2 className="font-display text-xl font-bold">Lecture recruteur</h2>
-          <p className="mt-1 text-sm text-muted">Pour « {recruiter.target} ». Chaque atout cite ton CV{comparison ? ", chaque manque cite l'offre" : ""}.</p>
+          <p className="mt-1 text-sm text-muted">Pour « {recruiter.target} ».</p>
           {recruiter.avis && <p className="mt-4 text-[15px] leading-relaxed">{recruiter.avis}</p>}
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
             {recruiter.atouts.length > 0 && (
@@ -246,7 +240,6 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
               <ul className="mt-2 list-disc space-y-1 pl-5 text-[14.5px]">{recruiter.conseils.map((c) => <li key={c}>{c}</li>)}</ul>
             </div>
           )}
-          <p className="mt-4 text-[13px] text-muted">N&apos;ajoute que ce qui correspond vraiment à ton expérience.</p>
         </section>
       )}
 
@@ -256,7 +249,7 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
             Mots-clés de l&apos;offre « {comparison.title} »{comparison.company ? ` · ${comparison.company}` : ""}
           </h2>
           <p className="mt-1 text-sm text-muted">
-            {comparison.score} % des mots-clés de l&apos;offre se retrouvent tels quels dans ton CV : c&apos;est ce qu&apos;un ATS compare.
+            {comparison.score} % sont dans ton CV.
           </p>
           {comparison.missing.length > 0 && (
             <div className="mt-4">
@@ -281,16 +274,15 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
           {comparison.tips.length > 0 && (
             <ul className="mt-4 list-disc space-y-1 pl-5 text-[14.5px]">{comparison.tips.map((t) => <li key={t}>{t}</li>)}</ul>
           )}
-          {!recruiter && <p className="mt-3 text-[13px] text-muted">N&apos;ajoute que ce qui correspond vraiment à ton expérience.</p>}
         </section>
       )}
 
       {(() => {
-        const strengths = result.categories.flatMap((c) => c.checks).filter((k) => k.ok && k.good);
+        // One line per reason: the three standard sections share the same one.
+        const strengths = result.categories.flatMap((c) => c.checks).filter((k, i, all) => k.ok && k.good && all.findIndex((o) => o.ok && o.good === k.good) === i);
         return strengths.length > 0 ? (
           <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
             <h2 className="font-display text-xl font-bold">Ce qui fonctionne déjà</h2>
-            <p className="mt-1 text-sm text-muted">Pourquoi ton CV passe bien les logiciels de recrutement et retient l&apos;attention d&apos;un recruteur.</p>
             <ul className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
               {strengths.map((k) => (
                 <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
@@ -360,7 +352,7 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
       {text !== null && (
       <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
         <h2 className="font-display text-xl font-bold">Ce que voit un ATS</h2>
-        <p className="mt-1 text-sm text-muted">À gauche ton CV, à droite le texte qu&apos;un logiciel de recrutement en extrait, dans l&apos;ordre où il le lit. Des blocs mélangés ou manquants à droite sont à corriger.</p>
+        <p className="mt-1 text-sm text-muted">À droite, le texte qu&apos;un logiciel extrait de ton CV, dans son ordre de lecture.</p>
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {pdfUrl && <iframe src={pdfUrl} title="Ton CV" className="h-[640px] w-full rounded-xl border border-line bg-white" />}
           <pre className="h-[640px] overflow-auto whitespace-pre-wrap rounded-xl bg-pill-solid p-4 font-sans text-[13px] leading-relaxed">{text || "Aucun texte extrait."}</pre>
@@ -418,7 +410,7 @@ function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value
 
   return (
     <div className="mt-4">
-      <p className="text-sm font-semibold">Cibler une offre <span className="font-normal text-muted">(facultatif, sinon la lecture se fait pour ton métier)</span></p>
+      <p className="text-sm font-semibold">Cibler une offre <span className="font-normal text-muted">(facultatif)</span></p>
       {chosen && !picking ? (
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-sm">
           {line(chosen)}
@@ -491,7 +483,7 @@ function Demand({ demand, cvSource }: { demand: { read: number; byKind: Record<S
     <section className="mt-12">
       <h2 className="font-display text-2xl font-bold">Ce que demandent tes offres</h2>
       <p className="mt-1 text-sm text-muted">
-        D&apos;après les {demand.read} offres de ton métier que Scout connaît (tous niveaux et contrats confondus, plus ta sélection), la part qui cite chaque compétence.{hasCv ? ` « Dans ton CV » : ${cvSource}. Scout garde seulement la liste de ces compétences, jamais ton CV.` : ""}
+        Part des {demand.read} offres de ton métier qui citent chaque compétence.{hasCv ? ` « Dans ton CV » : d’après ${cvSource}.` : ""}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         {kinds.map(([kind, label]) => (

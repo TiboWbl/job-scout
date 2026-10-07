@@ -6,7 +6,6 @@ import type { Keep, Wanted } from "./connectors/ats-more";
 import { titleRelevance } from "@/lib/scoring/relevance";
 import { detectExperience, detectExperienceLevel, detectRemote, detectSalary } from "@/lib/domain/signals";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
-import { fetchCareerjet, isCareerjetConfigured } from "./connectors/careerjet";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
 import { fillCovers, fillOfferImages } from "./cover";
@@ -43,7 +42,6 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
   const engines: { source: string; run: () => Promise<NormalizedOffer[]> }[] = [];
   if (scope.queries.length && isAdzunaConfigured()) engines.push({ source: "adzuna", run: () => fetchAdzuna(scope.queries) });
   if (scope.queries.length && isJoobleConfigured()) engines.push({ source: "jooble", run: () => fetchJooble(scope.queries) });
-  if (scope.queries.length && isCareerjetConfigured()) engines.push({ source: "careerjet", run: () => fetchCareerjet(scope.queries) });
   reports.push(...(await Promise.all(engines.map((e) => collectSource(db, e.source, e.run, false, keep)))));
 
   // Then career pages, least recently collected first, as many as the time budget allows.

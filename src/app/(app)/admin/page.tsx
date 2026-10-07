@@ -130,7 +130,7 @@ export default async function AdminPage() {
                 return (
                   <tr key={source}>
                     <td className="px-4 py-2.5 font-medium">{source}</td>
-                    <td className="px-4 py-2.5 text-muted">{new Date(last.started_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
+                    <td className="px-4 py-2.5 text-muted">{new Date(last.started_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Paris" })}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_seen}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_new}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_archived}</td>

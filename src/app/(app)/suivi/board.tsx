@@ -32,7 +32,7 @@ const toInput = (iso: string | null, withTime: boolean) => {
   return withTime ? local.slice(0, 16) : local.slice(0, 10);
 };
 const fromInput = (value: string) => (value ? new Date(value).toISOString() : null);
-const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
 const WEEKS = 8;
 const DAY = 86_400_000;
