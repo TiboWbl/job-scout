@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { AtsResult } from "@/lib/cv/ats";
@@ -10,6 +11,7 @@ import { LevelBadge } from "@/components/level-badge";
 import { readCv } from "@/lib/cv/extract";
 import { createClient } from "@/lib/supabase/browser";
 import { TrashIcon } from "@/components/icons";
+import { useConfirm } from "@/components/confirm";
 
 export type HistoryRow = { id: string; created_at: string; filename: string; total: number; result: AtsResult | null; suggestions: Suggestion[]; comparison: Comparison | null; recruiter: Recruiter | null };
 export type OfferOption = { id: string; title: string; company: string; place: string | null; level: Level; tracked: boolean };
@@ -17,12 +19,12 @@ type Suggestion = { ligne: string; proposition: string; pourquoi?: string | null
 type Comparison = { title: string; company: string; score: number; present: string[]; missing: string[]; tips: string[] };
 type Recruiter = { target: string; avis: string; atouts: { point: string; citation: string }[]; manques: { point: string; citation: string | null }[]; conseils: string[] };
 // `text` exists only right after an analysis: the CV is never stored, so a saved one has no ATS view.
-type Analysis = { id: string | null; createdAt: string | null; filename: string; result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; recruiter: Recruiter | null; text: string | null };
+export type Analysis = { id: string | null; createdAt: string | null; filename: string; result: AtsResult; suggestions: Suggestion[]; comparison: Comparison | null; recruiter: Recruiter | null; text: string | null };
 
 const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; hasCv: boolean }) {
+export function CvCheck({ history, offers, initialOfferId, demand, cvSource }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; cvSource: string | null }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -32,6 +34,7 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [rows, setRows] = useState(history);
+  const { confirm, dialog } = useConfirm();
   // Fresh server data (after a refresh) replaces the list kept in memory.
   const [lastHistory, setLastHistory] = useState(history);
   if (lastHistory !== history) {
@@ -39,13 +42,8 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
     setRows(history);
   }
 
-  function openSaved(h: HistoryRow) {
-    if (!h.result) return;
-    setAnalysis({ id: h.id, createdAt: h.created_at, filename: h.filename, result: h.result, suggestions: h.suggestions ?? [], comparison: h.comparison, recruiter: h.recruiter ?? null, text: null });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   async function removeSaved(id: string) {
+    if (!(await confirm({ title: "Supprimer cette analyse ?", detail: "Elle disparaît de ton historique, sans retour possible." }))) return;
     setRows((r) => r.filter((h) => h.id !== id));
     if (analysis?.id === id) setAnalysis(null);
     await createClient().from("cv_analyses").delete().eq("id", id);
@@ -130,12 +128,12 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
 
       {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
 
-      <Demand demand={demand} hasCv={hasCv} />
+      <Demand demand={demand} cvSource={cvSource} />
 
       {rows.length > 0 && (
         <section className="mt-12">
           <h2 className="font-display text-2xl font-bold">Tes analyses</h2>
-          <p className="mt-1 text-sm text-muted">Clique sur une analyse pour la relire. Seuls le nom du fichier et l&apos;analyse sont gardés, jamais ton CV.</p>
+          <p className="mt-1 text-sm text-muted">Ouvre une analyse pour la relire. Seuls le nom du fichier et l&apos;analyse sont gardés, jamais ton CV.</p>
           <ul className="mt-4 space-y-2">
             {rows.map((h) => (
               // The whole row reacts (and grows a little): it is one thing to open.
@@ -143,14 +141,14 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
                 key={h.id}
                 className={`group flex items-center gap-2 rounded-2xl border bg-surface p-2 transition-transform duration-150 hover:scale-[1.01] hover:border-ink hover:shadow-md ${analysis?.id === h.id ? "border-ink" : "border-line"}`}
               >
-                <button type="button" onClick={() => openSaved(h)} disabled={!h.result} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-sm disabled:cursor-default">
+                <Link href={`/cv/analyses/${h.id}`} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-sm">
                   <span className="text-muted">{date(h.created_at)}</span>
                   <span className="truncate font-medium">{h.filename || "CV"}</span>
                   <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid">
                     <span className={`block h-full rounded-full ${tone(h.total / 100)}`} style={{ width: `${h.total}%` }} />
                   </span>
                   <span className="text-right font-semibold tabular-nums">{h.total}</span>
-                </button>
+                </Link>
                 <button
                   type="button"
                   onClick={() => removeSaved(h.id)}
@@ -165,11 +163,12 @@ export function CvCheck({ history, offers, initialOfferId, demand, hasCv }: { hi
           </ul>
         </section>
       )}
+      {dialog}
     </div>
   );
 }
 
-function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | null }) {
+export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | null }) {
   const { result, suggestions, comparison, recruiter, text } = analysis;
   return (
     <div className="mt-8 space-y-6">
@@ -484,14 +483,15 @@ const KIND_LABELS: [Skill["kind"], string][] = [
 ];
 
 // What the offers of the selection ask for most: where to put the effort, on the CV and beyond.
-function Demand({ demand, hasCv }: { demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; hasCv: boolean }) {
+function Demand({ demand, cvSource }: { demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; cvSource: string | null }) {
+  const hasCv = cvSource !== null;
   const kinds = KIND_LABELS.filter(([k]) => demand.byKind[k].length > 0);
   if (demand.read < 5 || kinds.length === 0) return null;
   return (
     <section className="mt-12">
       <h2 className="font-display text-2xl font-bold">Ce que demandent tes offres</h2>
       <p className="mt-1 text-sm text-muted">
-        D&apos;après les {demand.read} offres de ton métier que Scout connaît (tous niveaux et contrats confondus, plus ta sélection), la part qui cite chaque compétence{hasCv ? ", et ce que ton CV mentionne déjà" : ""}.
+        D&apos;après les {demand.read} offres de ton métier que Scout connaît (tous niveaux et contrats confondus, plus ta sélection), la part qui cite chaque compétence.{hasCv ? ` « Dans ton CV » : ${cvSource}. Scout garde seulement la liste de ces compétences, jamais ton CV.` : ""}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         {kinds.map(([kind, label]) => (

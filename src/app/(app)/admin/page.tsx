@@ -31,11 +31,11 @@ export default async function AdminPage() {
   // Latest run per source, plus the previous one to spot a sudden drop.
   const bySource = new Map<string, Run[]>();
   for (const r of (runs.data ?? []) as Run[]) bySource.set(r.source, [...(bySource.get(r.source) ?? []), r]);
-  // A source missing from the latest collections is no longer collected (France Travail): not listed.
+  // A source missing from the latest collection is no longer collected (France Travail): not listed.
   const newest = Math.max(0, ...((runs.data ?? []) as Run[]).map((r) => new Date(r.started_at).getTime()));
   const rows = [...bySource.entries()]
     .map(([source, list]) => ({ source, last: list[0], prev: list[1] }))
-    .filter((r) => new Date(r.last.started_at).getTime() > newest - 2 * 86_400_000)
+    .filter((r) => new Date(r.last.started_at).getTime() > newest - 6 * 3_600_000)
     .sort((a, b) => a.source.localeCompare(b.source));
 
   return (
@@ -116,7 +116,17 @@ export default async function AdminPage() {
             <tbody className="divide-y divide-line">
               {rows.map(({ source, last, prev }) => {
                 const dropped = prev && prev.offers_seen > 10 && last.offers_seen < prev.offers_seen * 0.5;
-                const state = last.errors ? `Erreur : ${last.error_sample ?? "inconnue"}` : last.offers_seen === 0 ? "Aucune offre" : dropped ? `Chute (${prev.offers_seen} → ${last.offers_seen})` : "OK";
+                // One page of an ATS failing (a 500 at Swile's) does not make the whole source fail.
+                const partial = last.errors > 0 && last.offers_seen > 0;
+                const state = partial
+                  ? `OK, ${last.errors} page${last.errors > 1 ? "s" : ""} en erreur (${last.error_sample ?? "inconnue"})`
+                  : last.errors
+                    ? `Erreur : ${last.error_sample ?? "inconnue"}`
+                    : last.offers_seen === 0
+                      ? "Aucune offre"
+                      : dropped
+                        ? `Chute (${prev.offers_seen} → ${last.offers_seen})`
+                        : "OK";
                 return (
                   <tr key={source}>
                     <td className="px-4 py-2.5 font-medium">{source}</td>
@@ -124,7 +134,7 @@ export default async function AdminPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_seen}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_new}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{last.offers_archived}</td>
-                    <td className={`px-4 py-2.5 ${state === "OK" ? "text-success" : "text-warn"}`}>{state}</td>
+                    <td className={`px-4 py-2.5 ${state.startsWith("OK") ? "text-success" : "text-warn"}`}>{state}</td>
                   </tr>
                 );
               })}

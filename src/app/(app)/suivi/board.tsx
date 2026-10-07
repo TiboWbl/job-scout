@@ -10,6 +10,7 @@ import { AddOffer } from "@/components/add-offer";
 import { CompanyLogo } from "@/components/company-logo";
 import { Columns } from "@/components/charts";
 import { ArrowIcon } from "@/components/icons";
+import { useConfirm } from "@/components/confirm";
 
 import type { BoardItem } from "@/lib/views/board";
 type Patch = Partial<Pick<Application, "stage" | "notes" | "contact" | "applied_at" | "interview_at" | "followed_up_at">>;
@@ -71,6 +72,7 @@ function progressStats(items: BoardItem[]) {
 export function Board({ items: initial, demo = false, base = "", addUrl = null }: { items: BoardItem[]; demo?: boolean; base?: string; addUrl?: string | null }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
+  const { confirm, dialog } = useConfirm();
   const [adding, setAdding] = useState(addUrl !== null && !demo);
   const [demoNote, setDemoNote] = useState(false);
   // Drag and drop between columns (the stage menu on each card does the same on touch and keyboard).
@@ -97,6 +99,8 @@ export function Board({ items: initial, demo = false, base = "", addUrl = null }
   }
 
   async function remove(id: string) {
+    const item = items.find((i) => i.id === id);
+    if (!(await confirm({ title: "Retirer du suivi ?", detail: item ? `« ${item.title} » chez ${item.company} disparaît de ton suivi, avec tes notes.` : undefined, action: "Retirer" }))) return;
     setItems((prev) => prev.filter((i) => i.id !== id));
     if (demo) return;
     await fetch(`/api/applications/${id}`, { method: "DELETE" });
@@ -218,6 +222,7 @@ export function Board({ items: initial, demo = false, base = "", addUrl = null }
           }}
         />
       )}
+      {dialog}
     </div>
   );
 }
@@ -302,7 +307,7 @@ function Card({ item, onPatch, onRemove }: { item: BoardItem; onPatch: (b: Patch
             ) : (
               <span />
             )}
-            <button type="button" onClick={onRemove} className="text-muted hover:text-ink">
+            <button type="button" onClick={onRemove} className="btn-soft">
               Retirer du suivi
             </button>
           </div>

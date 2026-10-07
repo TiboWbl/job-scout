@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AutoTextarea } from "@/components/auto-textarea";
 import { CompanyLogo } from "@/components/company-logo";
 import { CloseIcon } from "@/components/icons";
+import { useConfirm } from "@/components/confirm";
 
 type Favorite = { input: string; company: { id: string; name: string; domain: string | null; brand: string | null; ats: string | null; careers_platform: string | null } };
 
@@ -42,6 +43,7 @@ export function Favorites({ list = true }: { list?: boolean } = {}) {
   const [items, setItems] = useState<Favorite[] | null>(null);
   const [draft, setDraft] = useState("");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -66,6 +68,8 @@ export function Favorites({ list = true }: { list?: boolean } = {}) {
   }
 
   async function remove(id: string) {
+    const name = items?.find((f) => f.company.id === id)?.company.name ?? "cette entreprise";
+    if (!(await confirm({ title: `Retirer ${name} de tes favorites ?`, detail: "Ses offres restent dans Scout, sans la priorité des favorites.", action: "Retirer" }))) return;
     setItems((list) => list?.filter((f) => f.company.id !== id) ?? null);
     await fetch("/api/favorites", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: id }) });
     router.refresh();
@@ -143,6 +147,7 @@ export function Favorites({ list = true }: { list?: boolean } = {}) {
           )}
         </>
       ) : null}
+      {dialog}
     </section>
   );
 }

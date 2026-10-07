@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Invitee } from "@/lib/admin/stats";
+import { useConfirm } from "@/components/confirm";
 
 const seen = (iso: string | null) =>
   iso ? `Connecté·e le ${new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : "Pas encore connecté·e";
@@ -12,8 +13,10 @@ export function Invitations({ people }: { people: Invitee[] }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   async function call(method: "POST" | "DELETE", target: string) {
+    if (method === "DELETE" && !(await confirm({ title: `Retirer l'invitation de ${target} ?`, detail: "Cette personne ne pourra plus se connecter à Scout.", action: "Retirer" }))) return;
     setBusy(true);
     setError(null);
     const res = await fetch("/api/admin/invitations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: target }) });
@@ -64,6 +67,7 @@ export function Invitations({ people }: { people: Invitee[] }) {
       <p className="mt-3 text-[13px] text-muted">
         Tant que l&apos;application Google est en mode Test, ajoute aussi l&apos;adresse dans les utilisateurs test de Google Cloud.
       </p>
+      {dialog}
     </div>
   );
 }

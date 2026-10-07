@@ -3,15 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TrashIcon } from "@/components/icons";
+import { useConfirm } from "@/components/confirm";
 
 export function RemoveFavorite({ companyId, name }: { companyId: string; name: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog } = useConfirm();
   return (
+    <>
     <button
       type="button"
       disabled={busy}
       onClick={async () => {
+        if (!(await confirm({ title: `Retirer ${name} de tes favorites ?`, detail: "Ses offres restent dans Scout, sans la priorité des favorites.", action: "Retirer" }))) return;
         setBusy(true);
         await fetch("/api/favorites", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) }).catch(() => null);
         router.refresh();
@@ -22,5 +26,7 @@ export function RemoveFavorite({ companyId, name }: { companyId: string; name: s
     >
       <TrashIcon className="h-[18px] w-[18px]" />
     </button>
+    {dialog}
+    </>
   );
 }

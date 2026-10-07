@@ -101,10 +101,24 @@ describe("compétences demandées par la sélection", async () => {
 describe("email des coups de cœur", async () => {
   const { digestHtml } = await import("@/lib/digest");
   it("échappe les textes des offres et rappelle comment le désactiver", () => {
-    const html = digestHtml("Camille", [{ id: "1", title: "PM <Junior>", company: "Fictive & Co", why: null }]);
+    const html = digestHtml("Camille", [{ id: "1", title: "PM <Junior>", company: "Fictive & Co", domain: null, why: null }], "https://exemple.test/desabonnement?u=1&t=x");
     expect(html).toContain("PM &lt;Junior&gt;");
     expect(html).toContain("Fictive &amp; Co");
-    expect(html).toContain("Paramètres");
+    expect(html).toContain("Ne plus recevoir ces emails");
+  });
+  it("annonce le même nombre que le sujet et renvoie vers les autres", () => {
+    const crushes = Array.from({ length: 13 }, (_, i) => ({ id: String(i), title: `Offre ${i}`, company: "Fictive", domain: null, why: null }));
+    const html = digestHtml(null, crushes, "#");
+    expect(html).toContain("13 nouveaux coups de cœur");
+    expect(html).toContain("Voir les 3 autres");
+    expect(html.match(/Voir l'offre/g)).toHaveLength(10);
+  });
+  it("le lien de désabonnement est signé pour une seule personne", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??= "secret-de-test";
+    const { unsubscribeToken, isUnsubscribeToken } = await import("@/lib/digest");
+    const t = unsubscribeToken("00000000-0000-0000-0000-000000000001");
+    expect(isUnsubscribeToken("00000000-0000-0000-0000-000000000001", t)).toBe(true);
+    expect(isUnsubscribeToken("00000000-0000-0000-0000-000000000002", t)).toBe(false);
   });
 });
 

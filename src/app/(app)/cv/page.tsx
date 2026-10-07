@@ -57,5 +57,8 @@ export default async function CvPage({ searchParams }: { searchParams: Promise<{
     for (const o of data ?? []) if ((o.description ?? "").length > 300) descriptions.push(o.description as string);
   }
   const demand = skillDemand(descriptions, vocabulary, cvText, Array.isArray(profile?.cv_skills) ? (profile!.cv_skills as string[]) : []);
-  return <CvCheck demand={demand} hasCv={cvText.length > 0} history={(history.data ?? []) as HistoryRow[]} offers={options} initialOfferId={offre ?? null} />;
+  // "Dans ton CV": the skills kept at the last analysis, or what was read from the CV given at sign-up.
+  const last = history.data?.[0]?.created_at as string | undefined;
+  const cvSource = last ? `d'après ta dernière analyse de CV, du ${new Date(last).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : cvText ? "d'après le CV donné à ton inscription" : null;
+  return <CvCheck demand={demand} cvSource={cvSource} history={(history.data ?? []) as HistoryRow[]} offers={options} initialOfferId={offre ?? null} />;
 }
