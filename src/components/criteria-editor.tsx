@@ -28,9 +28,9 @@ function Chips({ values, onChange, placeholder, label }: { values: string[]; onC
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {values.map((v) => (
-        <span key={v} className="flex items-center gap-1 rounded-full bg-surface py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium shadow-sm">
+        <span key={v} className="flex items-center gap-1 rounded-full bg-peach-soft py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium text-peach-ink">
           {v}
-          <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`Retirer ${v}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-black/10">
+          <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`Retirer ${v}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-peach-ink/15">
             <CloseIcon className="h-3 w-3" />
           </button>
         </span>
@@ -77,10 +77,10 @@ function Places({ value, onChange }: { value: ZonePlace[]; onChange: (v: ZonePla
     <div>
       <div className="flex flex-wrap items-center gap-1.5">
         {value.map((p) => (
-          <span key={p.label} className="flex items-center gap-1 rounded-full bg-surface py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium shadow-sm">
+          <span key={p.label} className="flex items-center gap-1 rounded-full bg-peach-soft py-1.5 pl-3 pr-1.5 text-[13.5px] font-medium text-peach-ink">
             {p.label}
             <span className="text-muted">· {kindLabel[p.kind]}</span>
-            <button type="button" onClick={() => onChange(value.filter((x) => x.label !== p.label))} aria-label={`Retirer ${p.label}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-black/10">
+            <button type="button" onClick={() => onChange(value.filter((x) => x.label !== p.label))} aria-label={`Retirer ${p.label}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-peach-ink/15">
               <CloseIcon className="h-3 w-3" />
             </button>
           </span>
@@ -107,7 +107,7 @@ function Places({ value, onChange }: { value: ZonePlace[]; onChange: (v: ZonePla
 
 function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={on} className={`rounded-xl border px-3.5 py-2 text-sm font-medium ${on ? "border-transparent bg-button text-button-ink" : "border-line bg-pill text-muted hover:text-ink"}`}>
+    <button type="button" onClick={onClick} aria-pressed={on} className={`rounded-xl border px-3.5 py-2 text-sm font-medium ${on ? "border-transparent bg-peach-soft font-semibold text-peach-ink" : "border-line bg-surface text-muted hover:text-ink"}`}>
       {label}
     </button>
   );

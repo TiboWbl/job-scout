@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CONTRACT_LABELS, Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
@@ -32,6 +33,17 @@ type LightOffer = {
   has_description: boolean;
   company: { name: string } | null;
 };
+
+// Bumped whenever the prompt or the level rules change: older judgements are then redone.
+const JUDGE_RULES = 7;
+
+// Everything the model's judgement depends on. A profile change outside it (zone, openness, out-of-zone
+// setting) keeps the judgements: only the gates run again, in a second.
+export function judgeKeyOf(criteria: Criteria, cv: CvSummary | null, experienceYears: number | null, favorites: string[]) {
+  const c = criteria;
+  const basis = [JUDGE_RULES, c.targetRoles, c.titleVariants, c.bridgeRoles, c.sectorsPriority, c.sectorsOk, c.sectorsAvoid, c.otherSectors, c.contracts, c.languages, c.dealBreakers, experienceYears, [...favorites].sort(), cv];
+  return createHash("sha1").update(JSON.stringify(basis)).digest("hex").slice(0, 16);
+}
 
 export type ScoringProgress = { scoredNow: number; remaining: number; total: number };
 
@@ -71,11 +83,18 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       .range(f, t) as unknown as PromiseLike<{ data: LightOffer[] | null; error: unknown }>,
   );
   const unscored = offers.filter((o) => !scored.has(o.id));
+  // All sorted: the rows of older versions are no longer needed.
+  if (unscored.length === 0) {
+    await db.from("offer_scores").delete().eq("user_id", userId).lt("criteria_version", version);
+    return { scoredNow: 0, remaining: 0, total: offers.length };
+  }
 
   const base = { user_id: userId, criteria_version: version };
   const gateRows: Record<string, unknown>[] = [];
-  const { data: favoriteRows } = await db.from("favorite_companies").select("company_id").eq("user_id", userId);
+  const { data: favoriteRows } = await db.from("favorite_companies").select("company_id, company:companies(name)").eq("user_id", userId);
   const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.company_id as string));
+  const favoriteNames = (favoriteRows ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
+  const judgeKey = judgeKeyOf(criteria, cv, experienceYears, favoriteNames);
   const passed: { offer: LightOffer; outOfZone: boolean; gap: number }[] = [];
   for (const offer of unscored) {
     const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
@@ -99,16 +118,43 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
         scored_by: "prefilter",
       });
   }
-  for (let i = 0; i < gateRows.length; i += 500) {
-    const { error: e } = await db.from("offer_scores").upsert(gateRows.slice(i, i + 500));
-    if (e) throw e;
+  // Judgements made under the same key (an earlier version differing only by zone or openness) are reused.
+  const reused: Record<string, unknown>[] = [];
+  for (let i = 0; i < candidates.length; i += 200) {
+    const chunk = candidates.slice(i, i + 200);
+    const { data: previous } = await db
+      .from("offer_scores")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("judge_key", judgeKey)
+      .lt("criteria_version", version)
+      .in("offer_id", chunk.map((c) => c.offer.id));
+    const latest = new Map<string, Record<string, unknown>>();
+    for (const row of previous ?? []) if (!latest.has(row.offer_id) || (latest.get(row.offer_id)!.criteria_version as number) < row.criteria_version) latest.set(row.offer_id, row);
+    for (const c of chunk) {
+      const row = latest.get(c.offer.id);
+      if (!row) continue;
+      const { created_at: _created, ...rest } = row;
+      void _created;
+      reused.push({ ...rest, criteria_version: version, out_of_zone: c.outOfZone });
+    }
   }
+  if (reused.length > 0) {
+    const ids = new Set(reused.map((r) => r.offer_id));
+    for (let i = candidates.length - 1; i >= 0; i--) if (ids.has(candidates[i].offer.id)) candidates.splice(i, 1);
+  }
+  // Written apart: rows of one write must share their columns, or the missing ones become null.
+  for (const rows of [gateRows, reused]) {
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error: e } = await db.from("offer_scores").upsert(rows.slice(i, i + 500));
+      if (e) throw e;
+    }
+  }
+  const quickRows = gateRows.length + reused.length;
   // The gates take a second: report them at once so progress moves before the slower LLM part.
-  if (gateRows.length > 0) return { scoredNow: gateRows.length, remaining: candidates.length, total: offers.length };
+  if (quickRows > 0) return { scoredNow: quickRows, remaining: candidates.length, total: offers.length };
 
   candidates.sort((a, b) => b.rel - a.rel);
-  const { data: favs } = await db.from("favorite_companies").select("company:companies(name)").eq("user_id", userId);
-  const favoriteNames = (favs ?? []).map((f) => (f.company as unknown as { name: string } | null)?.name).filter((n): n is string => Boolean(n));
   const feedback = await loadFeedback(db, userId);
   const descriptions = new Map<string, string>();
   const excerpts = new Set<string>();
@@ -172,7 +218,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames, feedback).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
-          .map(({ offer, outOfZone, gap }) => scoreRow(base, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id));
+          .map(({ offer, outOfZone, gap }) => scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id));
         if (rows.length > 0) {
           const { error: e } = await db.from("offer_scores").upsert(rows);
           if (e) throw e;
@@ -214,7 +260,7 @@ async function loadFeedback(db: SupabaseClient, userId: string): Promise<Feedbac
 // the years asked (with a verified quote) and the detector had not, the gate applies with them, and the
 // shared offer learns them for everyone.
 function scoreRow(
-  base: { user_id: string; criteria_version: number },
+  base: { user_id: string; criteria_version: number; judge_key?: string },
   offerId: string,
   outOfZone: boolean,
   gap: number,
