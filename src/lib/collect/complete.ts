@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { detectContract, detectExperience, detectExperienceLevel, detectSalary } from "@/lib/domain/signals";
+import { detectContract, detectExperience, detectExperienceLevel, detectRemote, detectSalary } from "@/lib/domain/signals";
 import { fromUrl } from "./manual";
 
 // Offers from search engines (Adzuna, Jooble) carry a 500-character excerpt. Judging or showing an
@@ -12,7 +12,7 @@ const ENGINES = ["adzuna", "jooble", "careerjet", "france-travail"];
 export const isExcerptOnly = (o: { description: string | null; sources: string[] }) =>
   (o.description ?? "").length < EXCERPT_LENGTH && o.sources.every((s) => ENGINES.includes(s));
 
-type Row = { id: string; title: string; description: string | null; apply_url: string; contract: string; sources: string[] };
+type Row = { id: string; title: string; description: string | null; apply_url: string; contract: string; remote?: string; sources: string[] };
 
 async function completeOne(db: SupabaseClient, o: Row): Promise<"full" | "gone" | "excerpt"> {
   const head = await fetch(o.apply_url, { redirect: "follow", signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0 (compatible; Scout job aggregator)" } }).catch(() => null);
@@ -32,6 +32,7 @@ async function completeOne(db: SupabaseClient, o: Row): Promise<"full" | "gone" 
         experience_max_years: detectExperience(text).max,
         experience_level: detectExperienceLevel(text),
         salary_text: detectSalary(text),
+        ...(o.remote === "unknown" && detectRemote(text) ? { remote: detectRemote(text) } : {}),
         contract: o.contract === "unknown" ? detectContract(o.title, null, text) : o.contract,
         // The employer's own page beats a search-engine redirect for applying.
         ...(full && /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio/.test(head!.url) ? { apply_url: head!.url } : {}),
@@ -47,7 +48,7 @@ async function completeOne(db: SupabaseClient, o: Row): Promise<"full" | "gone" 
 // Needs the service role: offers are shared, users cannot write them.
 export async function completeOffers(db: SupabaseClient, ids: string[], concurrency = 6) {
   if (ids.length === 0) return { full: 0, gone: 0, excerpt: 0 };
-  const { data } = await db.from("offers").select("id, title, description, apply_url, contract, sources").in("id", ids).is("completed_at", null);
+  const { data } = await db.from("offers").select("id, title, description, apply_url, contract, remote, sources").in("id", ids).is("completed_at", null);
   const todo = ((data ?? []) as Row[]).filter(isExcerptOnly);
   const tally = { full: 0, gone: 0, excerpt: 0 };
   let next = 0;

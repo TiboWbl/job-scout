@@ -34,8 +34,36 @@ export function detectContract(title: string, explicit?: string | null, descript
     for (const [re, contract] of CONTRACT_PATTERNS) if (re.test(n)) return contract;
   }
   const d = norm(description.slice(0, 4000));
+  // A stated contract, anywhere in the text: "Contrat : CDI", "type de contrat : stage", "… en stage".
+  const full = norm(description);
+  const stated = STATED_CONTRACT.map((re) => re.exec(full)?.[1]).find(Boolean);
+  if (stated) return STATED_WORDS[stated.replace(/[- ]/g, "")] ?? "unknown";
   for (const [re, contract] of DESCRIPTION_PATTERNS) if (re.test(d)) return contract;
   return "unknown";
+}
+
+const STATED_CONTRACT = [
+  /(?:type de )?contrat(?: de travail)?\s*(?:propose)?\s*:?\s*(?:en\s+)?(cdi|cdd|stage|alternance|apprentissage|freelance|interim)\b/,
+  /\b(?:poste|offre|position|recrute\w*|cherche\w*|recherche\w*)\b[^.\n]{0,80}\ben (cdi|cdd|stage|alternance)\b/,
+  /employment type\s*:?\s*(full[- ]?time|permanent|internship|fixed[- ]?term|temporary|contract)\b/,
+];
+const STATED_WORDS: Record<string, Contract> = {
+  cdi: "cdi", cdd: "cdd", stage: "stage", alternance: "alternance", apprentissage: "alternance", freelance: "freelance", interim: "cdd",
+  fulltime: "cdi", permanent: "cdi", internship: "stage", fixedterm: "cdd", temporary: "cdd", contract: "freelance",
+};
+
+// Remote work as the description puts it, when the location field said nothing: "télétravail jusqu'à
+// 3 jours", "hybrid work, 2 days of remote", "full remote". Agile "rituels hybrides" are not remote work.
+export function detectRemote(description: string): "remote" | "hybrid" | null {
+  const n = norm(description).replace(/[\u00a0\u202f]/g, " ");
+  if (/\b(full[- ]?remote|fully remote|100 ?% (remote|teletravail|en teletravail)|teletravail (complet|total|integral)|remote[- ]first)\b/.test(n)) return "remote";
+  if (
+    /\b(\d|un|une|deux|trois|quatre)\s*(jours?|days?)\s*(de |of |en )?(teletravail|remote|tt|home office)\b|\b(teletravail|remote)\s*(jusqu'?a|up to|de)?\s*\d\s*(jours?|days?)|\bhybrid work|travail hybride|mode hybride|organisation hybride|modele hybride|politique de teletravail|teletravail (flexible|partiel|possible|occasionnel|autorise)|hybrid (model|working|policy|set ?up|schedule)|remote[- ]friendly|flexible remote/.test(
+      n,
+    )
+  )
+    return "hybrid";
+  return null;
 }
 
 // The experience asked, read in the posting (the first requirement stated): every duration in years ("3 ans", "3+ years",

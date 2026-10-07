@@ -235,3 +235,18 @@ describe("salaire lu dans l'offre", async () => {
   ];
   for (const [text, salary] of cases) it(`« ${text.slice(0, 40)} » → ${salary}`, () => expect(detectSalary(text)).toBe(salary));
 });
+
+describe("contrat et télétravail écrits dans la description", async () => {
+  const { detectRemote } = await import("@/lib/domain/signals");
+  it("lit un contrat annoncé, où qu'il soit dans le texte", () => {
+    expect(detectContract("Product Designer", null, `${"Présentation de l'équipe. ".repeat(200)} Infos pratiques — Contrat : CDI, Paris`)).toBe("cdi");
+    expect(detectContract("Product Manager Junior (H/F)", null, "Fictive cherche un·e product manager junior en stage pour rejoindre l'équipe produit.")).toBe("stage");
+    expect(detectContract("Product Manager", null, "Première expérience (stage ou alternance acceptés) en produit.")).toBe("unknown");
+  });
+  it("lit le télétravail, pas les « rituels hybrides »", () => {
+    expect(detectRemote("Télétravail jusqu'à 3 jours par semaine")).toBe("hybrid");
+    expect(detectRemote("Hybrid work, with 2 days of remote work per week")).toBe("hybrid");
+    expect(detectRemote("Poste en full remote depuis la France")).toBe("remote");
+    expect(detectRemote("Animer les rituels agiles ou hybrides avec les équipes")).toBeNull();
+  });
+});

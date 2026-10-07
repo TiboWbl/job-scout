@@ -4,7 +4,7 @@ import type { NormalizedOffer } from "@/lib/domain/offer";
 import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats";
 import type { Keep, Wanted } from "./connectors/ats-more";
 import { titleRelevance } from "@/lib/scoring/relevance";
-import { detectExperience, detectExperienceLevel, detectSalary } from "@/lib/domain/signals";
+import { detectExperience, detectExperienceLevel, detectRemote, detectSalary } from "@/lib/domain/signals";
 import { fetchFranceTravail, isFranceTravailConfigured } from "./connectors/france-travail";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchCareerjet, isCareerjetConfigured } from "./connectors/careerjet";
@@ -265,7 +265,8 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
         title: o.title,
         location_raw: o.locationRaw,
         places: o.places,
-        remote: o.remote,
+        // The location field may say nothing about remote work while the description does.
+        remote: o.remote === "unknown" ? (detectRemote(o.description) ?? "unknown") : o.remote,
         remote_scope: o.remoteScope,
         contract: o.contract,
         experience_min_years: o.experienceMinYears ?? range.min,
