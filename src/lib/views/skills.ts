@@ -10,6 +10,9 @@ const QUALIFIERS = new Set(["produit", "product", "digital", "digitale", "profes
 // Same skill, other spelling.
 const ALIASES: Record<string, string> = { ai: "ia", "intelligence artificielle": "ia", "artificial intelligence": "ia", kpi: "kpi", okrs: "okr" };
 
+// For display: "roadmap" reads "Roadmap"; "iOS" and "SQL" stay as written.
+export const skillLabel = (name: string) => (/^[a-zà-ÿ]/.test(name) && !/[A-Z]/.test(name.slice(1)) ? name.charAt(0).toUpperCase() + name.slice(1) : name);
+
 // A skill is found in a text normalised this way, between spaces.
 export const skillText = (d: string) => ` ${key(d)} `;
 

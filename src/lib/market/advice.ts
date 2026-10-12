@@ -1,4 +1,5 @@
 import type { MarketData, MarketSkill } from "./compute";
+import { skillLabel } from "@/lib/views/skills";
 
 // What the market means for the person this week: at most three actions, built from the figures
 // themselves. Written by rules, not by the model: every number shown is the one Scout counted.
@@ -6,7 +7,7 @@ import type { MarketData, MarketSkill } from "./compute";
 export type Action = { kind: "ajouter" | "valoriser" | "relativiser" | "cibler"; titre: string; detail: string };
 
 const HARD = new Set<MarketSkill["kind"]>(["outil", "methode"]);
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const cap = skillLabel;
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 export function marketActions(m: MarketData): Action[] {

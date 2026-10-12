@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { MarketSkill } from "@/lib/market/compute";
+import { skillLabel } from "@/lib/views/skills";
 
 const KINDS: [MarketSkill["kind"], string][] = [
   ["outil", "Outils"],
@@ -40,7 +41,7 @@ export function MarketSkills({ skills, trend, mine, personal, since }: { skills:
             <li key={s.key ?? s.name} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_14rem_3rem_4.5rem]">
               <span className="order-1 min-w-0">
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-semibold">{s.name}</span>
+                  <span className="font-semibold">{skillLabel(s.name)}</span>
                   {personal && s.inCv && <span className="rounded-full bg-mint-soft px-2 py-0.5 text-[11px] font-semibold text-mint-ink">dans ton CV</span>}
                   {plus && <span className="rounded-full bg-pill-solid px-2 py-0.5 text-[11px] font-semibold text-muted">souvent un plus</span>}
                 </span>

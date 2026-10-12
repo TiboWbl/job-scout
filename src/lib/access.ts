@@ -6,13 +6,28 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-// Invited = the admin, an address in INVITED_EMAILS, or one added from the admin page.
-export const isInvited = cache(async (email: string | null | undefined): Promise<boolean> => {
+// Accounts open to anyone up to this number (OPEN_SIGNUP_LIMIT, 50 by default; 0 closes sign-up):
+// the free model and database quotas are shared by everyone.
+export function openSignupLimit() {
+  const n = Number(process.env.OPEN_SIGNUP_LIMIT ?? 50);
+  return Number.isFinite(n) && n >= 0 ? n : 50;
+}
+
+// Allowed = the admin, an invited address (INVITED_EMAILS or the admin page), or one of the first
+// accounts while sign-up is open.
+export const isInvited = cache(async (email: string | null | undefined, userId?: string): Promise<boolean> => {
   if (!email) return false;
   if (isAdminEmail(email)) return true;
   const target = normalizeEmail(email);
   const fromEnv = (process.env.INVITED_EMAILS ?? "").split(",").map(normalizeEmail).filter(Boolean);
   if (fromEnv.includes(target)) return true;
-  const { data } = await createAdminClient().from("invitations").select("email").eq("email", target).maybeSingle();
-  return Boolean(data);
+  const db = createAdminClient();
+  const { data } = await db.from("invitations").select("email").eq("email", target).maybeSingle();
+  if (data) return true;
+  const limit = openSignupLimit();
+  if (!userId || limit === 0) return false;
+  const { data: me } = await db.from("profiles").select("created_at").eq("id", userId).maybeSingle();
+  if (!me) return false;
+  const { count } = await db.from("profiles").select("id", { count: "exact", head: true }).eq("is_demo", false).lte("created_at", me.created_at);
+  return (count ?? Infinity) <= limit;
 });

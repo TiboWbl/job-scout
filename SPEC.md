@@ -14,7 +14,7 @@ Dernière mise à jour : 5 octobre 2026.
   - être visible sans compte par un recruteur venu du portfolio (mode démo), et présentable en entretien.
 - Objectif : **décrocher un job**, pas uniquement le job de rêve. Faire remonter toutes les offres pertinentes, y compris celles qu'on n'aurait jamais vues seul : trop de sites, trop de pages carrière, entreprises inconnues.
 - **Une plateforme où l'on a envie de revenir.** Les sites de recrutement sont souvent oppressants. Scout doit être calme, beau et rassurant.
-- **Multi-utilisateurs dès le départ.** L'auteur est l'utilisateur 0, mais n'importe quel ami doit pouvoir créer un compte via un lien d'invitation et paramétrer sa propre recherche, sur un métier complètement différent. Rien de spécifique à un utilisateur ou à un métier n'est codé en dur.
+- **Multi-utilisateurs dès le départ.** L'auteur est l'utilisateur 0, mais n'importe qui doit pouvoir créer un compte et paramétrer sa propre recherche, sur un métier complètement différent. Rien de spécifique à un utilisateur ou à un métier n'est codé en dur.
 - Projet vitrine : montré en entretien et dans un portfolio. Code propre, architecture lisible, README soigné.
 
 ## Principes non négociables
@@ -45,17 +45,17 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Structure de l'application (une seule page)
 
-- Application monopage avec une navigation persistante : **Aujourd'hui**, **Offres**, **Entreprises**, **Suivi**, **Mon CV**. « Ma recherche » s'ouvre en grand par-dessus Offres (bouton « Modifier ma recherche », la barre latérale reste visible) ; « Paramètres » depuis le menu du compte.
+- Application monopage avec une navigation persistante : **Aujourd'hui**, **Offres**, **Mon marché**, **Entreprises**, **Suivi**, **Mon CV**. « Ma recherche » s'ouvre en grand par-dessus Offres (bouton « Modifier ma recherche », la barre latérale reste visible) ; « Paramètres » depuis le menu du compte.
 - Les détails (offre, entreprise, candidature) s'ouvrent dans un panneau latéral, sans quitter la page.
-- **Aujourd'hui** (page d'accueil une fois connecté) : la sélection du jour, finie (pas de scroll infini), les relances à faire, les entretiens à venir, la progression de la semaine. En 30 secondes on sait quoi faire aujourd'hui.
+- **Aujourd'hui** (page d'accueil une fois connecté) : la sélection du jour, finie (pas de scroll infini), la première action de la semaine sur son marché (vers « Mon marché »), les relances à faire, les entretiens à venir, la progression de la semaine. En 30 secondes on sait quoi faire aujourd'hui.
 
 ## Comptes et onboarding
 
-- Connexion **Google uniquement** (gratuit, aucun email à envoyer).
-- **Accès sur invitation**, en place avant la mise en ligne : le site et le repo sont publics, le quota gratuit de Mistral doit être protégé.
+- Connexion **Google** ou **par email avec un code** à 6 chiffres (sans mot de passe, valable sur n'importe quel appareil). L'email part par le SMTP du compte Gmail de Scout configuré dans Supabase (le SMTP par défaut de Supabase n'écrit qu'aux membres du projet), avec `{{ .Token }}` dans le modèle d'email.
+- **Inscription ouverte, dans une limite** : les quotas gratuits (Mistral, base) sont partagés, donc les `OPEN_SIGNUP_LIMIT` premiers comptes (50 par défaut, 0 pour fermer) entrent sans invitation ; au-delà, seuls les invités.
   - Liste d'emails autorisés : variable `INVITED_EMAILS` (séparés par des virgules) et gestion dans la page Admin (table `invitations`). L'admin est toujours autorisé.
-  - Un visiteur connecté mais non invité voit un message propre (« Scout est en accès sur invitation ») et ne peut appeler aucune route API.
-  - Tant que l'application Google est en mode Test, l'adresse doit aussi figurer parmi les utilisateurs test de Google Cloud (100 maximum).
+  - Un visiteur connecté mais non invité voit un message propre (« Scout est complet pour l'instant ») et ne peut appeler aucune route API.
+  - Tant que l'application Google est en mode Test, seules les adresses déclarées dans Google Cloud peuvent utiliser Google (100 maximum) : les autres se connectent par email.
 - Onboarding en moins de 5 minutes :
   - Upload du CV en PDF (recommandé, pas obligatoire). Les coordonnées sont retirées côté serveur avant tout envoi au LLM, qui en extrait l'expérience, les compétences, la séniorité réelle et les langues. **L'onboarding le dit clairement**, avec ce texte : « Ton nom et tes coordonnées ne sont jamais envoyés à l'IA. »
   - « Décris ce que tu cherches en quelques phrases » : texte libre.
@@ -313,7 +313,7 @@ Deux lectures distinctes, simples. Le **test ATS** dit si un logiciel de recrute
 ## Technique
 
 - Front et API : Next.js (App Router, TypeScript, Tailwind) sur Vercel Hobby.
-- Supabase : Postgres, Auth (Google), Storage (CV), row-level security.
+- Supabase : Postgres, Auth (Google et code par email), Storage (CV), row-level security.
 - Workers de collecte et de scoring en TypeScript, lancés par GitHub Actions 2 à 3 fois par jour, qui écrivent dans la base. Ils réutilisent la normalisation des connecteurs existants.
 - Jobs planifiés avec logs et reprise sur échec.
 - Respect des limites de débit, pauses entre requêtes, pas de contournement des protections anti-bot.
@@ -322,7 +322,7 @@ Deux lectures distinctes, simples. Le **test ATS** dit si un logiciel de recrute
 ## Vitrine (portfolio et entretiens)
 
 - README : problème, vision, captures, schéma d'architecture, choix techniques et produit, lien vers la démo.
-- **Page d'accueil publique** (visiteur non connecté, sur `/`) : ce que fait Scout en une phrase, trois vraies offres triées pour la persona de démo avec leur « Pour toi », trois chiffres réels (offres lues, pages carrière surveillées, chaque offre expliquée), et deux boutons « Voir la démo » et « Continuer avec Google » (sur invitation).
+- **Page d'accueil publique** (visiteur non connecté, sur `/`) : ce que fait Scout en une phrase, trois vraies offres triées pour la persona de démo avec leur « Pour toi », trois chiffres réels (offres lues, pages carrière surveillées, chaque offre expliquée), « Ce que demandent vraiment N offres » du métier de la persona (les 5 compétences les plus citées, vers le marché de la démo), et les boutons « Voir la démo », « Continuer avec Google » et « Continuer avec mon email ».
 - **Mode démo sans connexion**, lien direct `/demo` :
   - persona fictive (Camille, PM junior à Paris) scorée comme un vrai utilisateur sur les **vraies offres** en base : la démo montre le produit réel, pas des captures ;
   - jamais le compte de l'auteur ni ses vraies candidatures ;

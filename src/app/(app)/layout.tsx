@@ -9,7 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { supabase, user } = await getUser();
   if (!user) redirect("/");
   // Both checks at once: every tab waits for them.
-  const [invited, { data: profile }] = await Promise.all([isInvited(user.email), supabase.from("profiles").select("display_name, onboarded_at").eq("id", user.id).single()]);
+  const [invited, { data: profile }] = await Promise.all([isInvited(user.email, user.id), supabase.from("profiles").select("display_name, onboarded_at").eq("id", user.id).single()]);
   if (!invited) redirect("/invitation");
   if (!profile?.onboarded_at) redirect("/onboarding");
 

@@ -15,7 +15,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
     const { erreur, compte } = await searchParams;
     return <Landing notice={compte === "supprime" ? "deleted" : erreur ? "error" : null} />;
   }
-  if (!(await isInvited(user.email))) redirect("/invitation");
+  if (!(await isInvited(user.email, user.id))) redirect("/invitation");
   const { data: profile } = await supabase.from("profiles").select("onboarded_at").eq("id", user.id).single();
   redirect(profile?.onboarded_at ? "/aujourdhui" : "/onboarding");
 }

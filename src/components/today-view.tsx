@@ -8,6 +8,8 @@ import { rank } from "@/lib/scoring/judge";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CompanyLogo } from "@/components/company-logo";
 import { LevelBadge } from "@/components/level-badge";
+import { marketActions } from "@/lib/market/advice";
+import type { MarketData } from "@/lib/market/compute";
 
 const SELECTION_SIZE = 6;
 const DAY = 86_400_000;
@@ -29,13 +31,17 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
   const criteria = Criteria.parse(profile?.criteria ?? {});
   const version = profile?.criteria_version ?? 0;
 
-  const [scores, actions, applications, activeCount, scoredCount] = await Promise.all([
+  const [scores, actions, applications, activeCount, scoredCount, snap] = await Promise.all([
     supabase.from("offer_scores").select(SCORE_SELECT).eq("user_id", userId).eq("criteria_version", version).neq("level", "ecartee").limit(1500),
     supabase.from("user_offers").select("offer_id, dismissed").eq("user_id", userId),
     supabase.from("applications").select("id, offer_id, title, company, url, stage, applied_at, interview_at, followed_up_at, created_at").eq("user_id", userId),
     supabase.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
     supabase.from("offer_scores").select("offer_id, offer:offers!inner(archived_at)", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version).is("offer.archived_at", null),
+    supabase.from("market_snapshots").select("data").eq("profile_id", userId).order("day", { ascending: false }).limit(1).maybeSingle(),
   ]);
+  // The first thing to do this week on the market, as a way in to "Mon marché".
+  const market = (snap.data?.data as MarketData | undefined) ?? null;
+  const marketAction = market ? marketActions(market)[0] : null;
 
   // eslint-disable-next-line react-hooks/purity -- server component, rendered once per request
   const now = Date.now();
@@ -121,6 +127,14 @@ export async function TodayView({ db: supabase, userId, base = "" }: { db: Supab
         </section>
 
         <div className="grid grid-cols-1 content-start gap-4 md:grid-cols-3 xl:grid-cols-1">
+          {marketAction && (
+            <Link href={`${base}/marche`} className="rounded-[22px] border border-line bg-surface p-5 transition-shadow hover:shadow-md md:col-span-3 xl:col-span-1">
+              <p className="text-[13px] font-semibold text-brand">Ton marché cette semaine</p>
+              <h2 className="mt-1 font-display text-lg font-bold leading-snug">{marketAction.titre}</h2>
+              <p className="mt-1 line-clamp-3 text-sm text-muted">{marketAction.detail}</p>
+              <span className="mt-2 block text-sm font-semibold">Voir mon marché →</span>
+            </Link>
+          )}
           <section className="rounded-[22px] bg-violet-soft p-5">
             <h2 className="font-display text-lg font-bold">Relances à faire</h2>
             {followUps.length === 0 ? (

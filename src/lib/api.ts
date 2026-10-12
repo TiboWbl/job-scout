@@ -9,7 +9,7 @@ type Authed = { supabase: Awaited<ReturnType<typeof getUser>>["supabase"]; user:
 export async function requireUser(): Promise<Authed | NextResponse> {
   const { supabase, user } = await getUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  if (!(await isInvited(user.email))) return NextResponse.json({ error: "Accès sur invitation" }, { status: 403 });
+  if (!(await isInvited(user.email, user.id))) return NextResponse.json({ error: "Accès sur invitation" }, { status: 403 });
   return { supabase, user };
 }
 

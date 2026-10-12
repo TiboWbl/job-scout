@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage() {
   const { supabase, user } = await getUser();
   if (!user) redirect("/");
-  if (!(await isInvited(user.email))) redirect("/invitation");
+  if (!(await isInvited(user.email, user.id))) redirect("/invitation");
   const { data: profile } = await supabase.from("profiles").select("display_name, onboarded_at").eq("id", user.id).single();
   if (profile?.onboarded_at) redirect("/aujourdhui");
 
