@@ -52,6 +52,8 @@ jobs:
         run: npm run collect
       - name: Tri des nouvelles offres
         run: npm run score:all
+      - name: Marché de chaque métier recherché
+        run: npm run market
       - name: Email des nouveaux coups de cœur
         # At most one email a day per person, only with new crushes; nothing if not configured.
         run: npm run digest

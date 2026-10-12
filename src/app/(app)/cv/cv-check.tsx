@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { AtsResult } from "@/lib/cv/ats";
-import type { Skill } from "@/lib/scoring/judge";
-import type { SkillStat } from "@/lib/views/skills";
 import type { Level } from "@/lib/domain/offer";
 import { LevelBadge } from "@/components/level-badge";
 import { readCv } from "@/lib/cv/extract";
@@ -24,7 +22,7 @@ export type Analysis = { id: string | null; createdAt: string | null; filename: 
 const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-export function CvCheck({ history, offers, initialOfferId, demand, cvSource }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; cvSource: string | null }) {
+export function CvCheck({ history, offers, initialOfferId, }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -128,7 +126,13 @@ export function CvCheck({ history, offers, initialOfferId, demand, cvSource }: {
 
       {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
 
-      <Demand demand={demand} cvSource={cvSource} />
+      <Link href="/marche" className="mt-12 flex items-center justify-between gap-4 rounded-[22px] bg-violet-soft p-5 text-violet-ink transition-shadow hover:shadow-md md:p-6">
+        <span>
+          <span className="block font-display text-xl font-bold">Ce que demandent les offres de ton métier</span>
+          <span className="mt-1 block text-[14px] opacity-80">Les compétences les plus citées, face à ton CV, et quoi mettre en avant cette semaine.</span>
+        </span>
+        <span aria-hidden className="text-2xl">→</span>
+      </Link>
 
       {rows.length > 0 && (
         <section className="mt-12">
@@ -464,48 +468,5 @@ function OfferPicker({ offers, value, onChange }: { offers: OfferOption[]; value
         </div>
       )}
     </div>
-  );
-}
-
-const KIND_LABELS: [Skill["kind"], string][] = [
-  ["outil", "Outils"],
-  ["methode", "Méthodes et savoir-faire"],
-  ["savoir_etre", "Savoir-être"],
-  ["langue", "Langues"],
-];
-
-// What the offers of the selection ask for most: where to put the effort, on the CV and beyond.
-function Demand({ demand, cvSource }: { demand: { read: number; byKind: Record<Skill["kind"], SkillStat[]> }; cvSource: string | null }) {
-  const hasCv = cvSource !== null;
-  const kinds = KIND_LABELS.filter(([k]) => demand.byKind[k].length > 0);
-  if (demand.read < 5 || kinds.length === 0) return null;
-  return (
-    <section className="mt-12">
-      <h2 className="font-display text-2xl font-bold">Ce que demandent tes offres</h2>
-      <p className="mt-1 text-sm text-muted">
-        Part des {demand.read} offres de ton métier qui citent chaque compétence.{hasCv ? ` « Dans ton CV » : d’après ${cvSource}.` : ""}
-      </p>
-      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        {kinds.map(([kind, label]) => (
-          <div key={kind} className="rounded-[22px] border border-line bg-surface p-5">
-            <h3 className="font-display text-lg font-bold">{label}</h3>
-            <ul className="mt-3 space-y-2.5">
-              {demand.byKind[kind].map((s) => (
-                <li key={s.name} className="grid grid-cols-[minmax(0,1fr)_6rem_3rem] items-center gap-3 text-sm">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-medium">{s.name}</span>
-                    {hasCv && (s.inCv ? <span className="shrink-0 rounded-full bg-mint-soft px-2 py-0.5 text-[11px] font-semibold text-mint-ink">dans ton CV</span> : null)}
-                  </span>
-                  <span className="h-2 overflow-hidden rounded-full bg-pill-solid">
-                    <span className="block h-full rounded-full bg-brand" style={{ width: `${s.share}%` }} />
-                  </span>
-                  <span className="text-right tabular-nums text-muted">{s.share} %</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }

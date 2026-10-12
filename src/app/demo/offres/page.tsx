@@ -5,10 +5,10 @@ import { loadFeed } from "@/lib/views/feed";
 
 export const metadata = { title: "Offres (démo)" };
 
-export default async function DemoOffresPage({ searchParams }: { searchParams: Promise<{ offre?: string }> }) {
-  const { offre } = await searchParams;
+export default async function DemoOffresPage({ searchParams }: { searchParams: Promise<{ offre?: string; q?: string }> }) {
+  const { offre, q } = await searchParams;
   const { db, userId } = await demoContext();
   const data = await loadFeed(db, userId);
   // Visitors never start a sort (no model call): the scheduled job sorts for the persona.
-  return <Feed {...data} pending={0} initialOpenId={offre ?? null} isAdmin={false} demo base="/demo" searchEditor={<DemoSearchEditor />} />;
+  return <Feed {...data} pending={0} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} isAdmin={false} demo base="/demo" searchEditor={<DemoSearchEditor />} />;
 }

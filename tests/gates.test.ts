@@ -269,3 +269,16 @@ describe("faits relevés par le contrôle du 7 octobre", async () => {
     expect(detectRemote("Poste 100 % présentiel, pas de télétravail")).toBeNull();
   });
 });
+
+describe("exigé ou souhaité", async () => {
+  const { splitRequirements } = await import("@/lib/domain/requirements");
+  it("une section « Un plus » et une ligne « serait un plus » sont souhaitées, le reste exigé", () => {
+    const r = splitRequirements("Profil recherché :\n• Tu maîtrises Jira\n• SQL serait un plus\nLes petits plus :\n• Python\n• Figma\nPourquoi nous rejoindre ?\n• Une équipe produit de 12 personnes");
+    expect(r.required).toContain("Jira");
+    expect(r.required).toContain("équipe produit");
+    expect(r.bonus).toContain("SQL");
+    expect(r.bonus).toContain("Python");
+    expect(r.bonus).toContain("Figma");
+    expect(r.required).not.toContain("Python");
+  });
+});

@@ -242,7 +242,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
 
   for (let i = 0; i < keys.length; i += 100) {
     const slice = keys.slice(i, i + 100);
-    const { data: existing, error } = await db.from("offers").select("dedup_key, sources, urls, description").in("dedup_key", slice);
+    const { data: existing, error } = await db.from("offers").select("dedup_key, sources, urls, description, archived_at, repost_count, reposted_at").in("dedup_key", slice);
     if (error) throw error;
     const known = new Map((existing ?? []).map((e) => [e.dedup_key, e]));
 
@@ -255,6 +255,8 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
       // Prefer the company's own page for applying when one is known.
       const direct = urls.find((u) => /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio|digitalrecruiters|welcomekit/.test(u.source));
       const prevDesc: string = prev?.description ?? "";
+      // Gone for more than two days then back: a repost (a shorter gap is a page that failed to answer).
+      const reposted = Boolean(prev?.archived_at && Date.parse(now) - Date.parse(prev.archived_at) > 2 * 86_400_000);
       return {
         dedup_key: key,
         company_id: companyIds.get(companyKey(o.company.name)),
@@ -277,6 +279,8 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
         published_at: o.publishedAt,
         last_seen_at: now,
         archived_at: null,
+        repost_count: (prev?.repost_count ?? 0) + (reposted ? 1 : 0),
+        reposted_at: reposted ? now : (prev?.reposted_at ?? null),
       };
     });
     created += rows.filter((r) => !known.has(r.dedup_key)).length;

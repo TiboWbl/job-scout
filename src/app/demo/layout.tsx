@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 const ITEMS = [
   { href: "/demo", label: "Aujourd'hui" },
   { href: "/demo/offres", label: "Offres" },
+  { href: "/demo/marche", label: "Marché" },
   { href: "/demo/suivi", label: "Suivi" },
 ];
 

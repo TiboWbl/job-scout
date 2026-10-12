@@ -1,6 +1,7 @@
 import type { Skill } from "@/lib/scoring/judge";
 
-export type SkillStat = { name: string; kind: Skill["kind"]; count: number; share: number; inCv: boolean };
+// `key`: the skill whatever its spelling; `bonus`: offers that cite it only as a plus ("un plus", "idéalement").
+export type SkillStat = { name: string; kind: Skill["kind"]; count: number; share: number; inCv: boolean; key?: string; bonus?: number };
 
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9+#]+/g, " ").trim();
 // "Roadmaps" and "roadmap", "A/B tests" and "A/B test" are the same skill.
@@ -8,6 +9,16 @@ const key = (s: string) => fold(s).split(" ").map((w) => (w.length > 3 ? w.repla
 const QUALIFIERS = new Set(["produit", "product", "digital", "digitale", "professionnel", "professionnelle", "courant", "avance", "avancee", "solide", "efficace", "agile", "client", "utilisateur", "user", "management", "skill"]);
 // Same skill, other spelling.
 const ALIASES: Record<string, string> = { ai: "ia", "intelligence artificielle": "ia", "artificial intelligence": "ia", kpi: "kpi", okrs: "okr" };
+
+// A skill is found in a text normalised this way, between spaces.
+export const skillText = (d: string) => ` ${key(d)} `;
+
+// Whether a CV says a skill: among the skills kept at the last analysis, or written in the CV summary.
+export function inCvCheck(cvText: string, cvSkills: string[]) {
+  const cv = ` ${key(cvText)} `;
+  const fromCv = new Set(cvSkills.map((n) => ALIASES[key(n)] ?? key(n)));
+  return (k: string) => fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`));
+}
 
 // A language is its name, whatever the level written ("anglais courant", "English").
 const LANGUAGES: [RegExp, string][] = [
@@ -75,8 +86,11 @@ export function cvSkillsFrom(cvText: string, names: string[]): string[] {
   return [...out.values()];
 }
 
+// The same skill under another name in the text (English, abbreviation).
+export const spellings = (k: string) => [k, ...Object.entries(ALIASES).filter(([, v]) => v === k).map(([a]) => a), ...(k === "anglai" ? ["english"] : [])];
+
 // Words too general to be a skill on their own ("data", "produit"): never counted alone.
-const TOO_GENERAL = new Set(["data", "analyse", "produit", "product", "digital", "projet", "project", "client", "gestion", "business", "management", "equipe", "outil", "process", "strategie", "it", "web", "tech", "technique", "service", "operation", "vision", "impact", "qualite", "suivi", "conseil", "performance"]);
+const TOO_GENERAL = new Set(["data", "analyse", "produit", "product", "digital", "projet", "project", "client", "gestion", "business", "management", "equipe", "outil", "process", "strategie", "it", "web", "tech", "technique", "service", "operation", "vision", "impact", "qualite", "suivi", "conseil", "performance", "informatique", "workflow", "impact direct", "outils digitaux", "digitalisation"]);
 
 const NEUTRAL = new Set(["produit", "product", "digital", "digitale", "professionnel", "professionnelle", "courant", "avance", "avancee", "solide", "efficace"]);
 const SHORT_SKILLS = new Set(["ia", "ux", "ui", "qa", "bi", "ml", "r", "c"]);
@@ -86,7 +100,7 @@ const NOT_SKILLS = /^(product (manager|owner|designer)|chef de (projet|produit)|
 // How many offers of the role really ask for each skill: every skill Scout has read in any offer is
 // looked for, word for word, in the full text of each offer of the base. A skill the model did not list
 // for a given offer is still counted when the offer names it.
-export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText: string, cvSkills: string[] = [], perKind = 10): { read: number; byKind: Record<Skill["kind"], SkillStat[]> } {
+export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText: string, cvSkills: string[] = [], perKind = 10, parts: { required: string; bonus: string }[] = []): { read: number; byKind: Record<Skill["kind"], SkillStat[]> } {
   const groups = new Map<string, { names: Map<string, number>; kinds: Map<Skill["kind"], number> }>();
   for (const s of vocabulary) {
     const language = s.kind === "langue" ? LANGUAGES.find(([re]) => re.test(fold(s.name))) : undefined;
@@ -113,14 +127,14 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
     groups.delete(k);
   }
   const texts = descriptions.map((d) => ` ${key(d)} `);
-  // The same skill under another name in the text (English, abbreviation).
-  const spellings = (k: string) => [k, ...Object.entries(ALIASES).filter(([, v]) => v === k).map(([a]) => a), ...(k === "anglai" ? ["english"] : [])];
+  const split = parts.map((p) => ({ required: ` ${key(p.required)} `, bonus: ` ${key(p.bonus)} ` }));
   const cv = ` ${key(cvText)} `;
   const fromCv = new Set(cvSkills.map((n) => ALIASES[key(n)] ?? key(n)));
   const byKind: Record<Skill["kind"], SkillStat[]> = { outil: [], methode: [], savoir_etre: [], langue: [] };
   for (const [k, g] of groups) {
     const forms = spellings(k);
-    const count = texts.filter((t) => forms.some((f) => t.includes(` ${f} `))).length;
+    const citing = texts.map((t, i) => (forms.some((f) => t.includes(` ${f} `)) ? i : -1)).filter((i) => i >= 0);
+    const count = citing.length;
     if (count < 2) continue;
     // A common word ("recrutement" in "processus de recrutement") is everywhere but rarely what the offer
     // asks for: a single word must have been read as a skill in a fair share of the offers naming it.
@@ -128,7 +142,10 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
     if (!k.includes(" ") && !SHORT_SKILLS.has(k) && extracted / count < 0.06 && extracted < 15) continue;
     const kind = [...g.kinds.entries()].sort((a, b) => b[1] - a[1])[0][0];
     const name = [...g.names.entries()].filter(([n]) => (ALIASES[key(n)] ?? key(n)) === k).sort((a, b) => b[1] - a[1])[0]?.[0] ?? [...g.names.keys()][0];
-    byKind[kind].push({ name, kind, count, share: Math.round((100 * count) / Math.max(1, texts.length)), inCv: fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`)) });
+    // Cited only in the "a plus" part of the offer: wanted, not required.
+    const has = (t: string | undefined) => forms.some((f) => (t ?? "").includes(` ${f} `));
+    const bonus = split.length ? citing.filter((i) => has(split[i]?.bonus) && !has(split[i]?.required)).length : 0;
+    byKind[kind].push({ name, kind, key: k, count, bonus, share: Math.round((100 * count) / Math.max(1, texts.length)), inCv: fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`)) });
   }
   for (const kind of Object.keys(byKind) as Skill["kind"][]) byKind[kind] = byKind[kind].sort((a, b) => b.count - a.count).slice(0, perKind);
   return { read: texts.length, byKind };
