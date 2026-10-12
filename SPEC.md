@@ -236,6 +236,11 @@ La grande force de Scout : il lit chaque jour toutes les offres du métier reche
 - **Carte publique** : « Partager la carte de mon marché » fige les chiffres du métier dans une page publique (`/carte/<id>`), sans rien du CV ni de la sélection, avec un appel vers la démo. Le lien n'est listé nulle part.
 - Démo : « Marché » sur le profil fictif.
 
+## Le détail d'une offre : ce que l'annonce ne dit pas, et le kit de candidature
+
+- **Ce que l'annonce ne dit pas** (affiché seulement s'il y a quelque chose à savoir) : republiée (offre disparue plus de deux jours puis revenue, détectée à la collecte : `repost_count`, `reposted_at`) ; en ligne depuis 30 jours ou plus ; publiée il y a plus de 3 mois (souvent une annonce permanente : vérifier qu'un poste est vraiment à pourvoir) ; combien de temps les offres de l'entreprise restent en ligne (médiane sur ses offres fermées, 5 au moins) ; les compétences de l'offre rangées seulement dans ses bonus (« un plus, pas une condition »). Que des faits lus par des règles.
+- **Préparer ma candidature** (à la demande, un appel au modèle, gardé avec le score) : un message de candidature de 70 à 110 mots qui cite une mission de l'offre et un fait réel du profil, sans rien inventer ([à compléter] sinon), et les 4 questions d'entretien probables, chacune tirée de l'offre (un mot significatif de la question doit y être écrit) avec ce qu'il faut préparer. Dans la démo, le bloc explique ce qu'il fait sans appeler le modèle.
+
 ## Mon CV : test ATS et lecture recruteur
 
 Deux lectures distinctes, simples. Le **test ATS** dit si un logiciel de recrutement lit bien le CV ; il ne juge pas la qualité du parcours. La **lecture recruteur** dit ce qui convainc et ce qui manque, pour le métier visé ou pour une offre ciblée, afin de personnaliser le CV avant de postuler.

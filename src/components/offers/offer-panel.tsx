@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OfferDecoder } from "./offer-decoder";
+import { ApplicationKit } from "./application-kit";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
@@ -185,6 +187,9 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
             <p className="mt-1.5 text-[14.5px] leading-relaxed">{item.why}</p>
           </section>
         )}
+
+        <OfferDecoder offer={offer} description={description} />
+        {item.level !== "ecartee" && <ApplicationKit offerId={offer.id} demo={Boolean(loadDescription)} />}
 
         {details.loading && (
           <p role="status" className="mt-4 flex items-center gap-2 text-sm text-muted">
