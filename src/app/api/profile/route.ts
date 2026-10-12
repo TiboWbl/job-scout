@@ -1,8 +1,13 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
 import { requestCollection } from "@/lib/collect/dispatch";
 import { Criteria, CvSummary, hasMinimumCriteria } from "@/lib/domain/criteria";
+import { loadMarketDataset } from "@/lib/market/compute";
+import { refreshMarket } from "@/lib/market/store";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export const maxDuration = 60;
 
 const Body = z.object({
   criteria: Criteria,
@@ -45,5 +50,12 @@ export async function POST(request: Request) {
 
   const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
   if (error) return NextResponse.json({ error: "Enregistrement impossible" }, { status: 500 });
+  // A new role: its market is ready when the person opens it, without waiting for the daily job.
+  if (JSON.stringify(before?.targetRoles ?? []) !== JSON.stringify(c.targetRoles)) {
+    after(async () => {
+      const db = createAdminClient();
+      await refreshMarket(db, await loadMarketDataset(db), user.id).catch(() => null);
+    });
+  }
   return NextResponse.json({ ok: true, version: update.criteria_version, collecting: Boolean(update.collect_requested_at) });
 }

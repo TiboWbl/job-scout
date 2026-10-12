@@ -45,7 +45,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Structure de l'application (une seule page)
 
-- Application monopage avec une navigation persistante : **Aujourd'hui**, **Offres**, **Mon marché**, **Entreprises**, **Suivi**, **Mon CV**. « Ma recherche » s'ouvre en grand par-dessus Offres (bouton « Modifier ma recherche », la barre latérale reste visible) ; « Paramètres » depuis le menu du compte.
+- Application monopage avec une navigation persistante : **Aujourd'hui**, **Offres**, **Mon marché**, **Entreprises**, **Suivi**, **Mon CV**. « Ma recherche » s'ouvre en grand par-dessus Offres (bouton « Modifier ma recherche », la barre latérale reste visible), avec en tête « Ce que Scout a compris de toi » (offres gardées ou candidatures, offres écartées par raison : les signaux que le tri lit pour les prochaines offres) ; « Paramètres » depuis le menu du compte.
 - Les détails (offre, entreprise, candidature) s'ouvrent dans un panneau latéral, sans quitter la page.
 - **Aujourd'hui** (page d'accueil une fois connecté) : la sélection du jour, finie (pas de scroll infini), la première action de la semaine sur son marché (vers « Mon marché »), les relances à faire, les entretiens à venir, la progression de la semaine. En 30 secondes on sait quoi faire aujourd'hui.
 
@@ -232,6 +232,7 @@ La grande force de Scout : il lit chaque jour toutes les offres du métier reche
 - **L'expérience vraiment demandée** : répartition des années demandées, part des offres qui chiffrent 3 ans ou plus, et combien d'offres affichées « junior » demandent quand même 2 ans ou plus.
 - **Les salaires affichés** : part des offres qui donnent un salaire, médiane et moitié centrale pour débutant et confirmé (5 offres au moins, sinon « trop peu d'offres pour le dire »). Brut annuel tel qu'écrit, jamais estimé.
 - **Le télétravail** et **qui recrute en ce moment** (entreprises ayant publié le plus d'offres du métier en 30 jours, hors plateformes de freelances et cabinets de recrutement ; un clic ouvre leurs offres).
+- **Prêt tout de suite** : à l'enregistrement d'un nouveau métier, le marché est calculé en arrière-plan ; sinon, la première visite le calcule.
 - **Historique** : une photo par jour et par personne (`market_snapshots`, après chaque tri : `npm run market`), reconstruite chaque semaine jusqu'au 8 octobre 2026 (toutes les sources en place) à partir de ce qui était en ligne chaque jour. Seulement des agrégats.
 - **Carte publique** : « Partager la carte de mon marché » fige les chiffres du métier dans une page publique (`/carte/<id>`), sans rien du CV ni de la sélection, avec un appel vers la démo. Le lien n'est listé nulle part.
 - Démo : « Marché » sur le profil fictif.
