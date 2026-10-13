@@ -62,9 +62,9 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
 function CvAgainstMarket({ insights, mine }: { insights: MarketInsights; mine: number }) {
   const { coverage, add, show, plus } = insights;
   const columns = [
-    { title: "À ajouter, si c'est vrai pour toi", hint: "Écris-le tel quel, dans une mission.", items: add, tone: "bg-peach-soft text-peach-ink", note: (i: Insight) => `${i.share} % des offres${mine ? ` · ${i.mine} des tiennes` : ""}` },
-    { title: "Déjà là, à mettre en valeur", hint: "Montre-le dans une mission, avec un résultat.", items: show, tone: "bg-mint-soft text-mint-ink", note: (i: Insight) => `${i.share} % des offres` },
-    { title: "Un plus, pas une condition", hint: "Son absence ne doit pas t'arrêter.", items: plus, tone: "bg-violet-soft text-violet-ink", note: (i: Insight) => `« un plus » dans ${i.plusShare} % des cas` },
+    { title: `À ajouter, si c'est vrai pour toi · ${add.length}`, hint: "Écris-le tel quel, dans une mission.", items: add, tone: "bg-peach-soft text-peach-ink", note: (i: Insight) => `${i.share} % des offres${mine ? ` · ${i.mine} des tiennes` : ""}${i.plusShare >= 40 ? " · souvent un plus" : ""}` },
+    { title: `Déjà dans ton CV, à mettre en valeur · ${show.length}`, hint: "Montre-le dans une mission, avec un résultat.", items: show, tone: "bg-mint-soft text-mint-ink", note: (i: Insight) => `${i.share} % des offres` },
+    { title: "Un plus, pas une condition", hint: "D'autres compétences, surtout demandées en bonus : leur absence ne doit pas t'arrêter.", items: plus, tone: "bg-violet-soft text-violet-ink", note: (i: Insight) => `« un plus » dans ${i.plusShare} % des cas` },
   ].filter((c) => c.items.length > 0);
   return (
     <section className="mt-8 rounded-[22px] border border-line bg-surface p-5 md:p-7">

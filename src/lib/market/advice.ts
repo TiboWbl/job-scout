@@ -22,12 +22,13 @@ export function marketInsights(m: MarketData): MarketInsights {
   // and the languages asked by at least 15 %.
   const hard = m.skills.filter((s) => ((s.kind === "outil" || s.kind === "methode") && s.share >= 5) || (s.kind === "langue" && s.share >= 15)).sort((a, b) => b.share - a.share);
   const top = hard.slice(0, TOP);
-  const required = (s: MarketSkill) => plusShare(s) < 50;
+  const mostlyPlus = (s: MarketSkill) => s.count >= 10 && plusShare(s) >= 40;
   return {
     coverage: { have: top.filter((s) => s.inCv).length, of: top.length },
-    // Most asked first; mostly-a-plus skills go to their own list.
-    add: top.filter((s) => !s.inCv && required(s)).slice(0, 4).map(insight),
-    show: top.filter((s) => s.inCv).slice(0, 4).map(insight),
-    plus: hard.filter((s) => !s.inCv && s.count >= 10 && plusShare(s) >= 40).slice(0, 3).map(insight),
+    // The two lists together are exactly the twelve skills counted, most asked first.
+    add: top.filter((s) => !s.inCv).map(insight),
+    show: top.filter((s) => s.inCv).map(insight),
+    // Beyond the twelve: skills the CV lacks that the offers mostly ask as a plus.
+    plus: hard.slice(TOP).filter((s) => !s.inCv && mostlyPlus(s)).slice(0, 3).map(insight),
   };
 }
