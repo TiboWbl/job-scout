@@ -60,8 +60,9 @@ export function EmailLogin() {
           <label htmlFor="login-code" className="text-sm font-semibold">
             Le code reçu à {email}
           </label>
-          <input id="login-code" inputMode="numeric" autoComplete="one-time-code" required autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="123456" className="mt-2 w-full rounded-xl bg-pill-solid px-3.5 py-3 text-center font-display text-2xl tracking-[0.3em] focus:outline-none" />
-          <button type="submit" disabled={busy || code.length < 6} className="mt-3 w-full rounded-xl bg-button px-4 py-3 text-sm font-semibold text-button-ink disabled:opacity-60">
+          <span id="login-code-hint" className="block text-[12.5px] text-muted">8 chiffres, valable une heure.</span>
+          <input id="login-code" inputMode="numeric" autoComplete="one-time-code" required autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="12345678" aria-describedby="login-code-hint" className="mt-2 w-full rounded-xl bg-pill-solid px-3.5 py-3 text-center font-display text-2xl tracking-[0.25em] focus:outline-none" />
+          <button type="submit" disabled={busy || code.length < 8} className="mt-3 w-full rounded-xl bg-button px-4 py-3 text-sm font-semibold text-button-ink disabled:opacity-60">
             {busy ? "Vérification…" : "Me connecter"}
           </button>
           <button type="button" onClick={() => setStep("email")} className="mt-2 w-full text-[13px] text-muted underline underline-offset-2">
