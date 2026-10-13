@@ -62,7 +62,7 @@ export function InterviewPrep({ applicationId, demo }: { applicationId: string; 
                     </button>
                   </div>
                   <p className="mt-2 whitespace-pre-line rounded-xl bg-pill-solid p-4 text-[14.5px] leading-relaxed">{prep.presentation}</p>
-                  <p className="mt-1.5 text-[12.5px] text-muted">Un point de départ : dis-la avec tes mots, à voix haute, deux ou trois fois.</p>
+                  <p className="mt-1.5 text-[12.5px] text-muted">À relire : l&apos;IA peut se tromper sur ton parcours. Ensuite, dis-la avec tes mots, à voix haute, deux ou trois fois.</p>
                 </div>
                 {prep.questions.length > 0 && (
                   <div className="mt-5">

@@ -6,11 +6,11 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-// Accounts open to anyone up to this number (OPEN_SIGNUP_LIMIT, 50 by default; 0 closes sign-up):
-// the free model and database quotas are shared by everyone.
+// Accounts open to anyone up to this number (OPEN_SIGNUP_LIMIT, 10 by default while Scout is tested
+// for real; 0 closes sign-up): the free model and database quotas are shared by everyone.
 export function openSignupLimit() {
-  const n = Number(process.env.OPEN_SIGNUP_LIMIT ?? 50);
-  return Number.isFinite(n) && n >= 0 ? n : 50;
+  const n = Number(process.env.OPEN_SIGNUP_LIMIT ?? 10);
+  return Number.isFinite(n) && n >= 0 ? n : 10;
 }
 
 // Allowed = the admin, an invited address (INVITED_EMAILS or the admin page), or one of the first

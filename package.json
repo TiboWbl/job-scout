@@ -17,6 +17,7 @@
     "score:all": "tsx scripts/score-all.mts",
     "digest": "tsx scripts/digest.mts",
     "market": "tsx scripts/market.mts",
+    "alert": "tsx scripts/alert.mts",
     "demo:seed": "tsx scripts/demo-seed.mts"
   },
   "dependencies": {

@@ -52,7 +52,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 ## Comptes et onboarding
 
 - Connexion **Google** ou **par email avec un code** à 8 chiffres (sans mot de passe, valable sur n'importe quel appareil). L'email part par le SMTP du compte Gmail de Scout configuré dans Supabase (le SMTP par défaut de Supabase n'écrit qu'aux membres du projet), avec `{{ .Token }}` dans le modèle d'email.
-- **Inscription ouverte, dans une limite** : les quotas gratuits (Mistral, base) sont partagés, donc les `OPEN_SIGNUP_LIMIT` premiers comptes (50 par défaut, 0 pour fermer) entrent sans invitation ; au-delà, seuls les invités.
+- **Inscription ouverte, dans une limite** : les quotas gratuits (Mistral, base) sont partagés, donc les `OPEN_SIGNUP_LIMIT` premiers comptes (10 par défaut tant que Scout est éprouvé en usage réel, 0 pour fermer) entrent sans invitation ; au-delà, seuls les invités.
   - Liste d'emails autorisés : variable `INVITED_EMAILS` (séparés par des virgules) et gestion dans la page Admin (table `invitations`). L'admin est toujours autorisé.
   - Un visiteur connecté mais non invité voit un message propre (« Scout est complet pour l'instant ») et ne peut appeler aucune route API.
   - Tant que l'application Google est en mode Test, seules les adresses déclarées dans Google Cloud peuvent utiliser Google (100 maximum) : les autres se connectent par email.
@@ -126,7 +126,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Onglet **Entreprises** : découvrir les entreprises qui correspondent à ma recherche, même sans offre ouverte, et les suivre.
 - Collecte et tri 3 fois par jour via GitHub Actions (`.github/workflows/collect.yml`, 7 h, 13 h et 19 h à Paris) : collecte, puis tri des nouvelles offres pour chaque profil (`npm run score:all`) ; découverte de pages carrière le lundi matin ; lancement manuel possible. Le robot garde aussi le projet Supabase gratuit actif.
 - Entretien de la base : archivage des offres retirées des pages carrière à chaque lecture, archivage des offres des moteurs non revues depuis 21 jours, purge des descriptions archivées depuis 60 jours ; taille de la base affichée dans l'admin face aux 500 Mo du plan gratuit.
-- **Monitoring de santé par source** : offres par run, erreurs, alerte si une source tombe à zéro ou chute anormalement.
+- **Monitoring de santé par source** : offres par run, erreurs, alerte si une source tombe à zéro ou chute anormalement. Si une étape du passage planifié échoue (collecte, tri, marché, email, démo), un email part vers le compte Gmail qui fait tourner Scout, avec le lien vers le détail (`npm run alert`, seulement en cas d'échec).
 
 ## Normalisation et déduplication
 
@@ -240,7 +240,7 @@ La grande force de Scout : il lit chaque jour toutes les offres du métier reche
 
 - **Ce que l'annonce ne dit pas** (affiché seulement s'il y a quelque chose à savoir) : republiée (offre disparue plus de deux jours puis revenue, détectée à la collecte : `repost_count`, `reposted_at`) ; en ligne depuis 30 jours ou plus ; publiée il y a plus de 3 mois (souvent une annonce permanente : vérifier qu'un poste est vraiment à pourvoir) ; combien de temps les offres de l'entreprise restent en ligne (médiane sur ses offres fermées, 5 au moins) ; les compétences de l'offre rangées seulement dans ses bonus (« un plus, pas une condition »). Que des faits lus par des règles.
 - **Scout accompagne chaque étape, au bon endroit, sans rien ajouter ailleurs** :
-  - avant de postuler, dans le détail de l'offre, « Préparer ma candidature » : le « message au recruteur » (70 à 110 mots, pour un formulaire, un email ou LinkedIn : une mission de l'offre reliée à un fait réel du profil) ou la lettre de motivation (4 courts paragraphes, 300 mots au plus), chacun à la demande, gardé avec le score, sans rien inventer ([à compléter] sinon) ; depuis le Suivi, une carte « À postuler » y mène ;
+  - avant de postuler, dans le détail de l'offre, « Préparer ma candidature » : le « message au recruteur » (70 à 110 mots, pour un formulaire, un email ou LinkedIn : une mission de l'offre reliée à un fait réel du profil) ou la lettre de motivation (4 courts paragraphes, 300 mots au plus), chacun à la demande, gardé avec le score, sans rien inventer ([à compléter] sinon), avec la mention « À relire : l'IA peut se tromper sur ton parcours » ; depuis le Suivi, une carte « À postuler » y mène ;
   - une fois l'entretien obtenu (carte à l'étape « Entretien » du Suivi), « Préparer mon entretien » : la réponse à « Présentez-vous » à dire en deux minutes (160 à 230 mots, à la première personne, tirée du profil et du poste) et les 4 questions probables, chacune tirée du poste, avec ce qu'il faut préparer ; gardé avec la candidature (`applications.prep`).
   Dans la démo, ces blocs montrent un exemple préparé pour la persona.
 

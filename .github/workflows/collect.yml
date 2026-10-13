@@ -59,3 +59,7 @@ jobs:
         run: npm run digest
       - name: Démo publique (profil fictif, suivi rafraîchi)
         run: npm run demo:seed
+      - name: Alerte si un passage a échoué
+        # Only when a step above failed: one email to the account that runs Scout.
+        if: failure()
+        run: npm run alert

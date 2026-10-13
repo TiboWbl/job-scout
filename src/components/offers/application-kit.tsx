@@ -70,7 +70,7 @@ export function ApplicationKit({ offerId, demo }: { offerId: string; demo: boole
         <div className="mt-3">
           <p className="whitespace-pre-line rounded-xl bg-surface p-3.5 text-[14px] leading-relaxed">{text}</p>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-[12.5px] text-violet-ink/80">À relire et compléter là où c&apos;est écrit [à compléter].</p>
+            <p className="text-[12.5px] text-violet-ink/80">À relire : l&apos;IA peut se tromper sur ton parcours. Complète là où c&apos;est écrit [à compléter].</p>
             <button type="button" onClick={() => navigator.clipboard?.writeText(text).then(() => setCopied(true), () => null)} className="btn-soft py-1.5 text-[13px]">
               {copied ? "Copié" : "Copier"}
             </button>
