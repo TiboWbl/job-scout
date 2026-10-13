@@ -26,6 +26,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
     );
   }
   const { today: m, trend, since, actions } = page;
+  const demoCard = base ? ((await db.from("market_cards").select("id").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.id as string | undefined) : undefined;
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -35,7 +36,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
             {m.role} · {m.total.toLocaleString("fr-FR")} offres en ligne · {m.newThisWeek} cette semaine
           </p>
         </div>
-        {!base && <ShareMarket />}
+        {base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
       </div>
 
       {actions.length > 0 && (

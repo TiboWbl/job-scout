@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type Part = "message" | "letter";
 type Kit = { message?: string; letter?: string };
-const LABELS: Record<Part, string> = { message: "Message de candidature", letter: "Lettre de motivation" };
+const LABELS: Record<Part, string> = { message: "Message au recruteur", letter: "Lettre de motivation" };
 
 // What to send when applying: the short message, or the cover letter when the offer asks for one.
 // Each is prepared on demand and kept. The demo shows what was prepared for its persona.
@@ -61,6 +61,9 @@ export function ApplicationKit({ offerId, demo }: { offerId: string; demo: boole
             </button>
           ))}
         </div>
+      )}
+      {!text && !(demo && ready.length === 0) && (
+        <p className="mt-2 text-[12.5px] text-violet-ink/80">Le message : quelques lignes pour un formulaire, un email ou LinkedIn. La lettre : quand l&apos;offre en demande une.</p>
       )}
       {error && <p className="mt-2 text-[13px] text-warn">{error}</p>}
       {text && (

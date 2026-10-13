@@ -5,7 +5,8 @@ export const dynamic = "force-dynamic";
 
 const ITEMS = [
   { href: "/demo/offres", label: "Offres" },
-  { href: "/demo/marche", label: "Marché" },
+  { href: "/demo/marche", label: "Mon marché" },
+  { href: "/demo/entreprises", label: "Entreprises" },
   { href: "/demo/suivi", label: "Suivi" },
   { href: "/demo/cv", label: "Mon CV" },
 ];

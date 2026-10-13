@@ -3,7 +3,18 @@
 import { useState } from "react";
 
 // A public card of the market, without anything from the CV: a link to send to a friend or post.
-export function ShareMarket() {
+// `demoCard`: in the demo, the card already shared for Camille opens directly.
+export function ShareMarket({ demoCard = null }: { demoCard?: string | null }) {
+  if (demoCard)
+    return (
+      <a href={`/carte/${demoCard}`} target="_blank" rel="noreferrer" className="btn-soft">
+        Partager la carte de mon marché
+      </a>
+    );
+  return <ShareButton />;
+}
+
+function ShareButton() {
   const [state, setState] = useState<"idle" | "busy" | "copied" | "error">("idle");
   const [url, setUrl] = useState<string | null>(null);
   async function share() {

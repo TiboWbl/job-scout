@@ -2,20 +2,50 @@ import Link from "next/link";
 import { EmailLogin } from "@/components/email-login";
 import { LoginButton } from "@/components/login-button";
 import { openSignupLimit } from "@/lib/access";
-import { LevelBadge } from "@/components/level-badge";
+import { CompanyLogo } from "@/components/company-logo";
 import { tintStyle } from "@/lib/design/color";
-import type { Level } from "@/lib/domain/offer";
+import { CONTRACT_LABELS } from "@/lib/domain/criteria";
+import type { Place } from "@/lib/domain/offer";
+import { freshness, placeLabel } from "@/lib/format";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-// An illustration of what Scout shows, for three different jobs: every job is welcome. These are
-// examples (no real company is named), shown in the product's own cards.
-const EXAMPLES: { title: string; employer: string; level: Level; why: string; accent: string }[] = [
-  { title: "Chargé·e de communication", employer: "Une agence créative", level: "coeur", why: "Communication digitale dans la culture, le secteur que tu vises, profil junior accepté.", accent: "#e8622a" },
-  { title: "Data analyst", employer: "Une scale-up santé", level: "solide", why: "SQL et tableaux de bord comme dans ton alternance, à 20 minutes de chez toi.", accent: "#2f9e6e" },
-  { title: "Monteur·se vidéo", employer: "Un studio de production", level: "tremplin", why: "Formats courts pour les réseaux : un premier pas vers la réalisation.", accent: "#6d5bf0" },
+// Real offers read by Scout today, in three different jobs: proof that it reads real companies, for
+// every job. Only offers read in full from the company's own career page, with a real logo.
+const JOBS: [string, RegExp][] = [
+  ["communication", /\b(charg[ée]e? de communication|communication|marketing)\b/i],
+  ["data", /\b(data (analyst|scientist|engineer)|analyste)\b/i],
+  ["design", /\b(ux|ui|product|graphic)? ?designer\b/i],
+  ["commercial", /\b(business developer|account executive|commercial)\b/i],
 ];
+type Real = { id: string; title: string; places: Place[]; location_raw: string | null; contract: string; salary_text: string | null; published_at: string | null; first_seen_at: string; company: { name: string; domain: string | null; brand: string | null; accent_color: string | null } };
+
+async function realOffers(): Promise<Real[]> {
+  const db = createAdminClient();
+  const since = new Date(Date.now() - 10 * 86_400_000).toISOString();
+  const { data } = await db
+    .from("offers")
+    .select("id, title, places, location_raw, contract, salary_text, published_at, first_seen_at, sources, company:companies!inner(name, domain, brand, accent_color)")
+    .is("archived_at", null)
+    .not("company.domain", "is", null)
+    .not("company.accent_color", "is", null)
+    .gte("first_seen_at", since)
+    .order("first_seen_at", { ascending: false })
+    .limit(600);
+  // Recent for real: an evergreen posting re-listed every day is not "new".
+  const fresh = (o: Real) => Date.parse(o.published_at ?? o.first_seen_at) > Date.now() - 14 * 86_400_000;
+  const rows = ((data ?? []) as unknown as (Real & { sources: string[] })[]).filter((o) => o.sources.some((s) => !["adzuna", "jooble"].includes(s)) && o.title.length < 60 && fresh(o));
+  const picked: Real[] = [];
+  for (const [, re] of JOBS) {
+    const o = rows.find((r) => re.test(r.title) && !picked.some((p) => p.company.name === r.company.name));
+    if (o) picked.push(o);
+    if (picked.length === 3) break;
+  }
+  return picked;
+}
 
 // Public home: what Scout does, for any job, and the ways in, all on one screen.
-export function Landing({ notice = null }: { notice?: "error" | "deleted" | null }) {
+export async function Landing({ notice = null }: { notice?: "error" | "deleted" | null }) {
+  const offers = await realOffers().catch(() => []);
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col px-5 py-6 md:px-8">
       <header className="flex items-center justify-between">
@@ -43,29 +73,31 @@ export function Landing({ notice = null }: { notice?: "error" | "deleted" | null
           </div>
         </div>
 
-        <div>
-          <p className="mb-3 text-center text-[13px] text-muted">Exemples d&apos;offres triées pour trois personnes</p>
-          <ul className="space-y-3" aria-label="Exemples d'offres triées par Scout">
-            {EXAMPLES.map((e, i) => (
-              <li key={e.title} style={{ ...tintStyle(e.accent), animationDelay: `${i * 90}ms` }} className="tinted animate-rise rounded-[22px] border border-[var(--halo)] p-4 shadow-[0_12px_40px_-24px_rgba(23,21,31,0.35)]">
-                <div className="flex items-center gap-3">
-                  <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white font-display text-base font-bold text-[var(--accent)]">
-                    {e.employer.split(" ").pop()![0].toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-[17px] font-bold leading-tight">{e.title}</span>
-                    <span className="block truncate text-sm text-muted">{e.employer}</span>
-                  </span>
-                  <LevelBadge level={e.level} />
-                </div>
-                <p className="mt-3 rounded-xl bg-surface/80 px-3 py-2 text-[13.5px] leading-snug">
-                  <span className="font-semibold text-[var(--accent)]">Pour toi : </span>
-                  {e.why}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {offers.length > 0 && (
+          <div>
+            <p className="mb-3 text-center text-[13px] text-muted">Des offres lues par Scout ces derniers jours, dans trois métiers</p>
+            <ul className="space-y-3" aria-label="Des offres réelles lues par Scout">
+              {offers.map((o, i) => (
+                <li key={o.id} style={{ ...tintStyle(o.company.accent_color), animationDelay: `${i * 90}ms` }} className="tinted animate-rise rounded-[22px] border border-[var(--halo)] p-4 shadow-[0_12px_40px_-24px_rgba(23,21,31,0.35)]">
+                  <div className="flex items-center gap-3">
+                    <CompanyLogo name={o.company.name} domain={o.company.domain} brand={o.company.brand} size={38} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[17px] font-bold leading-tight">{o.title}</span>
+                      <span className="block truncate text-sm text-muted">
+                        {o.company.name} · publiée {freshness(o.published_at ?? o.first_seen_at)}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[12.5px] font-medium text-muted">
+                    <span className="rounded-full bg-surface/80 px-2.5 py-1">{placeLabel(o.places, o.location_raw)}</span>
+                    {o.contract !== "unknown" && <span className="rounded-full bg-surface/80 px-2.5 py-1">{CONTRACT_LABELS[o.contract as keyof typeof CONTRACT_LABELS]}</span>}
+                    {o.salary_text && <span className="rounded-full bg-surface/80 px-2.5 py-1 text-ink">{o.salary_text}</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
     </main>
   );

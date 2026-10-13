@@ -22,7 +22,9 @@ export type Analysis = { id: string | null; createdAt: string | null; filename: 
 const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "bg-brand" : "bg-warn");
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-export function CvCheck({ history, offers, initialOfferId, }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null }) {
+// `demo`: the public demo, on Camille's fictional CV. Same page; analysing and deleting need an account.
+export function CvCheck({ history, offers, initialOfferId, demo = false }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demo?: boolean }) {
+  const base = demo ? "/demo" : "";
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -30,7 +32,11 @@ export function CvCheck({ history, offers, initialOfferId, }: { history: History
   const [offerId, setOfferId] = useState(initialOfferId && offers.some((o) => o.id === initialOfferId) ? initialOfferId : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  // The demo opens on Camille's latest analysis.
+  const [analysis, setAnalysis] = useState<Analysis | null>(() => {
+    const h = demo ? history[0] : null;
+    return h?.result ? { id: h.id, createdAt: h.created_at, filename: h.filename, result: h.result, suggestions: h.suggestions ?? [], comparison: h.comparison, recruiter: h.recruiter ?? null, text: null } : null;
+  });
   const [rows, setRows] = useState(history);
   const { confirm, dialog } = useConfirm();
   // Fresh server data (after a refresh) replaces the list kept in memory.
@@ -103,9 +109,10 @@ export function CvCheck({ history, offers, initialOfferId, }: { history: History
               e.target.value = "";
             }}
           />
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className={file ? "btn-soft" : "rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50"}>
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy || demo} className={file ? "btn-soft" : "rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50"}>
             {file ? `CV : ${file.name}` : "Choisir mon CV (PDF)"}
           </button>
+          {demo && <span className="text-[13.5px] text-muted">Avec un compte, tu analyses ton propre CV. Ici, celui de Camille.</span>}
           {file && (
             <button type="button" onClick={() => analyse()} disabled={busy} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50">
               {busy ? "Analyse en cours…" : analysis ? "Relancer l'analyse" : "Analyser mon CV"}
@@ -126,7 +133,7 @@ export function CvCheck({ history, offers, initialOfferId, }: { history: History
 
       {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
 
-      <Link href="/marche" className="mt-12 flex items-center justify-between gap-4 rounded-[22px] bg-violet-soft p-5 text-violet-ink transition-shadow hover:shadow-md md:p-6">
+      <Link href={`${base}/marche`} className="mt-12 flex items-center justify-between gap-4 rounded-[22px] bg-violet-soft p-5 text-violet-ink transition-shadow hover:shadow-md md:p-6">
         <span>
           <span className="block font-display text-xl font-bold">Ce que demandent les offres de ton métier</span>
           <span className="mt-1 block text-[14px] opacity-80">Les compétences les plus citées, face à ton CV, et quoi mettre en avant cette semaine.</span>
@@ -144,7 +151,7 @@ export function CvCheck({ history, offers, initialOfferId, }: { history: History
                 key={h.id}
                 className={`group flex items-center gap-2 rounded-2xl border bg-surface p-2 transition-transform duration-150 hover:scale-[1.01] hover:border-ink hover:shadow-md ${analysis?.id === h.id ? "border-ink" : "border-line"}`}
               >
-                <Link href={`/cv/analyses/${h.id}`} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-sm">
+                <Link href={`${base}/cv/analyses/${h.id}`} className="grid min-w-0 flex-1 grid-cols-[6.5rem_minmax(0,1fr)_7rem_2.5rem] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-sm">
                   <span className="text-muted">{date(h.created_at)}</span>
                   <span className="truncate font-medium">{h.filename || "CV"}</span>
                   <span className="h-2.5 overflow-hidden rounded-full bg-pill-solid">
@@ -152,6 +159,7 @@ export function CvCheck({ history, offers, initialOfferId, }: { history: History
                   </span>
                   <span className="text-right font-semibold tabular-nums">{h.total}</span>
                 </Link>
+                {!demo && (
                 <button
                   type="button"
                   onClick={() => removeSaved(h.id)}
@@ -161,6 +169,7 @@ export function CvCheck({ history, offers, initialOfferId, }: { history: History
                 >
                   <TrashIcon className="h-[18px] w-[18px]" />
                 </button>
+                )}
               </li>
             ))}
           </ul>
