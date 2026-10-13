@@ -2,11 +2,16 @@ import Link from "next/link";
 import { EmailLogin } from "@/components/email-login";
 import { LoginButton } from "@/components/login-button";
 import { openSignupLimit } from "@/lib/access";
+import { LevelBadge } from "@/components/level-badge";
+import { tintStyle } from "@/lib/design/color";
+import type { Level } from "@/lib/domain/offer";
 
-const FEATURES = [
-  { title: "Les offres faites pour toi", text: "Lues chaque jour sur les pages carrière de centaines d'entreprises, triées selon ton profil, avec la raison.", tone: "bg-violet-soft text-violet-ink" },
-  { title: "Ce que ton métier demande", text: "Les compétences qui comptent vraiment, l'expérience réellement exigée, face à ton CV.", tone: "bg-mint-soft text-mint-ink" },
-  { title: "Tes candidatures, prêtes et suivies", text: "Un message prêt à envoyer, les questions d'entretien probables, et tout ton suivi au même endroit.", tone: "bg-peach-soft text-peach-ink" },
+// An illustration of what Scout shows, for three different jobs: every job is welcome. These are
+// examples (no real company is named), shown in the product's own cards.
+const EXAMPLES: { title: string; employer: string; level: Level; why: string; accent: string }[] = [
+  { title: "Chargé·e de communication", employer: "Une agence créative", level: "coeur", why: "Communication digitale dans la culture, le secteur que tu vises, profil junior accepté.", accent: "#e8622a" },
+  { title: "Data analyst", employer: "Une scale-up santé", level: "solide", why: "SQL et tableaux de bord comme dans ton alternance, à 20 minutes de chez toi.", accent: "#2f9e6e" },
+  { title: "Monteur·se vidéo", employer: "Un studio de production", level: "tremplin", why: "Formats courts pour les réseaux : un premier pas vers la réalisation.", accent: "#6d5bf0" },
 ];
 
 // Public home: what Scout does, for any job, and the ways in, all on one screen.
@@ -38,14 +43,29 @@ export function Landing({ notice = null }: { notice?: "error" | "deleted" | null
           </div>
         </div>
 
-        <ul className="grid gap-3" aria-label="Ce que fait Scout">
-          {FEATURES.map((f, i) => (
-            <li key={f.title} className={`animate-rise rounded-[22px] p-5 ${f.tone}`} style={{ animationDelay: `${i * 80}ms` }}>
-              <h2 className="font-display text-lg font-bold">{f.title}</h2>
-              <p className="mt-1 text-[14.5px] leading-relaxed opacity-85">{f.text}</p>
-            </li>
-          ))}
-        </ul>
+        <div>
+          <p className="mb-3 text-center text-[13px] text-muted">Exemples d&apos;offres triées pour trois personnes</p>
+          <ul className="space-y-3" aria-label="Exemples d'offres triées par Scout">
+            {EXAMPLES.map((e, i) => (
+              <li key={e.title} style={{ ...tintStyle(e.accent), animationDelay: `${i * 90}ms` }} className="tinted animate-rise rounded-[22px] border border-[var(--halo)] p-4 shadow-[0_12px_40px_-24px_rgba(23,21,31,0.35)]">
+                <div className="flex items-center gap-3">
+                  <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white font-display text-base font-bold text-[var(--accent)]">
+                    {e.employer.split(" ").pop()![0].toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-display text-[17px] font-bold leading-tight">{e.title}</span>
+                    <span className="block truncate text-sm text-muted">{e.employer}</span>
+                  </span>
+                  <LevelBadge level={e.level} />
+                </div>
+                <p className="mt-3 rounded-xl bg-surface/80 px-3 py-2 text-[13.5px] leading-snug">
+                  <span className="font-semibold text-[var(--accent)]">Pour toi : </span>
+                  {e.why}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
     </main>
   );

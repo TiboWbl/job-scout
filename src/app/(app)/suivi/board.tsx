@@ -11,6 +11,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { Columns } from "@/components/charts";
 import { ArrowIcon } from "@/components/icons";
 import { useConfirm } from "@/components/confirm";
+import { InterviewPrep } from "./interview-prep";
 
 import type { BoardItem } from "@/lib/views/board";
 type Patch = Partial<Pick<Application, "stage" | "notes" | "contact" | "applied_at" | "interview_at" | "followed_up_at">>;
@@ -177,7 +178,7 @@ export function Board({ items: initial, demo = false, base = "", addUrl = null }
                       }}
                       className={`cursor-grab active:cursor-grabbing ${dragged === card.id ? "opacity-50" : ""}`}
                     >
-                      <Card item={card} onPatch={(b) => patch(card.id, b)} onRemove={() => remove(card.id)} />
+                      <Card item={card} onPatch={(b) => patch(card.id, b)} onRemove={() => remove(card.id)} demo={demo} base={base} />
                     </div>
                   ))}
                   {cards.length === 0 && dragged && <div className="h-20 rounded-[20px] border-2 border-dashed border-line" />}
@@ -227,7 +228,7 @@ export function Board({ items: initial, demo = false, base = "", addUrl = null }
   );
 }
 
-function Card({ item, onPatch, onRemove }: { item: BoardItem; onPatch: (b: Patch) => void; onRemove: () => void }) {
+function Card({ item, onPatch, onRemove, demo = false, base = "" }: { item: BoardItem; onPatch: (b: Patch) => void; onRemove: () => void; demo?: boolean; base?: string }) {
   const style = useMemo(() => tintStyle(item.accent), [item.accent]);
   const [notes, setNotes] = useState(item.notes);
   const [contact, setContact] = useState(item.contact);
@@ -256,6 +257,14 @@ function Card({ item, onPatch, onRemove }: { item: BoardItem; onPatch: (b: Patch
             J&apos;ai relancé
           </button>
         </div>
+      )}
+
+      {/* The help that fits the step: preparing the application before it, the interview once obtained. */}
+      {item.stage === "entretien" && <InterviewPrep applicationId={item.id} demo={demo} />}
+      {item.stage === "a_postuler" && item.offer_id && (
+        <Link href={`${base}/offres?offre=${item.offer_id}`} className="mt-2 block rounded-xl bg-surface/80 px-3 py-2 text-[13px] font-semibold text-[var(--accent)] hover:bg-surface">
+          Préparer ma candidature →
+        </Link>
       )}
 
       <select value={item.stage} onChange={(e) => onPatch({ stage: e.target.value as Stage })} aria-label="Étape" className="mt-3 w-full rounded-xl border border-line bg-pill px-3 py-2 text-sm">
