@@ -426,6 +426,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
 
 // Why an offer is out of the selection, as a short label the person recognises at a glance.
 const ASIDE_KINDS: [RegExp, string, string][] = [
+  [/annonce incompl/i, "Annonce illisible", "border border-dashed border-line text-muted"],
   [/type de contrat|stage ou alternance/i, "Contrat", "bg-peach-soft text-peach-ink"],
   [/exp[ée]rience|trop senior/i, "Expérience", "bg-violet-soft text-violet-ink"],
   [/zone|lieu/i, "Lieu", "bg-sky-soft text-sky-ink"],

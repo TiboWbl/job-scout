@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Criteria } from "@/lib/domain/criteria";
 import { splitRequirements } from "@/lib/domain/requirements";
+import { isExcerptOnly } from "@/lib/collect/complete";
 import type { Skill } from "@/lib/scoring/judge";
 import { titleRelevance } from "@/lib/scoring/relevance";
 import { skillDemand, skillText, spellings, type SkillStat } from "@/lib/views/skills";
@@ -41,6 +42,7 @@ type Row = {
   experience_level: string | null;
   salary_text: string | null;
   remote: string;
+  sources: string[];
 };
 
 export type MarketDataset = { rows: Row[]; vocabulary: Skill[]; description: (ids: string[]) => Promise<Map<string, string>>; company: (ids: string[]) => Promise<Map<string, { name: string; domain: string | null; brand: string | null }>> };
@@ -51,7 +53,7 @@ export async function loadMarketDataset(db: SupabaseClient): Promise<MarketDatas
   for (let f = 0; ; f += 1000) {
     const { data, error } = await db
       .from("offers")
-      .select("id, title, company_id, first_seen_at, published_at, archived_at, skills, experience_min_years, experience_level, salary_text, remote")
+      .select("id, title, company_id, first_seen_at, published_at, archived_at, skills, experience_min_years, experience_level, salary_text, remote, sources")
       .order("id")
       .range(f, f + 999);
     if (error) throw error;
@@ -121,9 +123,13 @@ export async function computeMarket(
     return relevance.get(title)! >= 5;
   };
   const active = (r: Row) => Date.parse(r.first_seen_at) <= t && (!r.archived_at || Date.parse(r.archived_at) > t);
-  const base = set.rows.filter((r) => active(r) && isRole(r.title));
-  const read = base.slice(0, MAX_BASE);
-  const texts = await set.description([...read.map((r) => r.id), ...selection]);
+  const online = set.rows.filter((r) => active(r) && isRole(r.title)).slice(0, MAX_BASE);
+  const texts = await set.description([...online.map((r) => r.id), ...selection]);
+  // Only offers read in full count: an engine's 500-character excerpt would skew every figure.
+  const base = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }));
+  const read = base;
+  const known = new Set(base.map((r) => r.id));
+  const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
 
   const descriptions = read.map((r) => texts.get(r.id) ?? "").filter((d) => d.length > 300);
   const withText = read.filter((r) => (texts.get(r.id) ?? "").length > 300);
@@ -160,7 +166,7 @@ export async function computeMarket(
   const recent = new Map<string, number>();
   const before = new Map<string, number>();
   for (const r of set.rows) {
-    if (!isRole(r.title)) continue;
+    if (!isRole(r.title) || (ENGINE_ONLY(r) && !known.has(r.id))) continue;
     const seen = postedAt(r);
     if (seen <= t && seen > t - 30 * DAY) recent.set(r.company_id, (recent.get(r.company_id) ?? 0) + 1);
     else if (seen <= t - 30 * DAY && seen > t - 60 * DAY) before.set(r.company_id, (before.get(r.company_id) ?? 0) + 1);

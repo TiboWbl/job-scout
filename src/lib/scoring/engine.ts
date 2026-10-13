@@ -4,6 +4,8 @@ import { CONTRACT_LABELS, Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
 import { chancesCap, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
+
+export const EXCERPT_REASON = "Annonce incomplète : Scout n'a pu en lire qu'un extrait, il ne juge pas une offre sans l'avoir lue en entier.";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
 import { titleRelevance } from "./relevance";
 import { judgeBatch, type Feedback, type JudgeInput, type Judgement } from "./judge";
@@ -161,7 +163,6 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   candidates.sort((a, b) => b.rel - a.rel);
   const feedback = await loadFeedback(db, userId);
   const descriptions = new Map<string, string>();
-  const excerpts = new Set<string>();
   const maxBatches = budgetMs > 60_000 ? Math.floor((budgetMs - BATCH_DURATION_MS) / MIN_INTERVAL_MS) : MAX_BATCHES_PER_CALL;
   const toLoad = candidates.slice(0, maxBatches * BATCH_SIZE).map((c) => c.offer.id);
   // Read the full posting behind search-engine excerpts first: judging 500 characters misleads.
@@ -188,9 +189,15 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       candidates.splice(i, 1);
       continue;
     }
+    // Only an excerpt could be read (the engine's link is blocked or gone): Scout never judges an offer
+    // it has not read in full. It stays visible under "Écartées", with that reason.
+    if (isExcerptOnly({ description: f.description, sources: f.sources })) {
+      regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: EXCERPT_REASON, scored_by: "prefilter" });
+      candidates.splice(i, 1);
+      continue;
+    }
     c.gap = gate.experienceGap;
     descriptions.set(c.offer.id, f.description ?? "");
-    if (isExcerptOnly({ description: f.description, sources: f.sources })) excerpts.add(c.offer.id);
   }
   if (regated.length > 0) {
     const { error: e } = await db.from("offer_scores").upsert(regated);
@@ -215,7 +222,6 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       experienceRequired: offer.experience_min_years,
       experienceLevel: offer.experience_level,
       description: descriptions.get(offer.id) ?? "",
-      excerpt: excerpts.has(offer.id),
       favorite: favoriteIds.has(offer.company_id),
       titleMatch: batchTitle.get(offer.id),
     }));

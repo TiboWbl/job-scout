@@ -172,3 +172,12 @@ describe("Workday", () => {
     expect(offers[0].places[0]).toMatchObject({ city: "Paris", country: "FR" });
   });
 });
+
+describe("offre fermée", async () => {
+  const { isClosedPage } = await import("@/lib/collect/complete");
+  it("reconnaît une annonce retirée, en anglais comme en français", () => {
+    expect(isClosedPage("The job position is no longer available. Unfortunately, this job is no longer available.")).toBe(true);
+    expect(isClosedPage("Cette offre n'est plus disponible")).toBe(true);
+    expect(isClosedPage("Product Manager H/F : rejoins une équipe produit de 12 personnes")).toBe(false);
+  });
+});

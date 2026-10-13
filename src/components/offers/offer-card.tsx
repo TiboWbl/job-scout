@@ -78,7 +78,6 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         <span className="rounded-full bg-pill px-2.5 py-1">{placeLabel(offer.places, offer.location_raw)}</span>
         {offer.remote !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{REMOTE_LABELS[offer.remote]}</span>}
         {offer.contract !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS]}</span>}
-        {item.watch[0]?.startsWith("Extrait seulement") && <span className="rounded-full border border-dashed border-line px-2.5 py-1">Extrait seulement</span>}
         {salary && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{salary}</span>}
         {shortExperience && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{shortExperience}</span>}
       </div>
