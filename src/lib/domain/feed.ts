@@ -36,9 +36,7 @@ export type FeedItem = {
   score_chances: number | null;
   score_tremplin: number | null;
   why: string | null;
-  strengths: string[];
   watch: string[];
-  cv_levers: string[];
   scored_by: string;
   saved: boolean;
   dismissed: boolean;
@@ -48,7 +46,7 @@ const OFFER_FIELDS =
   "id, title, location_raw, places, remote, contract, experience_min_years, experience_max_years, experience_level, salary_text, seniority_estimate, image_url, apply_url, published_at, first_seen_at, sources, skills, repost_count, reposted_at, archived_at, company:companies(id, name, domain, brand, accent_color, cover_url, product)";
 
 // One shape for every feed query, server-side for the selection and client-side for "Écartées".
-export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, salary, experience_asked, score_interet, score_chances, score_tremplin, why, strengths, watch, cv_levers, scored_by, offer:offers(${OFFER_FIELDS})`;
+export const SCORE_SELECT = `level, out_of_zone, excluded_reason, missions, salary, experience_asked, score_interet, score_chances, score_tremplin, why, watch, scored_by, offer:offers(${OFFER_FIELDS})`;
 
 // Search engines keep postings long after they close; a career page lists only open ones (an offer
 // gone from it is archived). So only an offer known from engines alone grows stale with age.

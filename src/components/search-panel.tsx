@@ -42,11 +42,11 @@ export function SearchPanel({ children }: { children: React.ReactNode }) {
 }
 
 // The button of the Offres page that opens it.
-export function EditSearchButton({ label = "Modifier ma recherche" }: { label?: string }) {
+export function EditSearchButton({ label = "Modifier ma recherche", className = "" }: { label?: string; className?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   return (
-    <button type="button" onClick={() => router.push(`${pathname}?recherche=1`, { scroll: false })} className="btn-soft">
+    <button type="button" onClick={() => router.push(`${pathname}?recherche=1`, { scroll: false })} className={`btn-soft ${className}`}>
       {label}
     </button>
   );

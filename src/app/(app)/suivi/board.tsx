@@ -116,7 +116,7 @@ export function Board({ items: initial, demo = false, base = "", addUrl = null }
     <div className="px-1 pb-16 pt-3 md:px-2">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-5xl font-extrabold tracking-tight">Suivi</h1>
+          <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Suivi</h1>
           <p className="mt-2 text-[15px] text-muted">
             {items.length === 0
               ? "Tes candidatures vivent ici, celles de Scout comme celles trouvées ailleurs."

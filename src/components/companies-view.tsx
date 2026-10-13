@@ -60,7 +60,7 @@ export async function CompaniesView({ db, userId, base = "", demo = false }: { d
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">Entreprises</h1>
+      <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Entreprises</h1>
       <div className="mt-8">
         {demo ? (
           <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">

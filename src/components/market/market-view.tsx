@@ -14,7 +14,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
   if (!page) {
     return (
       <div className="px-1 pb-16 pt-3 md:px-2">
-        <h1 className="font-display text-5xl font-extrabold tracking-tight">Ton marché</h1>
+        <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché</h1>
         <p className="mt-4 rounded-2xl bg-surface p-6 text-muted">Dis à Scout quel métier tu cherches, et il te montre ce que ses offres demandent vraiment.</p>
       </div>
     );
@@ -25,7 +25,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
     <div className="px-1 pb-16 pt-3 md:px-2">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-5xl font-extrabold tracking-tight">Ton marché</h1>
+          <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché</h1>
           <p className="mt-2 text-[15px] text-muted">
             {m.role} · {m.total.toLocaleString("fr-FR")} offres en ligne · {m.newThisWeek} cette semaine
           </p>
@@ -93,8 +93,8 @@ function CvAgainstMarket({ insights, mine }: { insights: MarketInsights; mine: n
             <p className="text-[12.5px] text-muted">{c.hint}</p>
             <ul className="mt-3 space-y-2">
               {c.items.map((i) => (
-                <li key={i.name} className="flex items-baseline justify-between gap-3 text-[14px]">
-                  <span className={`rounded-full px-2.5 py-0.5 font-semibold ${c.tone}`}>{i.name}</span>
+                <li key={i.name} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[14px]">
+                  <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-semibold ${c.tone}`}>{i.name}</span>
                   <span className="text-right text-[12.5px] tabular-nums text-muted">{c.note(i)}</span>
                 </li>
               ))}

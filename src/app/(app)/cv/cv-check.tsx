@@ -90,7 +90,7 @@ export function CvCheck({ history, offers, initialOfferId, demo = false }: { his
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">Mon CV</h1>
+      <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Mon CV</h1>
       <p className="mt-2 max-w-2xl text-[15px] text-muted">
         Le test ATS vérifie qu&apos;un logiciel de recrutement lit bien ton CV. La lecture recruteur dit ce qui convainc et ce qui manque.
       </p>

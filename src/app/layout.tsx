@@ -11,7 +11,8 @@ const site = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.
 export const metadata: Metadata = {
   metadataBase: new URL(site),
   // Each page names itself: "Offres · Scout".
-  title: { default: "Scout", template: "%s · Scout" },
+  // Just the page name in the tab: the icon already says it is Scout.
+  title: { default: "Scout", template: "%s" },
   description: "Toute ta recherche d'emploi dans un seul onglet : les offres qui te correspondent, expliquées, et le suivi de tes candidatures.",
   // Google Search Console proof of ownership, needed for the brand verification of the Google sign-in screen.
   ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),

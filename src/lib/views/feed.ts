@@ -10,10 +10,8 @@ export async function loadFeed(db: SupabaseClient, userId: string) {
   const version: number = profile?.criteria_version ?? 0;
 
   // Set-aside offers are only counted here; the "Écartées" view loads them on demand.
-  const [selected, excludedCount, actions, favorites, activeCount, scoredCount] = await Promise.all([
+  const [selected, actions, favorites, activeCount, scoredCount] = await Promise.all([
     db.from("offer_scores").select(SCORE_SELECT).eq("user_id", userId).eq("criteria_version", version).neq("level", "ecartee").limit(1500),
-    // Only offers still online: a closed offer is neither shown nor counted.
-    db.from("offer_scores").select("offer_id, offer:offers!inner(archived_at)", { count: "exact", head: true }).eq("user_id", userId).eq("criteria_version", version).eq("level", "ecartee").is("offer.archived_at", null),
     db.from("user_offers").select("offer_id, saved, dismissed").eq("user_id", userId),
     db.from("favorite_companies").select("company_id").eq("user_id", userId),
     db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null),
@@ -32,11 +30,15 @@ export async function loadFeed(db: SupabaseClient, userId: string) {
       dismissed: actionByOffer.get(r.offer!.id)?.dismissed ?? false,
     })));
 
+  // Set aside = sorted and still online, minus the selection: one count fewer to wait for (the
+  // direct count was the slowest query of the page).
+  const shownOnline = ((selected.data ?? []) as unknown as Row[]).filter((r) => r.offer && !r.offer.archived_at).length;
+
   return {
     items,
     openness: criteria.openness,
     pending: Math.max(0, (activeCount.count ?? 0) - (scoredCount.count ?? 0)),
-    excludedCount: excludedCount.count ?? 0,
+    excludedCount: Math.max(0, (scoredCount.count ?? 0) - shownOnline),
     favoriteCompanyIds: (favorites.data ?? []).map((f) => f.company_id as string),
     criteriaVersion: version,
     total: activeCount.count ?? 0,

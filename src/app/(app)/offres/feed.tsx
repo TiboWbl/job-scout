@@ -256,10 +256,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
 
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-5xl font-extrabold tracking-tight">Offres</h1>
-        <EditSearchButton />
-      </div>
+      <h1 className="font-display text-4xl font-extrabold tracking-tight md:text-5xl">Offres</h1>
       <p className="mt-2 text-[15px] text-muted">
         {main.length - staleCount > 0
           ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
@@ -275,9 +272,9 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
       {progress && <SortingBanner progress={progress} total={total} excluded={excludedCount} />}
 
       <div className="mb-5 mt-5">
-        {/* The search takes exactly the width of the level selector under it; refinements sit on the selector's line. */}
-        <div className="flex flex-wrap items-end gap-3">
-        <div className="inline-flex max-w-full flex-col gap-3">
+        {/* Two columns: the search over the level selector, "Modifier ma recherche" over the refinements,
+            each pair as wide as its widest part, each line as tall as the search field. */}
+        <div className="grid w-fit max-w-full grid-cols-1 gap-3 sm:grid-cols-[auto_auto]">
           <input
             type="search"
             value={query}
@@ -286,7 +283,8 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
             aria-label="Rechercher une entreprise ou un intitulé"
             className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
           />
-          <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-wrap rounded-xl border border-line bg-surface p-1">
+          <EditSearchButton className="h-full w-full justify-center whitespace-nowrap" />
+          <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-nowrap overflow-x-auto rounded-xl border border-line bg-surface p-1 sm:flex-wrap">
             {LEVEL_FILTERS.map((f) => (
               <button
                 key={f.key}
@@ -301,8 +299,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
               </button>
             ))}
           </div>
-        </div>
-        {filter !== "ecartees" && (
+        {filter !== "ecartees" ? (
           <div className="flex flex-wrap gap-2" aria-label="Affiner">
             <Toggle on={juniorOnly} onClick={() => setJuniorOnly((v) => !v)}>
               Junior (2 ans max)
@@ -316,6 +313,8 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
               </Toggle>
             )}
           </div>
+        ) : (
+          <span />
         )}
         </div>
         {LEVEL_HELP[filter] && <p className="mt-2.5 text-sm text-muted">{LEVEL_HELP[filter]}</p>}

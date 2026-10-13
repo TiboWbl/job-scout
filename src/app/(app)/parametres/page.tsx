@@ -11,7 +11,7 @@ export default async function ParametresPage() {
   const { data: profile } = await supabase.from("profiles").select("email_digest").eq("id", user!.id).single();
   return (
     <div className="max-w-3xl px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">Paramètres</h1>
+      <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Paramètres</h1>
 
       <section className="mt-8 rounded-[22px] border border-line bg-surface p-5 md:p-6">
         <h2 className="font-display text-xl font-bold tracking-tight">Apparence</h2>

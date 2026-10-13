@@ -26,11 +26,12 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen flex-col gap-4 p-4 md:flex-row">
       <Rail items={ITEMS} firstName="Camille" avatarUrl={null} isAdmin={false} home="/demo/offres" footer={footer} />
       <main className="min-w-0 flex-1">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-violet-soft px-4 py-2.5 text-sm text-violet-ink">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-violet-soft px-4 py-2.5 text-[13px] text-violet-ink sm:text-sm">
           <span>
-            <span className="font-semibold">Démo avec un profil fictif</span> · Offres réelles · Tout est modifiable, rien n&apos;est enregistré
+            <span className="font-semibold">Démo avec un profil fictif</span>
+            <span className="hidden sm:inline"> · Offres réelles · Tout est modifiable, rien n&apos;est enregistré</span>
           </span>
-          <Link href="/" className="btn-soft py-1.5">
+          <Link href="/" className="btn-soft shrink-0 py-1.5">
             Quitter la démo
           </Link>
         </div>

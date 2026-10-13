@@ -42,20 +42,28 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
           </form>
         </div>
       )}
+      {/* A phone shows the photo alone; the sidebar adds the first name, on a soft row. */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-[14px] border border-line bg-surface px-2 py-2 text-left text-rail-text shadow-sm hover:border-ink"
+        aria-label="Mon compte"
+        className={`flex items-center gap-2.5 rounded-[14px] text-left text-rail-text md:w-full md:px-2.5 md:py-2 md:hover:bg-pill-solid ${open ? "md:bg-pill-solid" : ""}`}
       >
         {avatarUrl && !avatarFailed ? (
           // eslint-disable-next-line @next/next/no-img-element -- Google profile photo, external
-          <img src={avatarUrl} alt="" width={32} height={32} referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} className="h-8 w-8 rounded-full object-cover" />
+          <img src={avatarUrl} alt="" width={32} height={32} referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} className="h-8 w-8 shrink-0 rounded-full object-cover" />
         ) : (
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-violet-soft text-sm font-semibold text-violet-ink">{firstName?.[0]?.toUpperCase() ?? "?"}</span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-violet-soft text-sm font-semibold text-violet-ink">{firstName?.[0]?.toUpperCase() ?? "?"}</span>
         )}
-        <span className="hidden truncate text-sm font-medium md:block">{firstName ?? "Mon compte"}</span>
+        <span className="hidden min-w-0 flex-1 md:block">
+          <span className="block truncate text-sm font-semibold">{firstName ?? "Mon compte"}</span>
+          <span className="block text-xs text-muted">Paramètres, déconnexion</span>
+        </span>
+        <span aria-hidden className={`hidden text-muted transition-transform md:block ${open ? "" : "rotate-180"}`}>
+          ⌃
+        </span>
       </button>
     </div>
   );

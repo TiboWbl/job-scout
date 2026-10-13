@@ -40,7 +40,7 @@ export default async function AdminPage() {
 
   return (
     <div className="max-w-5xl px-1 pb-16 pt-3 md:px-2">
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">Admin</h1>
+      <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Admin</h1>
       <p className="mt-2 text-[15px] text-muted">
         Chiffres agrégés uniquement : rien ici ne dit qui cherche quoi. Base : {stats.dbMegabytes} Mo sur les 500 Mo du plan gratuit.
       </p>

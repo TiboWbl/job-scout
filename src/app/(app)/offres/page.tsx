@@ -23,12 +23,12 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
   const requested = profile?.collect_requested_at ? new Date(profile.collect_requested_at).getTime() : 0;
   // eslint-disable-next-line react-hooks/purity -- server component, rendered once per request
   const now = Date.now();
-  let collecting = requested > now - 45 * 60_000 && (!lastRun || new Date(lastRun.started_at).getTime() < requested);
+  const collecting = requested > now - 45 * 60_000 && (!lastRun || new Date(lastRun.started_at).getTime() < requested);
   // GitHub's schedule is sometimes late or skipped: past 8 hours without a collection, the visit starts one
   // (at most once every 45 minutes per person).
   const stale = !lastRun || now - new Date(lastRun.started_at).getTime() > 8 * 3_600_000;
+  // Started quietly: the person did not ask for it, the new offers simply appear.
   if (stale && !collecting && isDispatchConfigured()) {
-    collecting = true;
     const userId = user!.id;
     // After the response, without request cookies: the service client records the request time.
     after(async () => {

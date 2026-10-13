@@ -46,11 +46,12 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
       {cover && (
         // The company's own share image, by URL only; hidden if it fails to load.
         // eslint-disable-next-line @next/next/no-img-element -- external image, referenced not copied
-        <img src={cover} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="-mx-[18px] -mt-[18px] mb-1 h-32 w-[calc(100%+36px)] max-w-none rounded-t-[22px] object-cover" />
+        <img src={cover} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setCoverFailed(true)} className="-mx-[18px] -mt-[18px] mb-1 h-24 w-[calc(100%+36px)] max-w-none rounded-t-[22px] object-cover sm:h-32" />
       )}
-      <header className="flex items-center gap-3">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <CompanyLogo name={offer.company.name} domain={offer.company.domain} brand={offer.company.brand} />
-        <div className="min-w-0">
+        {/* Wide enough to keep its two lines whole; the badges move under it on a narrow card. */}
+        <div className="min-w-[9.5rem] flex-1">
           <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
             {offer.company.name}
             {favorite && (
@@ -59,7 +60,7 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
               </span>
             )}
           </p>
-          <p className="text-[12.5px] text-muted">{seenAt ? `Publiée ${freshness(seenAt)}` : ""}</p>
+          <p className="whitespace-nowrap text-[12.5px] text-muted">{seenAt ? `Publiée ${freshness(seenAt)}` : ""}</p>
         </div>
         <span className="ml-auto flex items-center gap-1.5">
           {/* Published in the last 48 hours: applying early matters. */}
@@ -81,6 +82,9 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         {salary && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{salary}</span>}
         {shortExperience && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{shortExperience}</span>}
       </div>
+
+      {/* What the company does, in one line: often what decides whether to open the offer. */}
+      {offer.company.product && <p className="line-clamp-1 text-[13.5px] text-muted">{offer.company.product}</p>}
 
       {/* One line on why, the rest (missions, what to check) is in the offer's detail. */}
       {item.why && (
