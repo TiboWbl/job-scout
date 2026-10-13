@@ -49,7 +49,8 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Mon compte"
-        className={`flex items-center gap-2.5 rounded-[14px] text-left text-rail-text md:w-full md:px-2.5 md:py-2 md:hover:bg-pill-solid ${open ? "md:bg-pill-solid" : ""}`}
+        // A soft tile at rest; on hover (or open) it takes the brand tint, like the active page above it.
+        className={`flex items-center gap-2.5 rounded-[14px] text-left text-rail-text transition-colors md:w-full md:px-2.5 md:py-2 ${open ? "md:bg-violet-soft md:text-violet-ink" : "md:bg-pill-solid md:hover:bg-violet-soft md:hover:text-violet-ink"}`}
       >
         {avatarUrl && !avatarFailed ? (
           // eslint-disable-next-line @next/next/no-img-element -- Google profile photo, external
