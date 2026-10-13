@@ -57,13 +57,7 @@ export function AccountMenu({ firstName, avatarUrl, isAdmin }: Props) {
         ) : (
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-violet-soft text-sm font-semibold text-violet-ink">{firstName?.[0]?.toUpperCase() ?? "?"}</span>
         )}
-        <span className="hidden min-w-0 flex-1 md:block">
-          <span className="block truncate text-sm font-semibold">{firstName ?? "Mon compte"}</span>
-          <span className="block text-xs text-muted">Paramètres, déconnexion</span>
-        </span>
-        <span aria-hidden className={`hidden text-muted transition-transform md:block ${open ? "" : "rotate-180"}`}>
-          ⌃
-        </span>
+        <span className="hidden min-w-0 flex-1 truncate text-sm font-semibold md:block">{firstName ?? "Mon compte"}</span>
       </button>
     </div>
   );
