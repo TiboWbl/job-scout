@@ -51,7 +51,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Comptes et onboarding
 
-- Connexion **Google** ou **par email avec un code** à 6 chiffres (sans mot de passe, valable sur n'importe quel appareil). L'email part par le SMTP du compte Gmail de Scout configuré dans Supabase (le SMTP par défaut de Supabase n'écrit qu'aux membres du projet), avec `{{ .Token }}` dans le modèle d'email.
+- Connexion **Google** ou **par email avec un code** à 8 chiffres (sans mot de passe, valable sur n'importe quel appareil). L'email part par le SMTP du compte Gmail de Scout configuré dans Supabase (le SMTP par défaut de Supabase n'écrit qu'aux membres du projet), avec `{{ .Token }}` dans le modèle d'email.
 - **Inscription ouverte, dans une limite** : les quotas gratuits (Mistral, base) sont partagés, donc les `OPEN_SIGNUP_LIMIT` premiers comptes (50 par défaut, 0 pour fermer) entrent sans invitation ; au-delà, seuls les invités.
   - Liste d'emails autorisés : variable `INVITED_EMAILS` (séparés par des virgules) et gestion dans la page Admin (table `invitations`). L'admin est toujours autorisé.
   - Un visiteur connecté mais non invité voit un message propre (« Scout est complet pour l'instant ») et ne peut appeler aucune route API.
