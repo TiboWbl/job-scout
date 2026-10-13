@@ -21,11 +21,13 @@ export function InterviewPrep({ applicationId, demo }: { applicationId: string; 
 
   async function start() {
     setOpen(true);
-    if (prep || demo) return;
+    if (prep) return;
     setError(null);
-    const res = await fetch(`/api/applications/${applicationId}/prep`, { method: "POST" }).catch(() => null);
+    // The demo reads what was prepared for its persona; nobody calls the model from it.
+    const res = await (demo ? fetch(`/api/demo/prep?candidature=${applicationId}`) : fetch(`/api/applications/${applicationId}/prep`, { method: "POST" })).catch(() => null);
     const data = await res?.json().catch(() => null);
     if (!res?.ok) return setError(data?.error ?? "La préparation n'a pas abouti, réessaie.");
+    if (demo && !data?.presentation) return setError("L'exemple arrive avec la prochaine mise à jour de la démo. Avec un compte : ta réponse à « Présentez-vous » et les questions probables.");
     setPrep(data);
   }
 
@@ -43,9 +45,7 @@ export function InterviewPrep({ applicationId, demo }: { applicationId: string; 
                 Fermer
               </button>
             </div>
-            {demo ? (
-              <p className="mt-3 text-[14.5px] text-muted">Avec un compte : ta réponse à « Présentez-vous », à dire en deux minutes, tirée de ton CV et du poste, et les questions probables avec ce qu&apos;il faut préparer.</p>
-            ) : error ? (
+            {error ? (
               <p className="mt-3 text-[14px] text-warn">{error}</p>
             ) : !prep ? (
               <p role="status" className="mt-4 flex items-center gap-2 text-sm text-muted">

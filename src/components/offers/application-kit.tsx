@@ -1,19 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Part = "message" | "letter";
 type Kit = { message?: string; letter?: string };
 const LABELS: Record<Part, string> = { message: "Message de candidature", letter: "Lettre de motivation" };
 
 // What to send when applying: the short message, or the cover letter when the offer asks for one.
-// Each is prepared on demand and kept. In the demo, the block says what it does without a call.
+// Each is prepared on demand and kept. The demo shows what was prepared for its persona.
 export function ApplicationKit({ offerId, demo }: { offerId: string; demo: boolean }) {
   const [kit, setKit] = useState<Kit>({});
   const [shown, setShown] = useState<Part | null>(null);
   const [busy, setBusy] = useState<Part | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // The demo shows what was prepared for its persona, without calling the model.
+  useEffect(() => {
+    if (!demo) return;
+    let cancelled = false;
+    fetch(`/api/demo/kit?offre=${offerId}`)
+      .then((r) => r.json())
+      .then((d: Kit) => !cancelled && setKit(d))
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
+  }, [demo, offerId]);
+  const ready = (Object.keys(LABELS) as Part[]).filter((p) => kit[p]);
 
   async function open(part: Part) {
     setShown(part);
@@ -32,11 +45,11 @@ export function ApplicationKit({ offerId, demo }: { offerId: string; demo: boole
   return (
     <section className="mt-5 rounded-2xl bg-violet-soft p-4">
       <h3 className="font-display text-base font-bold text-violet-ink">Préparer ma candidature</h3>
-      {demo ? (
+      {demo && ready.length === 0 ? (
         <p className="mt-1 text-[13.5px] text-violet-ink/80">Avec un compte : un message prêt à envoyer et, si l&apos;offre la demande, une lettre de motivation tirée de cette offre et de ton CV.</p>
       ) : (
         <div className="mt-2.5 flex flex-wrap gap-2">
-          {(Object.keys(LABELS) as Part[]).map((p) => (
+          {(demo ? ready : (Object.keys(LABELS) as Part[])).map((p) => (
             <button
               key={p}
               type="button"

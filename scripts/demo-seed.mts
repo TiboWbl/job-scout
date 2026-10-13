@@ -5,7 +5,7 @@ import { config } from "dotenv";
 config({ path: ".env.local", quiet: true });
 
 const { createAdminClient } = await import("@/lib/supabase/admin");
-const { ensureDemoProfile, seedDemoApplications } = await import("@/lib/demo");
+const { ensureDemoProfile, seedDemoApplications, seedDemoExtras } = await import("@/lib/demo");
 const { runScoring } = await import("@/lib/scoring/engine");
 
 const db = createAdminClient();
@@ -22,4 +22,6 @@ await db.from("favorite_companies").delete().eq("user_id", id);
 if (companies?.length) await db.from("favorite_companies").insert(companies.map((c) => ({ user_id: id, company_id: c.id, input: c.name })));
 
 const applications = await seedDemoApplications(db, id);
-console.log(`démo prête : ${companies?.length ?? 0} favorites, ${applications} candidatures fictives`);
+// The CV analysis, the application kit and the interview preparation, shown as examples.
+const extras = await seedDemoExtras(db, id).catch(() => []);
+console.log(`démo prête : ${companies?.length ?? 0} favorites, ${applications} candidatures fictives${extras.length ? `, ${extras.join(", ")}` : ""}`);

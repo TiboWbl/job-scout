@@ -102,3 +102,91 @@ export async function seedDemoApplications(db: SupabaseClient, userId: string) {
   if (rows.length > 0) await db.from("applications").insert(rows);
   return rows.length;
 }
+
+// Camille's CV, written for the demo (a fictional person: the address cannot receive email). Read by
+// Scout's own CV analysis, like any CV, so the demo shows a real result.
+export const DEMO_CV_TEXT = `Camille Exemple
+camille@exemple.invalid · 06 00 00 00 00
+Product Manager junior
+
+Expérience professionnelle
+Product Owner (stage), Scale-up Mobilité Exemple, janvier 2025 - juin 2025
+• Piloté la refonte du parcours d'inscription : +12 % de conversion en trois mois
+• Conduit 18 entretiens utilisateurs pour prioriser le backlog du trimestre
+• Rédigé les user stories et animé les rituels Scrum avec une équipe de 6 développeurs
+• Suivi des indicateurs d'activation dans un tableau de bord partagé
+Analyste produit (stage), Application Éducation Exemple, juillet 2024 - décembre 2024
+• Analysé les données d'usage en SQL pour identifier les fonctionnalités peu utilisées
+• Participation aux ateliers de discovery avec l'équipe design
+• Réalisé des maquettes de tests sur Figma pour trois nouvelles fonctionnalités
+
+Formation
+Master en management de l'innovation, École Exemple, 2023 - 2025
+Licence d'économie, Université Exemple, 2020 - 2023
+
+Compétences
+Discovery, priorisation, user stories, roadmap, Scrum, SQL, Figma, interviews utilisateurs, KPIs
+
+Langues
+Français : langue maternelle
+Anglais : courant (C1)`;
+
+// What the demo shows beyond the sort: a CV analysis, an application kit and an interview preparation,
+// written by the same code as for anyone. Prepared once (the CV) or after each daily rebuild.
+export async function seedDemoExtras(db: SupabaseClient, userId: string) {
+  const { getLlm } = await import("@/lib/llm");
+  const { scoreCv } = await import("@/lib/cv/ats");
+  const { KEYWORDS_SYSTEM, readAsRecruiter, strings } = await import("@/lib/cv/recruiter");
+  const { cvSkillsFrom } = await import("@/lib/views/skills");
+  const { redactPersonalData } = await import("@/lib/privacy/redact");
+  const { writeKit, writePrep } = await import("@/lib/prep");
+  const llm = getLlm();
+  const done: string[] = [];
+  const { data: profile } = await db.from("profiles").select("criteria, criteria_version, cv_summary").eq("id", userId).single();
+
+  const { count } = await db.from("cv_analyses").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  if (!count) {
+    const roles = [...DEMO_CRITERIA.targetRoles, ...DEMO_CRITERIA.titleVariants.slice(0, 4)].join(", ");
+    const keywords = strings(((await llm.json({ system: KEYWORDS_SYSTEM, user: `Métier visé : ${roles}`, tier: "fast" })) as { mots_cles?: unknown }).mots_cles).slice(0, 12);
+    const result = scoreCv({ text: DEMO_CV_TEXT, layout: { pages: 1, columnRatio: 0.05, spacedTitles: 0 }, filename: "CV Camille Exemple - Product Manager.pdf", sizeBytes: 180_000 }, { expected: keywords });
+    const { recruiter, suggestions } = await readAsRecruiter(llm, { text: DEMO_CV_TEXT, redacted: redactPersonalData(DEMO_CV_TEXT, ["Camille", "Exemple"]), roles, experienceYears: DEMO_CRITERIA.experienceYears, keywords, offer: null });
+    await db.from("cv_analyses").insert({
+      user_id: userId,
+      filename: "CV Camille Exemple - Product Manager.pdf",
+      total: result.total,
+      categories: result.categories.map((c) => ({ key: c.key, score: c.score, max: c.max })),
+      result,
+      suggestions,
+      comparison: null,
+      recruiter,
+    });
+    const { data: asked } = await db.from("offer_scores").select("offer:offers(skills)").eq("user_id", userId).eq("scored_by", "llm").limit(1500);
+    const names = ((asked ?? []) as unknown as { offer: { skills: { name: string }[] | null } | null }[]).flatMap((r) => (r.offer?.skills ?? []).map((s) => s.name));
+    await db.from("profiles").update({ cv_skills: cvSkillsFrom(DEMO_CV_TEXT, names) }).eq("id", userId);
+    done.push("analyse de CV");
+  }
+
+  const { data: apps } = await db.from("applications").select("id, stage, title, company, offer_id, prep").eq("user_id", userId);
+  const toApply = (apps ?? []).find((a) => a.stage === "a_postuler" && a.offer_id);
+  if (toApply) {
+    const { data: score } = await db.from("offer_scores").select("kit").eq("user_id", userId).eq("offer_id", toApply.offer_id).eq("criteria_version", profile?.criteria_version ?? 0).maybeSingle();
+    const kit = (score?.kit ?? {}) as { message?: string; letter?: string };
+    const { data: offer } = await db.from("offers").select("title, description, company:companies(name)").eq("id", toApply.offer_id).single();
+    if (score && offer?.description && (!kit.message || !kit.letter)) {
+      const post = { title: offer.title, company: (offer.company as unknown as { name: string } | null)?.name ?? "", description: offer.description };
+      const next = { message: kit.message || (await writeKit(llm, profile, post, "message")), letter: kit.letter || (await writeKit(llm, profile, post, "letter")) };
+      await db.from("offer_scores").update({ kit: next }).eq("user_id", userId).eq("offer_id", toApply.offer_id).eq("criteria_version", profile?.criteria_version ?? 0);
+      done.push("kit de candidature");
+    }
+  }
+  const interview = (apps ?? []).find((a) => a.stage === "entretien");
+  if (interview && !interview.prep) {
+    const { data: offer } = interview.offer_id ? await db.from("offers").select("description").eq("id", interview.offer_id).maybeSingle() : { data: null };
+    const prep = await writePrep(llm, profile, { title: interview.title, company: interview.company, description: offer?.description ?? null });
+    if (prep.presentation) {
+      await db.from("applications").update({ prep }).eq("id", interview.id);
+      done.push("préparation d'entretien");
+    }
+  }
+  return done;
+}
