@@ -1,7 +1,10 @@
 // Starts the collection workflow on GitHub Actions (free for a public repository), as the schedule
 // would: every career page and search engine read with the new searches, then everything sorted.
 // Needs GITHUB_DISPATCH_TOKEN, a fine-grained token limited to this repository with "Actions: write".
-const REPO = process.env.GITHUB_REPOSITORY ?? "TiboWbl/job-scout";
+// On Vercel, the repository the site is deployed from (its system variables follow a rename).
+const REPO =
+  process.env.GITHUB_REPOSITORY ??
+  (process.env.VERCEL_GIT_REPO_OWNER && process.env.VERCEL_GIT_REPO_SLUG ? `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` : "TiboWbl/scout");
 
 export function isDispatchConfigured() {
   return Boolean(process.env.GITHUB_DISPATCH_TOKEN);
