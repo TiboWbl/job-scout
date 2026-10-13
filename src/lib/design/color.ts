@@ -135,7 +135,9 @@ export function tintStyle(accentHex: string | null | undefined): Record<string, 
 // so the monogram takes over instead of a wrong logo.
 export function logoUrl(domain: string | null | undefined, size = 128, name?: string | null): string | null {
   const token = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN;
-  if (domain) return token ? `https://img.logo.dev/${domain}?token=${token}&size=${size}&format=png&retina=true` : `https://unavatar.io/${domain}?fallback=false`;
+  // fallback=404: without a real logo, the CDN may substitute another one (LinkedIn's for a dead site);
+  // a 404 lets the monogram show instead.
+  if (domain) return token ? `https://img.logo.dev/${domain}?token=${token}&size=${size}&format=png&retina=true&fallback=404` : `https://unavatar.io/${domain}?fallback=false`;
   if (!token || !name || /non communiqu|confidenti|anonyme/i.test(name)) return null;
   return `https://img.logo.dev/name/${encodeURIComponent(name.trim())}?token=${token}&size=${size}&format=png&retina=true&fallback=404`;
 }

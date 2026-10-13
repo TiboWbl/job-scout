@@ -264,7 +264,7 @@ Deux lectures distinctes, simples. Le **test ATS** dit si un logiciel de recrute
 - Ambiance de référence : Welcome to the Jungle (aéré, typographie éditoriale, cartes qui respirent) et le portfolio de l'auteur (inspiration Apple). S'en inspirer sans copier.
 - **Direction retenue : C « Studio »** (maquettes dans `design/mockups/`), avec ces règles :
   - **Couleur calme** : la couleur de l'entreprise sert d'accent (fond très clair, bandeau, halo du logo), jamais en aplat saturé. Elle est éclaircie et désaturée automatiquement : fond de carte autour de 93 % de luminosité en mode clair, bordure dans la couleur de l'entreprise (couleurs assumées, jamais d'aplat saturé).
-  - La couleur est extraite du logo une fois, à la collecte, et stockée avec l'entreprise.
+  - La couleur est extraite du logo une fois, à la collecte, et stockée avec l'entreprise. Les logos sont demandés à logo.dev avec `fallback=404` : sans vrai logo, le CDN substituait celui d'une autre marque (LinkedIn pour un site mort) ; un 404 laisse place à l'initiale. Un domaine dont le logo est celui d'un réseau social ou d'un site d'emploi n'est jamais retenu.
   - **Contraste vérifié automatiquement** (WCAG AA : 4,5:1 pour le texte, 3:1 pour les éléments graphiques) pour chaque carte, en mode clair et sombre. La couleur d'accent du texte est assombrie ou éclaircie jusqu'à passer le seuil.
   - Logo noir et blanc ou couleur introuvable : teinte neutre de repli.
   - Typographie expressive (Bricolage Grotesque) pour les titres uniquement ; texte courant et descriptions d'offres dans une sans-serif très lisible (Inter).
@@ -322,7 +322,7 @@ Deux lectures distinctes, simples. Le **test ATS** dit si un logiciel de recrute
 ## Vitrine (portfolio et entretiens)
 
 - README : problème, vision, captures, schéma d'architecture, choix techniques et produit, lien vers la démo.
-- **Page d'accueil publique** (visiteur non connecté, sur `/`) : ce que fait Scout en une phrase, trois vraies offres triées pour la persona de démo avec leur « Pour toi », trois chiffres réels (offres lues, pages carrière surveillées, chaque offre expliquée), « Ce que demandent vraiment N offres » du métier de la persona (les 5 compétences les plus citées, vers le marché de la démo), et les boutons « Voir la démo », « Continuer avec Google » et « Continuer avec mon email ».
+- **Page d'accueil publique** (visiteur non connecté, sur `/`) : un seul écran, valable pour tous les métiers (rien de propre à la persona de démo). La promesse en une phrase, « Continuer avec Google », « Continuer avec mon email », « Voir la démo, sans compte », « Gratuit, sans carte bancaire », et trois cartes : les offres faites pour toi, ce que ton métier demande, tes candidatures prêtes et suivies.
 - **Mode démo sans connexion**, lien direct `/demo` :
   - persona fictive (Camille, PM junior à Paris) scorée comme un vrai utilisateur sur les **vraies offres** en base : la démo montre le produit réel, pas des captures ;
   - jamais le compte de l'auteur ni ses vraies candidatures ;

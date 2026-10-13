@@ -20,7 +20,8 @@ export function EmailLogin() {
     setError(null);
     const { error } = await createClient().auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback` } });
     setBusy(false);
-    if (error) return setError("L'email n'a pas pu être envoyé. Vérifie l'adresse, ou réessaie dans une minute.");
+    // A server-side failure (sending) is not the person's mistake: say so.
+    if (error) return setError(error.status && error.status >= 500 ? "L'envoi du code n'a pas fonctionné de notre côté. Réessaie dans quelques minutes, ou continue avec Google." : "L'email n'a pas pu être envoyé. Vérifie l'adresse, ou réessaie dans une minute.");
     setStep("code");
   }
 

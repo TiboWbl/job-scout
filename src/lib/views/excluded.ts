@@ -22,7 +22,8 @@ export async function loadExcludedPage(db: SupabaseClient, opts: { userId?: stri
     ids = [...new Set([...(byTitle.data ?? []), ...(byCompany.data ?? [])].map((o) => o.id as string))];
     if (ids.length === 0) return [];
   }
-  let query = db.from("offer_scores").select(SCORE_SELECT).eq("level", "ecartee");
+  // Closed offers are neither listed nor counted.
+  let query = db.from("offer_scores").select(SCORE_SELECT.replace("offer:offers(", "offer:offers!inner(")).eq("level", "ecartee").is("offer.archived_at", null);
   if (opts.userId) query = query.eq("user_id", opts.userId);
   if (opts.version !== undefined) query = query.eq("criteria_version", opts.version);
   if (ids) query = query.in("offer_id", ids);

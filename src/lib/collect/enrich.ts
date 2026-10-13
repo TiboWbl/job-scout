@@ -15,12 +15,25 @@ const Answer = z.object({
   employeurs: z.array(z.object({ id: z.union([z.string(), z.number()]).transform(String), marque: z.string().nullish(), domaine: z.string().nullish() })),
 });
 
-async function logoExists(domain: string): Promise<boolean> {
+const logoBytes = async (domain: string): Promise<Buffer | null> => {
   const token = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN;
-  if (!token) return false;
-  const res = await fetch(`https://img.logo.dev/${domain}?token=${token}&size=32&fallback=404`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
-  return res?.ok ?? false;
+  if (!token) return null;
+  const res = await fetch(`https://img.logo.dev/${domain}?token=${token}&size=32&format=png&fallback=404`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  return res?.ok ? Buffer.from(await res.arrayBuffer()) : null;
+};
+
+// For a dead or unknown site, the logo CDN may answer with the logo of the social page it found
+// (LinkedIn, Facebook…): that is not the employer's logo.
+const BORROWED = ["linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "youtube.com", "indeed.com", "welcometothejungle.com", "glassdoor.com", "malt.fr"];
+let borrowed: Promise<Buffer[]> | null = null;
+export async function hasOwnLogo(domain: string): Promise<boolean> {
+  const bytes = await logoBytes(domain);
+  if (!bytes) return false;
+  if (BORROWED.some((d) => domain === d || domain.endsWith(`.${d}`))) return false;
+  borrowed ??= Promise.all(BORROWED.map(logoBytes)).then((list) => list.filter((b): b is Buffer => b !== null));
+  return !(await borrowed).some((b) => b.equals(bytes));
 }
+const logoExists = hasOwnLogo;
 
 const cleanDomain = (d: string) => d.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
 
@@ -110,7 +123,7 @@ export async function guessDomains(db: SupabaseClient, companyIds: string[]): Pr
       .catch(() => null)) as { resultats?: { id: string; meme_entreprise: string }[] } | null;
     for (const r of raw?.resultats ?? []) {
       const f = batch[Number(String(r.id).replace(/\D/g, ""))];
-      if (!f || !/^oui/i.test(r.meme_entreprise ?? "")) continue;
+      if (!f || !/^oui/i.test(r.meme_entreprise ?? "") || !(await hasOwnLogo(f.domain))) continue;
       kept++;
       await db.from("companies").update({ domain: f.domain, color_checked_at: null, cover_checked_at: null }).eq("id", f.id);
     }
