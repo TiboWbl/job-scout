@@ -51,21 +51,6 @@ function toBlocks(text: string): Block[] {
 export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescription }: Props) {
   const { offer } = item;
   const [description, setDescription] = useState<string | null>(null);
-  // Strengths and CV levers are prepared when the offer is opened (once, then kept).
-  const [details, setDetails] = useState<{ strengths: string[]; cvLevers: string[]; loading: boolean }>({ strengths: item.strengths, cvLevers: item.cv_levers, loading: false });
-  useEffect(() => {
-    if (loadDescription || item.level === "ecartee" || item.strengths.length > 0 || item.cv_levers.length > 0) return;
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- shows the preparation while it runs
-    setDetails((d) => ({ ...d, loading: true }));
-    fetch(`/api/offers/${offer.id}/details`, { method: "POST" })
-      .then((r) => r.json())
-      .then((d: { strengths?: string[]; cvLevers?: string[] }) => !cancelled && setDetails({ strengths: d.strengths ?? [], cvLevers: d.cvLevers ?? [], loading: false }))
-      .catch(() => !cancelled && setDetails((d) => ({ ...d, loading: false })));
-    return () => {
-      cancelled = true;
-    };
-  }, [offer.id, item.level, item.strengths, item.cv_levers, loadDescription]);
   // Stable across renders: the parent passes a new function each time.
   const loader = useRef(loadDescription);
   const [nopeOpen, setNopeOpen] = useState(false);
@@ -185,41 +170,17 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
           <section className="mt-5 rounded-2xl border border-[var(--halo)] bg-[var(--tint)] p-4">
             <h3 className="font-display text-base font-bold text-[var(--accent)]">Pourquoi cette offre</h3>
             <p className="mt-1.5 text-[14.5px] leading-relaxed">{item.why}</p>
+            {item.watch.length > 0 && (
+              <p className="mt-2 text-[14px] leading-relaxed text-muted">
+                <span className="font-semibold text-ink">À vérifier : </span>
+                {item.watch.map((w) => w.replace(/^À vérifier : /, "")).join(" · ")}
+              </p>
+            )}
           </section>
         )}
 
         <OfferDecoder offer={offer} description={description} />
         {item.level !== "ecartee" && <ApplicationKit offerId={offer.id} demo={Boolean(loadDescription)} />}
-
-        {details.loading && (
-          <p role="status" className="mt-4 flex items-center gap-2 text-sm text-muted">
-            <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-brand" />
-            Scout prépare tes atouts et les ajustements de CV pour ce poste…
-          </p>
-        )}
-        {(details.strengths.length > 0 || item.watch.length > 0) && (
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            {details.strengths.length > 0 && (
-              <section>
-                <h4 className="mb-1.5 text-[13px] font-semibold text-muted">Points forts</h4>
-                <ul className="list-disc space-y-1 pl-4 text-[14.5px] leading-normal">{details.strengths.map((s) => <li key={s}>{s}</li>)}</ul>
-              </section>
-            )}
-            {item.watch.length > 0 && (
-              <section>
-                <h4 className="mb-1.5 text-[13px] font-semibold text-muted">Points d&apos;attention</h4>
-                <ul className="list-disc space-y-1 pl-4 text-[14.5px] leading-normal">{item.watch.map((s) => <li key={s}>{s}</li>)}</ul>
-              </section>
-            )}
-          </div>
-        )}
-
-        {details.cvLevers.length > 0 && (
-          <p className="mt-4 text-[13.5px] leading-relaxed text-muted">
-            <span className="font-semibold text-ink">Leviers CV : </span>
-            {details.cvLevers.join(" · ")}
-          </p>
-        )}
 
         <div className="mt-6 space-y-3 border-t border-line pt-5">
           {description === null && <p className="text-sm text-muted">Chargement de l&apos;annonce…</p>}

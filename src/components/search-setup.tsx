@@ -17,19 +17,18 @@ type Props = {
   savedCv?: { filename: string | null; updatedAt: string | null } | null;
 };
 
-// One line proving the CV was read: education, experience, key skills.
-// Everything Scout kept from the CV, laid out so the person sees it was really read.
+// What Scout kept from the CV, folded into one line: opened only to check it. The years of experience
+// are not repeated here: the editable field below is the one the sort uses.
 function CvDigest({ cv, title }: { cv: CvSummary; title: React.ReactNode }) {
   const rows: [string, string[]][] = [
-    ["Expérience", cv.experienceYears !== null && cv.experienceYears !== undefined ? [`${cv.experienceYears} an${cv.experienceYears > 1 ? "s" : ""} au total, stages compris`] : []],
     ["Postes", cv.roles],
     ["Formation", cv.education],
     ["Réalisations", cv.highlights],
     ["Langues", cv.languages],
   ];
   return (
-    <div className="mt-4 rounded-2xl bg-pill-solid p-4 text-[14px] leading-relaxed">
-      <p className="font-semibold">{title}</p>
+    <details className="mt-4 rounded-2xl bg-pill-solid px-4 py-3 text-[14px] leading-relaxed">
+      <summary className="cursor-pointer font-semibold">{title}</summary>
       <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
         {rows
           .filter(([, values]) => values.length > 0)
@@ -52,7 +51,7 @@ function CvDigest({ cv, title }: { cv: CvSummary; title: React.ReactNode }) {
           </div>
         )}
       </dl>
-    </div>
+    </details>
   );
 }
 
@@ -133,8 +132,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         <label htmlFor="search-text" className="font-display text-xl font-bold tracking-tight">
           {mode === "onboarding" ? "Dis-moi ce que tu cherches, avec tes mots" : "Redis-le avec tes mots"}
         </label>
-        {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Le métier, le lieu, ce qui te plaît, ce que tu veux éviter, où tu en es. Quelques phrases suffisent.</p>}
-        {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Pas de pression : tu pourras modifier ce texte, ton CV et tes entreprises à tout moment dans Ma recherche.</p>}
+        {mode === "onboarding" && <p className="mt-1 text-sm text-muted">Le métier, le lieu, ce qui te plaît, ce que tu veux éviter. Quelques phrases suffisent, et tout reste modifiable.</p>}
         <AutoTextarea
           id="search-text"
           value={text}
@@ -184,13 +182,9 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         </div>
 
         {mode === "onboarding" ? (
-          <p className="mt-4 rounded-xl bg-pill-solid px-4 py-3 text-[13px] leading-relaxed text-muted">
-            <span className="font-semibold text-ink">Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA. </span>
-            Ton CV est lu dans ton navigateur puis envoyé à Scout, qui en retire ton nom, ton email, ton téléphone et ton adresse avant de l&apos;analyser avec une IA (Mistral).
-            Le CV lui-même n&apos;est pas conservé, seulement les compétences et l&apos;expérience qui en sont extraites.
-          </p>
+          <p className="mt-3 text-[13px] text-muted">Ton nom et tes coordonnées sont retirés du CV avant l&apos;IA, et le fichier n&apos;est pas conservé.</p>
         ) : (
-          <p className="mt-3 text-[13px] text-muted">Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA, et le fichier du CV n&apos;est pas conservé.</p>
+          <p className="mt-3 text-[13px] text-muted">Ton nom et tes coordonnées sont retirés du CV avant l&apos;IA, et le fichier n&apos;est pas conservé.</p>
         )}
         {error && <p className="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>}
       </section>
@@ -209,7 +203,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
         <>
           <div>
             <h2 className="font-display text-2xl font-bold tracking-tight">Ce que j&apos;ai compris</h2>
-            <p className="mt-1 text-sm text-muted">Une puce se retire d&apos;un clic ; Entrée en ajoute une.</p>
+            <p className="mt-1 text-sm text-muted">Tout se corrige ici : une puce se retire d&apos;un clic, Entrée en ajoute une.</p>
             {shownCv && cvName && <CvDigest cv={shownCv} title="Ce que Scout a retenu de ton CV" />}
           </div>
           <CriteriaEditor value={criteria} onChange={setCriteria} />

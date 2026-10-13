@@ -175,7 +175,7 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
         </div>
         <p className="mt-2 text-[13px] text-muted">Aucun sélectionné = tous les contrats.</p>
         <label className="mt-4 flex items-center gap-3 text-sm">
-          Expérience professionnelle réelle
+          Ton expérience professionnelle
           <input
             type="number"
             min={0}

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "./account-menu";
 
-type Item = { href: string; label: string };
+// `badge`: something waiting there (a follow-up to send, an interview coming).
+type Item = { href: string; label: string; badge?: number };
 
 // `footer` replaces the account menu (the public demo has no account).
 export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer }: { items: Item[]; firstName: string | null; avatarUrl: string | null; isAdmin: boolean; home?: string; footer?: React.ReactNode }) {
@@ -29,6 +30,11 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
               className={`whitespace-nowrap rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50 px-3.5 py-2.5 text-[15px] ${active ? "bg-rail-active font-semibold text-rail-active-ink" : "font-medium text-rail-ink hover:bg-pill-solid hover:text-rail-text"}`}
             >
               {item.label}
+              {item.badge ? (
+                <span className="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full bg-peach-soft px-1.5 text-[11.5px] font-semibold text-peach-ink" aria-label={`${item.badge} à faire`}>
+                  {item.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

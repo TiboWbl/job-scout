@@ -1,9 +1,6 @@
-import { TodayView } from "@/components/today-view";
-import { demoContext } from "@/lib/demo-page";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Démo" };
-
-export default async function DemoTodayPage() {
-  const { db, userId } = await demoContext();
-  return <TodayView db={db} userId={userId} base="/demo" />;
+// The demo opens on its offers, as the app does.
+export default function DemoHome() {
+  redirect("/demo/offres");
 }

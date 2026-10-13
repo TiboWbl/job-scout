@@ -73,14 +73,8 @@ export function SortingBanner({ progress, total, excluded = null }: { progress: 
       </div>
       <p className="mt-2 text-muted">
         {progress.note ??
-          `${excluded ? `Déjà mis de côté : ${excluded.toLocaleString("fr-FR")} offres hors de ta recherche (lieu, contrat, expérience ou métier). ` : ""}Scout lit maintenant une à une les offres proches de ton métier, les plus proches d'abord : ta sélection se remplit au fur et à mesure.`}
+          `${excluded ? `${excluded.toLocaleString("fr-FR")} offres hors de ta recherche déjà écartées. ` : ""}Scout lit maintenant les plus proches de ton métier : ta sélection se remplit au fur et à mesure.`}
       </p>
     </div>
   );
-}
-
-// For a server-rendered page (Aujourd'hui): runs the sort and shows its progress.
-export function SortingProgress({ pending, total, excluded = null }: { pending: number; total: number; excluded?: number | null }) {
-  const progress = useSorting(pending);
-  return progress ? <SortingBanner progress={progress} total={total} excluded={excluded} /> : null;
 }

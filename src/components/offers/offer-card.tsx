@@ -33,6 +33,9 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
   const seenAt = offer.published_at ?? offer.first_seen_at;
   // What the posting states (read deterministically) first, else what the model quoted from it.
   const experience = experienceText(offer.experience_min_years, offer.experience_max_years, offer.experience_level, offer.seniority_estimate) ?? item.experience_asked;
+  // On the card, only what is known, in a few words: the details are one click away.
+  const shortExperience = experience?.replace(/^Non précisée · missions de niveau (\S+) \(estimé\)$/, "Niveau $1 (estimé)").replace(/^Non précisée$/, "").replace(/^(\d.*)$/, "Expérience : $1") || null;
+  const salary = offer.salary_text ?? item.salary;
 
   return (
     <article
@@ -75,38 +78,16 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         <span className="rounded-full bg-pill px-2.5 py-1">{placeLabel(offer.places, offer.location_raw)}</span>
         {offer.remote !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{REMOTE_LABELS[offer.remote]}</span>}
         {offer.contract !== "unknown" && <span className="rounded-full bg-pill px-2.5 py-1">{CONTRACT_LABELS[offer.contract as keyof typeof CONTRACT_LABELS]}</span>}
-        {/* Missing facts are said so, in a dashed chip: worth a look in the posting itself. */}
         {item.watch[0]?.startsWith("Extrait seulement") && <span className="rounded-full border border-dashed border-line px-2.5 py-1">Extrait seulement</span>}
-        {(offer.salary_text ?? item.salary) ? <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{offer.salary_text ?? item.salary}</span> : <span className="rounded-full border border-dashed border-line px-2.5 py-1">Salaire non indiqué</span>}
-        {experience ? (
-          <span className="rounded-full bg-pill px-2.5 py-1 text-ink">Expérience : {experience}</span>
-        ) : (
-          <span className="rounded-full border border-dashed border-line px-2.5 py-1">Expérience non précisée</span>
-        )}
+        {salary && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{salary}</span>}
+        {shortExperience && <span className="rounded-full bg-pill px-2.5 py-1 text-ink">{shortExperience}</span>}
       </div>
 
-      {item.missions.length > 0 && (
-        <ul className="space-y-1 text-[13.5px] leading-snug">
-          {item.missions.map((m) => (
-            <li key={m} className="flex gap-2">
-              <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />
-              {m}
-            </li>
-          ))}
-        </ul>
-      )}
-
+      {/* One line on why, the rest (missions, what to check) is in the offer's detail. */}
       {item.why && (
-        <p className="rounded-xl bg-surface/80 px-3 py-2 text-[13.5px] leading-snug">
+        <p className="line-clamp-2 text-[14px] leading-snug text-muted">
           <span className="font-semibold text-[var(--accent)]">Pour toi : </span>
           {item.why}
-          {/* The main thing to check, so the decision can be made from the card. */}
-          {item.watch[0] && (
-            <span className="mt-1 block text-[12.5px] text-muted">
-              <span className="font-semibold">À vérifier : </span>
-              {item.watch[0].replace(/^À vérifier : /, "")}
-            </span>
-          )}
         </p>
       )}
 

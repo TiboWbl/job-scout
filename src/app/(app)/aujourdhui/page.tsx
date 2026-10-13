@@ -1,9 +1,6 @@
-import { getUser } from "@/lib/supabase/server";
-import { TodayView } from "@/components/today-view";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Aujourd'hui" };
-
-export default async function TodayPage() {
-  const { supabase, user } = await getUser();
-  return <TodayView db={supabase} userId={user!.id} />;
+// "Aujourd'hui" became the offers page: old links and bookmarks land there.
+export default function TodayPage() {
+  redirect("/offres");
 }

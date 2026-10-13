@@ -8,7 +8,6 @@ export type Action = { kind: "ajouter" | "valoriser" | "relativiser" | "cibler";
 
 const HARD = new Set<MarketSkill["kind"]>(["outil", "methode"]);
 const cap = skillLabel;
-const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 export function marketActions(m: MarketData): Action[] {
   const out: Action[] = [];
@@ -23,7 +22,7 @@ export function marketActions(m: MarketData): Action[] {
     out.push({
       kind: "ajouter",
       titre: `${cap(add.name)} : à écrire, si c'est vrai pour toi`,
-      detail: `${plural(add.mine, "offre", "offres")} de ta sélection sur ${m.mine} en parlent, et ton CV n'en dit rien. Si tu l'as pratiqué, écris ce mot tel quel, dans une mission, avec ce que tu en as fait.`,
+      detail: `${add.mine} de tes ${m.mine} offres en parlent, ton CV non. Si tu l'as pratiqué, écris-le dans une mission.`,
     });
 
   // 2. The most asked skill the CV already has: shown in a mission, it weighs more than in a list.
@@ -32,7 +31,7 @@ export function marketActions(m: MarketData): Action[] {
     out.push({
       kind: "valoriser",
       titre: `${cap(show.name)} : déjà dans ton CV, à mettre en valeur`,
-      detail: `${show.share} % des offres de ton métier en parlent. Un recruteur cherche la preuve dans tes missions, avec un résultat, pas seulement dans ta liste de compétences.`,
+      detail: `${show.share} % des offres en parlent. Montre-le dans une mission, avec un résultat.`,
     });
 
   // 3. A skill mostly asked "as a plus": worth knowing, not worth putting the week into.
@@ -43,7 +42,7 @@ export function marketActions(m: MarketData): Action[] {
     out.push({
       kind: "relativiser",
       titre: `${cap(plus.name)} : un plus, rarement une condition`,
-      detail: `Dans ${Math.round((100 * (plus.bonus ?? 0)) / plus.count)} % des offres qui en parlent, c'est « un plus ». Ne laisse pas ce manque t'empêcher de postuler.`,
+      detail: `« Un plus » dans ${Math.round((100 * (plus.bonus ?? 0)) / plus.count)} % des offres qui en parlent. Postule quand même.`,
     });
 
   // Otherwise, where the doors are open: offers that do not set a number of years.
@@ -53,7 +52,7 @@ export function marketActions(m: MarketData): Action[] {
       out.push({
         kind: "cibler",
         titre: "Les offres sans durée d'expérience sont ouvertes",
-        detail: `${Math.round((100 * unspecified) / m.total)} % des offres de ton métier ne chiffrent pas l'expérience. Ne t'en prive pas : pour chacune, Scout estime le niveau des missions.`,
+        detail: `${Math.round((100 * unspecified) / m.total)} % des offres ne chiffrent pas l'expérience : ne t'en prive pas.`,
       });
   }
   return out.slice(0, 3);

@@ -32,7 +32,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
         <div>
           <h1 className="font-display text-5xl font-extrabold tracking-tight">Ton marché</h1>
           <p className="mt-2 text-[15px] text-muted">
-            {m.role} · {m.total.toLocaleString("fr-FR")} offres en ligne · {m.newThisWeek} publiées cette semaine · mis à jour le {day(m.day)}
+            {m.role} · {m.total.toLocaleString("fr-FR")} offres en ligne · {m.newThisWeek} cette semaine
           </p>
         </div>
         {!base && <ShareMarket />}
@@ -56,8 +56,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
       <section className="mt-10 rounded-[22px] border border-line bg-surface p-5 md:p-7">
         <h2 className="font-display text-2xl font-bold">Ce que demandent les offres</h2>
         <p className="mb-5 mt-1 text-sm text-muted">
-          Part des {m.total.toLocaleString("fr-FR")} offres de ton métier qui citent chaque compétence, lue dans leur texte complet.
-          {since ? ` Les flèches comparent au ${day(since)}.` : ""}
+          La part des offres qui citent chaque compétence.{since ? ` Évolution depuis le ${day(since)}.` : ""}
         </p>
         <MarketSkills skills={m.skills} trend={trend} mine={m.mine} personal since={since ? day(since) : null} />
       </section>

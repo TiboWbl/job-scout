@@ -12,7 +12,7 @@ export default async function OnboardingPage() {
   if (!user) redirect("/");
   if (!(await isInvited(user.email, user.id))) redirect("/invitation");
   const { data: profile } = await supabase.from("profiles").select("display_name, onboarded_at").eq("id", user.id).single();
-  if (profile?.onboarded_at) redirect("/aujourdhui");
+  if (profile?.onboarded_at) redirect("/offres");
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-12 md:py-16">

@@ -70,7 +70,7 @@ export function SalaryBlock({ m }: { m: MarketData }) {
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-[12.5px] text-muted">Brut annuel, tel qu&apos;écrit dans les offres. Jamais estimé.</p>
+      <p className="mt-4 text-[12.5px] text-muted">Brut annuel, tel qu&apos;écrit dans les offres.</p>
     </section>
   );
 }
@@ -107,7 +107,7 @@ export function CompaniesBlock({ m, base = "", linked = true }: { m: MarketData;
   return (
     <section>
       <h2 className="font-display text-2xl font-bold">Qui recrute en ce moment</h2>
-      <p className="mt-1 text-sm text-muted">Les entreprises qui ont publié le plus d&apos;offres de ce métier ces 30 derniers jours.</p>
+      <p className="mt-1 text-sm text-muted">Le plus d&apos;offres de ton métier ces 30 derniers jours.</p>
       <ul className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {m.companies.map((c) => {
           const body = (
