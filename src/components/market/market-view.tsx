@@ -1,16 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Insight, MarketInsights } from "@/lib/market/advice";
 import { marketPage } from "@/lib/market/view";
-import { CompaniesBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "./blocks";
+import { CompaniesBlock, ContractsBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "./blocks";
 import { MarketSkills } from "./skills";
 import { ShareMarket } from "./share";
 
-const TONES: Record<string, string> = {
-  ajouter: "bg-peach-soft text-peach-ink",
-  valoriser: "bg-mint-soft text-mint-ink",
-  relativiser: "bg-violet-soft text-violet-ink",
-  cibler: "bg-sky-soft text-sky-ink",
-};
-const LABELS: Record<string, string> = { ajouter: "À ajouter", valoriser: "À valoriser", relativiser: "À relativiser", cibler: "À cibler" };
 const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" });
 
 // The market of the role sought: what the offers really ask for, how it moves, what it means for the
@@ -25,7 +19,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
       </div>
     );
   }
-  const { today: m, trend, since, actions } = page;
+  const { today: m, trend, since, insights } = page;
   const demoCard = base ? ((await db.from("market_cards").select("id").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.id as string | undefined) : undefined;
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
@@ -39,22 +33,9 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
         {base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
       </div>
 
-      {actions.length > 0 && (
-        <section className="mt-8">
-          <h2 className="font-display text-2xl font-bold">Cette semaine, pour toi</h2>
-          <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-            {actions.map((a) => (
-              <li key={a.titre} className="flex flex-col rounded-[22px] border border-line bg-surface p-5">
-                <span className={`self-start rounded-full px-2.5 py-1 text-[12px] font-semibold ${TONES[a.kind]}`}>{LABELS[a.kind]}</span>
-                <h3 className="mt-3 font-display text-lg font-bold leading-snug">{a.titre}</h3>
-                <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{a.detail}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {insights.coverage.of > 0 && <CvAgainstMarket insights={insights} mine={m.mine} />}
 
-      <section className="mt-10 rounded-[22px] border border-line bg-surface p-5 md:p-7">
+      <section className="mt-4 rounded-[22px] border border-line bg-surface p-5 md:p-7">
         <h2 className="font-display text-2xl font-bold">Ce que demandent les offres</h2>
         <p className="mb-5 mt-1 text-sm text-muted">
           La part des offres qui citent chaque compétence.{since ? ` Évolution depuis le ${day(since)}.` : ""}
@@ -62,9 +43,10 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
         <MarketSkills skills={m.skills} trend={trend} mine={m.mine} personal since={since ? day(since) : null} />
       </section>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <ExperienceBlock m={m} />
         <SalaryBlock m={m} />
+        <ContractsBlock m={m} />
         <RemoteBlock m={m} />
       </div>
 
@@ -72,5 +54,49 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
         <CompaniesBlock m={m} base={base} />
       </div>
     </div>
+  );
+}
+
+// The CV against the market: how much of what is most asked it shows, then three short lists to act
+// on. Each line says the share of the role's offers, and how many of the person's own offers.
+function CvAgainstMarket({ insights, mine }: { insights: MarketInsights; mine: number }) {
+  const { coverage, add, show, plus } = insights;
+  const columns = [
+    { title: "À ajouter, si c'est vrai pour toi", hint: "Écris-le tel quel, dans une mission.", items: add, tone: "bg-peach-soft text-peach-ink", note: (i: Insight) => `${i.share} % des offres${mine ? ` · ${i.mine} des tiennes` : ""}` },
+    { title: "Déjà là, à mettre en valeur", hint: "Montre-le dans une mission, avec un résultat.", items: show, tone: "bg-mint-soft text-mint-ink", note: (i: Insight) => `${i.share} % des offres` },
+    { title: "Un plus, pas une condition", hint: "Son absence ne doit pas t'arrêter.", items: plus, tone: "bg-violet-soft text-violet-ink", note: (i: Insight) => `« un plus » dans ${i.plusShare} % des cas` },
+  ].filter((c) => c.items.length > 0);
+  return (
+    <section className="mt-8 rounded-[22px] border border-line bg-surface p-5 md:p-7">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="font-display text-2xl font-bold">Ton CV face au marché</h2>
+          <p className="mt-1 text-sm text-muted">Les {coverage.of} compétences les plus demandées dans ton métier, comparées à ton CV.</p>
+        </div>
+        <p className="text-right">
+          <span className="font-display text-4xl font-extrabold tabular-nums">
+            {coverage.have}
+            <span className="text-2xl text-muted">/{coverage.of}</span>
+          </span>
+          <span className="block text-[13px] text-muted">dans ton CV</span>
+        </p>
+      </div>
+      <div className={`mt-5 grid grid-cols-1 gap-4 ${columns.length === 3 ? "lg:grid-cols-3" : columns.length === 2 ? "lg:grid-cols-2" : ""}`}>
+        {columns.map((c) => (
+          <div key={c.title} className="rounded-2xl bg-pill-solid p-4">
+            <h3 className="font-display text-base font-bold">{c.title}</h3>
+            <p className="text-[12.5px] text-muted">{c.hint}</p>
+            <ul className="mt-3 space-y-2">
+              {c.items.map((i) => (
+                <li key={i.name} className="flex items-baseline justify-between gap-3 text-[14px]">
+                  <span className={`rounded-full px-2.5 py-0.5 font-semibold ${c.tone}`}>{i.name}</span>
+                  <span className="text-right text-[12.5px] tabular-nums text-muted">{c.note(i)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

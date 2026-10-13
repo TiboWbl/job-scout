@@ -20,7 +20,7 @@ export const skillText = (d: string) => ` ${key(d)} `;
 export function inCvCheck(cvText: string, cvSkills: string[]) {
   const cv = ` ${key(cvText)} `;
   const fromCv = new Set(cvSkills.map((n) => ALIASES[key(n)] ?? key(n)));
-  return (k: string) => fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`));
+  return (k: string) => fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `));
 }
 
 // A language is its name, whatever the level written ("anglais courant", "English").
@@ -71,7 +71,7 @@ export function topSkills(offers: { skills: Skill[] | null }[], cvText: string, 
     // The spelling used most often is shown.
     const name = [...g.names.entries()].sort((a, b) => b[1] - a[1])[0][0];
     const count = g.offers.size;
-    byKind[g.kind].push({ name, kind: g.kind, count, share: Math.round((100 * count) / Math.max(1, read.length)), inCv: fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`)) });
+    byKind[g.kind].push({ name, kind: g.kind, count, share: Math.round((100 * count) / Math.max(1, read.length)), inCv: fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `)) });
   }
   for (const kind of Object.keys(byKind) as Skill["kind"][]) byKind[kind] = byKind[kind].filter((s) => s.count >= 2).sort((a, b) => b.count - a.count).slice(0, perKind);
   return { read: read.length, byKind };
@@ -84,7 +84,8 @@ export function cvSkillsFrom(cvText: string, names: string[]): string[] {
   for (const name of names) {
     const k = ALIASES[key(name)] ?? key(name);
     if (!k || out.has(k)) continue;
-    if (k.split(" ").every((w) => text.includes(` ${w}`))) out.set(k, name);
+    // The whole phrase, as words: "redis" is not in "redistribution", "api" not in "apiculture".
+    if (spellings(k).some((f) => text.includes(` ${f} `))) out.set(k, name);
   }
   return [...out.values()];
 }
@@ -148,7 +149,7 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
     // Cited only in the "a plus" part of the offer: wanted, not required.
     const has = (t: string | undefined) => forms.some((f) => (t ?? "").includes(` ${f} `));
     const bonus = split.length ? citing.filter((i) => has(split[i]?.bonus) && !has(split[i]?.required)).length : 0;
-    byKind[kind].push({ name, kind, key: k, count, bonus, share: Math.round((100 * count) / Math.max(1, texts.length)), inCv: fromCv.has(k) || k.split(" ").every((w) => cv.includes(` ${w}`)) });
+    byKind[kind].push({ name, kind, key: k, count, bonus, share: Math.round((100 * count) / Math.max(1, texts.length)), inCv: fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `)) });
   }
   for (const kind of Object.keys(byKind) as Skill["kind"][]) byKind[kind] = byKind[kind].sort((a, b) => b.count - a.count).slice(0, perKind);
   return { read: texts.length, byKind };

@@ -75,7 +75,7 @@ ${c.why ? `<div style="font-size:14px;line-height:1.45;color:#3d3847;margin-top:
 <div style="font-size:26px;font-weight:800;line-height:1.2;letter-spacing:-0.4px;margin:6px 0 4px">${count} pour toi</div>
 <div style="font-size:15px;color:${MUTED};margin-bottom:20px">Les offres que Scout a jugées les plus proches de ta recherche depuis le dernier email. Touche une offre pour la voir dans Scout.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cards}</table>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:12px"><tr><td style="background:${INK};border-radius:12px">
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:12px auto 0"><tr><td style="background:${INK};border-radius:12px">
 <a href="${SITE}/offres" style="display:inline-block;padding:13px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">${more > 0 ? `Voir les ${more} autres et toutes mes offres` : "Voir toutes mes offres"}</a>
 </td></tr></table>
 </td></tr>
@@ -114,7 +114,7 @@ export async function sendDigests(db: SupabaseClient) {
       await transport.sendMail({
         from: `Scout <${process.env.GMAIL_USER}>`,
         to: email,
-        subject: crushes.length > 1 ? `${crushes.length} nouveaux coups de cœur sur Scout` : "Un nouveau coup de cœur sur Scout",
+        subject: "Coups de cœur du jour",
         html: digestHtml(p.display_name, crushes, unsubscribeUrl(p.id)),
         // One-click unsubscribe from the mail app itself (Gmail, Apple Mail).
         headers: { "List-Unsubscribe": `<${SITE}/api/digest/unsubscribe?u=${p.id}&t=${unsubscribeToken(p.id)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },

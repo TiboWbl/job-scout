@@ -141,3 +141,12 @@ describe("ce que demande le métier, compté dans les textes", async () => {
     expect(r.byKind.methode.map((s) => s.name)).not.toContain("Product Manager");
   });
 });
+
+describe("compétences du CV, en expression entière", async () => {
+  const { cvSkillsFrom } = await import("@/lib/views/skills");
+  it("ne prend pas un mot pour le début d'un autre", () => {
+    expect(cvSkillsFrom("Redistribution des données aux équipes", ["Redis"])).toEqual([]);
+    expect(cvSkillsFrom("Intégration d'une API de paiement", ["API"])).toEqual(["API"]);
+    expect(cvSkillsFrom("Roadmaps trimestrielles", ["roadmap"])).toEqual(["roadmap"]);
+  });
+});

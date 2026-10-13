@@ -135,3 +135,35 @@ export function CompaniesBlock({ m, base = "", linked = true }: { m: MarketData;
     </section>
   );
 }
+
+const CONTRACT_NAMES: [string, string][] = [
+  ["cdi", "CDI"],
+  ["stage", "Stage"],
+  ["alternance", "Alternance"],
+  ["cdd", "CDD"],
+  ["freelance", "Freelance"],
+];
+
+// How the role's offers are offered: useful to decide whether to widen the contracts sought.
+export function ContractsBlock({ m }: { m: MarketData }) {
+  const c = m.contracts ?? {};
+  const said = Object.values(c).reduce((a, b) => a + b, 0);
+  if (said < 10) return null;
+  return (
+    <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+      <h3 className="font-display text-lg font-bold">Les contrats proposés</h3>
+      <p className="mt-1 text-[15px]">Parmi les offres qui le précisent :</p>
+      <ul className="mt-4 space-y-2.5 text-[14px]">
+        {CONTRACT_NAMES.filter(([k]) => c[k]).map(([k, label]) => (
+          <li key={k} className="grid grid-cols-[minmax(0,1fr)_6rem_2.5rem] items-center gap-3">
+            <span>{label}</span>
+            <span className="h-2 overflow-hidden rounded-full bg-pill-solid">
+              <span className="block h-full rounded-full bg-peach-ink" style={{ width: `${pct(c[k], said)}%` }} />
+            </span>
+            <span className="text-right tabular-nums text-muted">{pct(c[k], said)} %</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

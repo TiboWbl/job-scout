@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { marketActions } from "./advice";
+import { marketInsights, type MarketInsights } from "./advice";
 import { loadMarketDataset, profileInputs, type MarketData } from "./compute";
 import { inCvCheck } from "@/lib/views/skills";
 import { refreshMarket, snapshots } from "./store";
 
 const DAY = 86_400_000;
 
-export type MarketPage = { today: MarketData; since: string | null; trend: Record<string, number>; actions: ReturnType<typeof marketActions> };
+export type MarketPage = { today: MarketData; since: string | null; trend: Record<string, number>; insights: MarketInsights };
 
 // The latest picture, compared with the one about a week before (or the oldest kept). The very first
 // visit computes it on the spot; the daily job keeps it fresh afterwards.
@@ -31,5 +31,5 @@ export async function marketPage(db: SupabaseClient, userId: string): Promise<Ma
       const before = ref.data.skills.find((r) => r.key === s.key);
       if (before) trend[s.key ?? s.name] = s.share - before.share;
     }
-  return { today, since: ref?.day ?? null, trend, actions: marketActions(today) };
+  return { today, since: ref?.day ?? null, trend, insights: marketInsights(today) };
 }

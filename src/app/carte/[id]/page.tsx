@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CompaniesBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "@/components/market/blocks";
+import { CompaniesBlock, ContractsBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "@/components/market/blocks";
 import { MarketSkills } from "@/components/market/skills";
 import type { MarketData } from "@/lib/market/compute";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -44,9 +44,10 @@ export default async function MarketCardPage({ params }: { params: Promise<{ id:
         <p className="mb-5 mt-1 text-sm text-muted">Part des offres qui citent chaque compétence. « Souvent un plus » : rangée parmi les bonus dans au moins 4 offres sur 10.</p>
         <MarketSkills skills={m.skills} trend={{}} mine={0} personal={false} since={null} />
       </section>
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <ExperienceBlock m={m} />
         <SalaryBlock m={m} />
+        <ContractsBlock m={m} />
         <RemoteBlock m={m} />
       </div>
       <div className="mt-10">

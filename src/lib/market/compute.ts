@@ -25,6 +25,8 @@ export type MarketData = {
   experience: { buckets: { label: string; count: number }[]; juniorLabeled: number; juniorAsking2: number };
   salaries: { n: number; junior: Range | null; experienced: Range | null };
   remote: { remote: number; hybrid: number; onsite: number; unknown: number };
+  // Absent from pictures taken before 14 October 2026.
+  contracts?: Record<string, number>;
   companies: MarketCompany[];
   // The person's own selection (offers Scout kept for them), to say where a skill would count.
   mine: number;
@@ -42,6 +44,7 @@ type Row = {
   experience_level: string | null;
   salary_text: string | null;
   remote: string;
+  contract: string;
   sources: string[];
 };
 
@@ -53,7 +56,7 @@ export async function loadMarketDataset(db: SupabaseClient): Promise<MarketDatas
   for (let f = 0; ; f += 1000) {
     const { data, error } = await db
       .from("offers")
-      .select("id, title, company_id, first_seen_at, published_at, archived_at, skills, experience_min_years, experience_level, salary_text, remote, sources")
+      .select("id, title, company_id, first_seen_at, published_at, archived_at, skills, experience_min_years, experience_level, salary_text, remote, contract, sources")
       .order("id")
       .range(f, f + 999);
     if (error) throw error;
@@ -162,6 +165,9 @@ export async function computeMarket(
   const remote = { remote: 0, hybrid: 0, onsite: 0, unknown: 0 };
   for (const r of base) remote[(["remote", "hybrid", "onsite"].includes(r.remote) ? r.remote : "unknown") as keyof typeof remote]++;
 
+  const contracts: Record<string, number> = {};
+  for (const r of base) if (r.contract && r.contract !== "unknown") contracts[r.contract] = (contracts[r.contract] ?? 0) + 1;
+
   // Who hires for this role: offers first seen in the last 30 days, and in the 30 days before.
   const recent = new Map<string, number>();
   const before = new Map<string, number>();
@@ -192,6 +198,7 @@ export async function computeMarket(
       experienced: range(pay.filter((p) => (p.r.experience_min_years ?? 0) >= 3).map((p) => p.k)),
     },
     remote,
+    contracts,
     companies: top.map(([id, n]) => ({ id, name: names.get(id)?.name ?? "", domain: names.get(id)?.domain ?? null, brand: names.get(id)?.brand ?? null, recent: n, before: before.get(id) ?? 0 })).filter((c) => c.name),
     mine: mineTexts.length,
   };
