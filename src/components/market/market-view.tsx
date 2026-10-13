@@ -81,6 +81,11 @@ function CvAgainstMarket({ insights, mine }: { insights: MarketInsights; mine: n
           <span className="block text-[13px] text-muted">dans ton CV</span>
         </p>
       </div>
+      {add.length === 0 && (
+        <p className="mt-5 rounded-2xl bg-mint-soft px-4 py-3 text-[14.5px] text-mint-ink">
+          <span className="font-semibold">Ton CV cite toutes les compétences les plus demandées.</span> Il reste à les prouver : chacune dans une mission, avec un résultat.
+        </p>
+      )}
       <div className={`mt-5 grid grid-cols-1 gap-4 ${columns.length === 3 ? "lg:grid-cols-3" : columns.length === 2 ? "lg:grid-cols-2" : ""}`}>
         {columns.map((c) => (
           <div key={c.title} className="rounded-2xl bg-pill-solid p-4">
