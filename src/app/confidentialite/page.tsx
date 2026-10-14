@@ -18,16 +18,17 @@ export default function PrivacyPage() {
             <li>Ton compte Google : prénom, nom, adresse email et photo, pour te connecter.</li>
             <li>Ta recherche : le texte que tu as écrit et les critères qui en sont tirés.</li>
             <li>
-              Ton CV, s&apos;il est fourni : le fichier est lu dans ton navigateur et n&apos;est jamais conservé. Scout n&apos;en garde qu&apos;un résumé (formation, expériences, compétences, langues), ainsi que le nom du fichier et la date de lecture. Une analyse de « Mon CV » garde le nom du fichier, la note, les corrections conseillées et les quelques lignes dont une réécriture est proposée, jamais le CV entier ; tu peux supprimer chaque analyse.
+              Ton CV, s&apos;il est fourni : le fichier est lu dans ton navigateur et n&apos;est jamais conservé. Scout n&apos;en garde qu&apos;un résumé (formation, expériences, compétences, langues), ainsi que le nom du fichier et la date de lecture. Une analyse de « Mon CV » garde le nom du fichier, la note, les corrections conseillées, la lecture recruteur et les quelques lignes dont une réécriture est proposée, ainsi que la liste des compétences que ton CV cite (pour « Mon marché ») ; jamais le CV entier. Tu peux supprimer chaque analyse.
             </li>
-            <li>Ce que tu fais dans Scout : offres sauvegardées ou écartées (avec la raison), candidatures suivies (dates, contact, notes), entreprises favorites.</li>
+            <li>Ce que tu fais dans Scout : offres sauvegardées ou écartées (avec la raison), candidatures suivies (dates, contact, notes), entreprises favorites, et les textes que tu demandes à Scout de préparer (message, lettre de motivation, préparation d&apos;entretien).</li>
+            <li>Les chiffres de ton marché (compétences demandées par les offres de ton métier), calculés chaque jour : seulement des totaux. Si tu partages la carte de ton marché, elle ne contient rien de ton CV.</li>
           </ul>
         </section>
 
         <section>
           <h2>L&apos;intelligence artificielle</h2>
           <p className="mt-2">
-            Scout utilise Mistral AI, une entreprise française, pour comprendre ta recherche, lire ton CV et juger les offres. <strong>Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA</strong> : ils sont retirés du texte du CV avant tout envoi. L&apos;utilisation des données pour l&apos;entraînement des modèles est désactivée. Si tu actives l&apos;email des coups de cœur dans Paramètres, il t&apos;est envoyé par Gmail (Google) à l&apos;adresse de ton compte, avec seulement les offres concernées.
+            Scout utilise Mistral AI, une entreprise française, pour comprendre ta recherche, lire ton CV et juger les offres. <strong>Ton nom et tes coordonnées ne sont jamais envoyés à l&apos;IA</strong> : ils sont retirés du texte du CV avant tout envoi. L&apos;utilisation des données pour l&apos;entraînement des modèles est désactivée. Les emails de Scout (le code de connexion, et l&apos;email des coups de cœur si tu l&apos;actives dans Paramètres) partent par Gmail (Google) vers l&apos;adresse de ton compte.
           </p>
         </section>
 
@@ -37,7 +38,7 @@ export default function PrivacyPage() {
             <li>Supabase : base de données et connexion, hébergées dans l&apos;Union européenne (Paris).</li>
             <li>Vercel : hébergement du site, fonctions exécutées à Paris.</li>
             <li>Mistral AI : analyse des textes, sans nom ni coordonnées.</li>
-            <li>Google : connexion à ton compte.</li>
+            <li>Google : connexion avec ton compte Google si tu la choisis, et envoi des emails par Gmail.</li>
             <li>logo.dev : logos des entreprises ; aucune donnée te concernant ne lui est transmise.</li>
           </ul>
         </section>
@@ -50,7 +51,7 @@ export default function PrivacyPage() {
         <section>
           <h2>Combien de temps, et comment tout supprimer</h2>
           <p className="mt-2">
-            Tes données restent tant que ton compte existe. Dans « Paramètres », le bouton « Supprimer mon compte » efface aussitôt et définitivement ta recherche, le résumé de ton CV, tes offres, ton suivi et tes favorites. Ton invitation reste valable si tu veux revenir. Tu peux aussi modifier ta recherche et remplacer ton CV à tout moment.
+            Tes données restent tant que ton compte existe. Dans « Paramètres », le bouton « Supprimer mon compte » efface aussitôt et définitivement ta recherche, le résumé de ton CV, tes offres, ton suivi et tes favorites. Tu peux recréer un compte quand tu veux, et modifier ta recherche ou remplacer ton CV à tout moment.
           </p>
         </section>
 
@@ -63,7 +64,7 @@ export default function PrivacyPage() {
                 {" "}Pour toute question : <a href={`mailto:${contact}`} className="font-medium underline underline-offset-4">{contact}</a>.
               </>
             ) : (
-              " Pour toute question, écris à la personne qui t'a invité sur Scout."
+              " Pour toute question, écris à l'auteur de Scout."
             )}
           </p>
         </section>

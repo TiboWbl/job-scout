@@ -31,9 +31,11 @@ async function realOffers(): Promise<Real[]> {
     .gte("first_seen_at", since)
     .order("first_seen_at", { ascending: false })
     .limit(600);
+  // A title written in capitals reads as shouting: not the first impression of Scout.
+  const shouting = (t: string) => t.replace(/[^A-Za-zÀ-ÿ]/g, "").length > 0 && t.replace(/[^A-ZÀ-Þ]/g, "").length / t.replace(/[^A-Za-zÀ-ÿ]/g, "").length > 0.6;
   // Recent for real: an evergreen posting re-listed every day is not "new".
   const fresh = (o: Real) => Date.parse(o.published_at ?? o.first_seen_at) > Date.now() - 14 * 86_400_000;
-  const rows = ((data ?? []) as unknown as (Real & { sources: string[] })[]).filter((o) => o.sources.some((s) => !["adzuna", "jooble"].includes(s)) && o.title.length < 60 && fresh(o));
+  const rows = ((data ?? []) as unknown as (Real & { sources: string[] })[]).filter((o) => o.sources.some((s) => !["adzuna", "jooble"].includes(s)) && o.title.length < 60 && fresh(o) && !shouting(o.title));
   const picked: Real[] = [];
   for (const [, re] of JOBS) {
     const o = rows.find((r) => re.test(r.title) && !picked.some((p) => p.company.name === r.company.name));

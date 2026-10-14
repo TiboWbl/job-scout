@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api";
+import { isDispatchConfigured, requestCollection } from "@/lib/collect/dispatch";
 import { runCollection } from "@/lib/collect/run";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
 
-// Manual trigger until the scheduled GitHub Action exists. Admin = ADMIN_EMAIL, never hardcoded.
+// Starts the full scheduled job now (collection, sort, market, email) on GitHub Actions. Without the
+// dispatch token, a short collection runs here instead (the boards least recently read first).
 export async function POST() {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
+  if (isDispatchConfigured()) {
+    const started = await requestCollection();
+    return started ? NextResponse.json({ dispatched: true }) : NextResponse.json({ error: "GitHub n'a pas accepté la demande, réessaie dans un instant." }, { status: 502 });
+  }
   try {
-    // Fits a serverless call: the boards least recently read go first, the rest wait for the next run.
     const reports = await runCollection(createAdminClient(), { budgetMs: 45_000 });
     return NextResponse.json({ reports });
   } catch (error) {

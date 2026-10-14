@@ -17,6 +17,11 @@ export function CollectButton() {
       setSummary(data?.error ?? "La collecte a échoué.");
       return;
     }
+    if (data.dispatched) {
+      setSummary("Collecte complète lancée sur GitHub : les offres et le tri seront à jour d'ici une quinzaine de minutes.");
+      setState("done");
+      return;
+    }
     const reports = (data.reports ?? []) as { seen: number; created: number; error?: string }[];
     setSummary(
       `${reports.length} sources, ${reports.reduce((n, r) => n + r.seen, 0)} offres vues, ${reports.reduce((n, r) => n + r.created, 0)} nouvelles, ${reports.filter((r) => r.error).length} en erreur.`,
@@ -28,12 +33,11 @@ export function CollectButton() {
   return (
     <div>
       <p className="mb-3 max-w-2xl text-sm text-muted">
-        Le robot collecte déjà les offres à 7 h, 13 h et 19 h. Ce bouton lance une collecte tout de suite, pendant 45 secondes, en commençant par les sources lues le moins
-        récemment.
+        Le robot collecte déjà plusieurs fois par jour : vers 5 h et 17 h, puis vers 7 h, 13 h et 19 h (ces trois horaires de GitHub glissent parfois). Ce bouton lance tout de suite une collecte complète, suivie du tri.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={run} disabled={state === "running"} className="rounded-xl bg-button px-5 py-2.5 text-sm font-semibold text-button-ink disabled:opacity-50">
-          {state === "running" ? "Collecte en cours… (jusqu'à une minute)" : "Collecter maintenant"}
+          {state === "running" ? "Lancement…" : "Collecter maintenant"}
         </button>
         {summary && <p className={`text-sm ${state === "error" ? "text-warn" : "text-muted"}`}>{summary}</p>}
       </div>

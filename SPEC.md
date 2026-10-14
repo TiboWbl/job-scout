@@ -303,6 +303,7 @@ Deux lectures distinctes, simples. Le **test ATS** dit si un logiciel de recrute
 - Privé : profil, CV, scores, feedback, suivi.
 - Plafond d'appels LLM par utilisateur et par jour, suivi de la consommation du quota gratuit.
 - **Espace admin** (compte désigné par `ADMIN_EMAIL`), accessible depuis le menu du compte en bas de la barre latérale :
+  - « Collecter maintenant » lance tout de suite le passage complet sur GitHub (collecte, tri, marché, email), comme le robot ; sans jeton de lancement, une collecte courte de 45 secondes tourne sur le site. Le robot passe plusieurs fois par jour : vers 5 h et 17 h (Vercel Cron), et vers 7 h, 13 h et 19 h (planning GitHub, parfois décalé) ;
   - utilisateurs : chaque vrai compte (sans la persona de démo), comment il est entré (admin, invitation, inscription libre) et sa dernière connexion, puis les invitations pas encore utilisées ; le nombre de places libres utilisées sur `OPEN_SIGNUP_LIMIT` ; un champ pour inviter au-delà, et retirer une invitation ;
   - les chiffres (candidatures suivies, ajoutées par URL, favorites, offres lues par l'IA) ne comptent que les vrais utilisateurs, jamais la démo ;
   - tableau de bord sobre, avec graphiques, utile pour suivre le produit et le présenter en entretien : offres actives et nouvelles par jour, entreprises dans l'annuaire et leur origine, sources et leur santé, utilisateurs actifs, offres triées par l'IA, répartition des niveaux, candidatures suivies (agrégées, jamais nominatives).

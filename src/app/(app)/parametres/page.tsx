@@ -23,7 +23,7 @@ export default async function ParametresPage() {
 
       <section className="mt-6 rounded-[22px] border border-line bg-surface p-5 md:p-6">
         <h2 className="font-display text-xl font-bold tracking-tight">Email des coups de cœur</h2>
-        <p className="mt-1 text-sm text-muted">Reçois tes nouveaux coups de cœur le matin, sans ouvrir Scout.</p>
+        <p className="mt-1 text-sm text-muted">Tes nouveaux coups de cœur par email, une fois par jour au plus, seulement quand il y en a.</p>
         <div className="mt-4">
           <DigestToggle initial={Boolean(profile?.email_digest)} email={user!.email ?? null} />
         </div>
