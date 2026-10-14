@@ -32,7 +32,7 @@ export function CollectButton() {
 
   return (
     <div>
-      <p className="mb-3 max-w-2xl text-sm text-muted">
+      <p className="mb-3 text-sm text-muted">
         Le robot collecte déjà plusieurs fois par jour : vers 5 h et 17 h, puis vers 7 h, 13 h et 19 h (ces trois horaires de GitHub glissent parfois). Ce bouton lance tout de suite une collecte complète, suivie du tri.
       </p>
       <div className="flex flex-wrap items-center gap-3">

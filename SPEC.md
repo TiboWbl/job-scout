@@ -58,7 +58,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - **Inscription ouverte, dans une limite** : les quotas gratuits (Mistral, base) sont partagés, donc les `OPEN_SIGNUP_LIMIT` premiers comptes (10 par défaut tant que Scout est éprouvé en usage réel, 0 pour fermer) entrent sans invitation ; au-delà, seuls les invités.
   - Liste d'emails autorisés : variable `INVITED_EMAILS` (séparés par des virgules) et gestion dans la page Admin (table `invitations`). L'admin est toujours autorisé.
   - Un visiteur connecté mais non invité voit un message propre (« Scout est complet pour l'instant ») et ne peut appeler aucune route API.
-  - Tant que l'application Google est en mode Test, seules les adresses déclarées dans Google Cloud peuvent utiliser Google (100 maximum) : les autres se connectent par email.
+  - L'application Google est publiée (14 octobre 2026) : n'importe quelle adresse Google peut se connecter, sans liste d'utilisateurs test. Sans vérification de marque, l'écran Google affiche le domaine Supabase au lieu du nom Scout.
 - Onboarding en moins de 5 minutes :
   - Upload du CV en PDF (recommandé, pas obligatoire). Les coordonnées sont retirées côté serveur avant tout envoi au LLM, qui en extrait l'expérience, les compétences, la séniorité réelle et les langues. **L'onboarding le dit clairement**, avec ce texte : « Ton nom et tes coordonnées ne sont jamais envoyés à l'IA. »
   - « Décris ce que tu cherches en quelques phrases » : texte libre.

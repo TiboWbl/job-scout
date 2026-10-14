@@ -71,7 +71,6 @@ export function Invitations({ people, openLimit }: { people: Invitee[]; openLimi
         </button>
       </form>
       {error && <p className="mt-2 text-sm text-warn">{error}</p>}
-      <p className="mt-3 text-[13px] text-muted">La connexion par email marche pour tout le monde. Avec Google, tant que l&apos;application est en mode Test, l&apos;adresse doit aussi être dans les utilisateurs test de Google Cloud.</p>
       {dialog}
     </div>
   );
