@@ -207,11 +207,86 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
           ))}
         </div>
       </section>
+      {(() => {
+        // What separates the score from 100, point by point: the details are just below.
+        const missing = result.categories.flatMap((c) => c.checks).filter((k) => k.points < k.max);
+        return (
+          <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+            <h2 className="font-display text-xl font-bold">{missing.length ? `Ce qui te sépare de 100` : "Un ATS lit parfaitement ton CV"}</h2>
+            <p className="mt-1 text-sm text-muted">
+              Un ATS (logiciel de recrutement) vérifie que ton CV se lit comme du texte, qu&apos;il est bien structuré (sections, dates), comment tes missions sont écrites, et s&apos;il contient les mots-clés du métier. Il ne juge pas ton parcours : c&apos;est le rôle de la lecture recruteur, plus bas.
+            </p>
+            {missing.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {missing.map((k) => (
+                  <li key={k.label} className="rounded-full bg-peach-soft px-3 py-1 text-[13px] font-medium text-peach-ink">
+                    {k.label} <span className="tabular-nums">−{k.max - k.points}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })()}
+
+      {(() => {
+        // One line per reason: the three standard sections share the same one.
+        const strengths = result.categories.flatMap((c) => c.checks).filter((k, i, all) => k.ok && k.good && all.findIndex((o) => o.ok && o.good === k.good) === i);
+        return strengths.length > 0 ? (
+          <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+            <h2 className="font-display text-xl font-bold">Test ATS : ce qui fonctionne déjà</h2>
+            <ul className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {strengths.map((k) => (
+                <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
+                  <span aria-hidden className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-mint-soft text-[11px] font-bold text-mint-ink">✓</span>
+                  <span>{k.good}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null;
+      })()}
+
+      {result.categories.some((c) => c.checks.some((k) => !k.ok)) && (
+      <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+        <h2 className="font-display text-xl font-bold">Test ATS : ce qui te fait perdre des points</h2>
+        <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {result.categories.filter((c) => c.checks.some((k) => !k.ok)).map((c) => (
+            <div key={c.key}>
+              <h3 className="text-[13px] font-semibold text-muted">
+                {c.label} · {c.score}/{c.max}
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {c.checks.filter((k) => !k.ok).map((k) => (
+                  <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
+                    <span aria-hidden className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${k.ok ? "bg-mint-soft text-mint-ink" : "bg-peach-soft text-peach-ink"}`}>
+                      {k.ok ? "✓" : "!"}
+                    </span>
+                    <span>
+                      <span className="font-medium">{k.label}</span>
+                      {!k.ok && (
+                        <>
+                          <span className="block text-muted">
+                            {k.fix} <span className="whitespace-nowrap">({k.points}/{k.max})</span>
+                          </span>
+                          {k.why && <span className="mt-1 block text-[13px] italic text-muted">Pourquoi : {k.why}</span>}
+                        </>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      )}
 
       {recruiter && (recruiter.avis || recruiter.atouts.length > 0) && (
         <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
           <h2 className="font-display text-xl font-bold">Lecture recruteur</h2>
-          <p className="mt-1 text-sm text-muted">Pour « {recruiter.target} ».</p>
+          <p className="mt-1 text-sm text-muted">Ton CV dans son ensemble, lu comme un recruteur pour « {recruiter.target} » : ce qui convainc, ce qui manque. Ce sont des conseils de fond, au-delà de l&apos;ATS.</p>
           {recruiter.avis && <p className="mt-4 text-[15px] leading-relaxed">{recruiter.avis}</p>}
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
             {recruiter.atouts.length > 0 && (
@@ -288,60 +363,6 @@ export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: stri
             <ul className="mt-4 list-disc space-y-1 pl-5 text-[14.5px]">{comparison.tips.map((t) => <li key={t}>{t}</li>)}</ul>
           )}
         </section>
-      )}
-
-      {(() => {
-        // One line per reason: the three standard sections share the same one.
-        const strengths = result.categories.flatMap((c) => c.checks).filter((k, i, all) => k.ok && k.good && all.findIndex((o) => o.ok && o.good === k.good) === i);
-        return strengths.length > 0 ? (
-          <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
-            <h2 className="font-display text-xl font-bold">Ce qui fonctionne déjà</h2>
-            <ul className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
-              {strengths.map((k) => (
-                <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
-                  <span aria-hidden className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-mint-soft text-[11px] font-bold text-mint-ink">✓</span>
-                  <span>{k.good}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null;
-      })()}
-
-      {result.categories.some((c) => c.checks.some((k) => !k.ok)) && (
-      <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
-        <h2 className="font-display text-xl font-bold">Ce que tu peux encore améliorer</h2>
-        <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {result.categories.filter((c) => c.checks.some((k) => !k.ok)).map((c) => (
-            <div key={c.key}>
-              <h3 className="text-[13px] font-semibold text-muted">
-                {c.label} · {c.score}/{c.max}
-              </h3>
-              <ul className="mt-2 space-y-2">
-                {c.checks.filter((k) => !k.ok).map((k) => (
-                  <li key={k.label} className="flex gap-2.5 text-[14px] leading-snug">
-                    <span aria-hidden className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${k.ok ? "bg-mint-soft text-mint-ink" : "bg-peach-soft text-peach-ink"}`}>
-                      {k.ok ? "✓" : "!"}
-                    </span>
-                    <span>
-                      <span className="font-medium">{k.label}</span>
-                      {!k.ok && (
-                        <>
-                          <span className="block text-muted">
-                            {k.fix} <span className="whitespace-nowrap">({k.points}/{k.max})</span>
-                          </span>
-                          {k.why && <span className="mt-1 block text-[13px] italic text-muted">Pourquoi : {k.why}</span>}
-                        </>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
       )}
 
       {suggestions.length > 0 && (

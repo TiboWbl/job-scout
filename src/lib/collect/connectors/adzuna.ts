@@ -64,7 +64,14 @@ export async function fetchAdzuna(queries: SearchQuery[]): Promise<NormalizedOff
       if (q.where) url.searchParams.set("where", q.where);
       url.searchParams.set("max_days_old", String(MAX_DAYS_OLD));
       url.searchParams.set("results_per_page", "50");
-      const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      // A server error (Adzuna down for a moment) is retried twice, 5 then 15 seconds later.
+      let res = await fetch(url, { signal: AbortSignal.timeout(20_000) }).catch(() => null);
+      for (const wait of [5_000, 15_000]) {
+        if (res && res.status < 500) break;
+        await new Promise((r) => setTimeout(r, wait));
+        res = await fetch(url, { signal: AbortSignal.timeout(20_000) }).catch(() => null);
+      }
+      if (!res) throw new Error("search unreachable");
       if (!res.ok) {
         // One company search failing must not cost the whole source.
         if (q.company) break;

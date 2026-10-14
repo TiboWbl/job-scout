@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { CHART_DAYS, dashboardStats, invitees } from "@/lib/admin/stats";
 import { isAdminEmail } from "@/lib/env";
+import { openSignupLimit } from "@/lib/access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { CollectButton } from "./collect-button";
@@ -55,7 +56,7 @@ export default async function AdminPage() {
           ["Candidatures suivies", stats.applications],
           ["Offres ajoutées par URL", stats.added],
           ["Entreprises favorites", stats.favorites],
-          ["Invitations", people.length],
+          ["Comptes", people.filter((p) => p.account).length],
         ].map(([label, n]) => (
           <div key={label} className="rounded-[20px] border border-line bg-surface p-4">
             <p className="font-display text-3xl font-extrabold tabular-nums">{Number(n).toLocaleString("fr-FR")}</p>
@@ -90,8 +91,8 @@ export default async function AdminPage() {
         </section>
       </div>
 
-      <h2 className="mt-10 font-display text-2xl font-bold">Invitations</h2>
-      <Invitations people={people} />
+      <h2 className="mt-10 font-display text-2xl font-bold">Utilisateurs</h2>
+      <Invitations people={people} openLimit={openSignupLimit()} />
 
       <div className="mt-10">
         <CollectButton />

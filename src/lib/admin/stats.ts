@@ -35,6 +35,9 @@ const bars = (rows: Row[] | null, key: string, labels: Record<string, string>): 
 // Grouping happens in Postgres (supabase/migrations/0009_admin_stats.sql): the page stays fast as data grows.
 export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
   const count = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0;
+  // Real people only: the demo persona's tracking and favourites are examples.
+  const { data: demo } = await db.from("profiles").select("id").eq("is_demo", true).maybeSingle();
+  const notDemo = demo?.id ?? "00000000-0000-0000-0000-000000000000";
   const [dbSize, sources, perDayRows, origins, levels, activeOffers, directory, onboarded, applications, added, favorites] = await Promise.all([
     db.rpc("admin_db_size"),
     db.rpc("admin_offer_sources"),
@@ -44,9 +47,9 @@ export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
     count(db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null)),
     count(db.from("companies").select("id", { count: "exact", head: true }).not("ats", "is", null)),
     count(db.from("profiles").select("id", { count: "exact", head: true }).not("onboarded_at", "is", null).eq("is_demo", false)),
-    count(db.from("applications").select("id", { count: "exact", head: true })),
-    count(db.from("applications").select("id", { count: "exact", head: true }).eq("origin", "added")),
-    count(db.from("favorite_companies").select("company_id", { count: "exact", head: true })),
+    count(db.from("applications").select("id", { count: "exact", head: true }).neq("user_id", notDemo)),
+    count(db.from("applications").select("id", { count: "exact", head: true }).eq("origin", "added").neq("user_id", notDemo)),
+    count(db.from("favorite_companies").select("company_id", { count: "exact", head: true }).neq("user_id", notDemo)),
   ]);
 
   const byDay = new Map(((perDayRows.data ?? []) as Row[]).map((r) => [String(r.day), Number(r.n)]));
@@ -73,23 +76,23 @@ export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
   };
 }
 
-export type Invitee = { email: string; via: "admin" | "env" | "admin page"; lastSignIn: string | null };
+// Who uses Scout: every real account (how it got in, when it last signed in), then the invitations not
+// used yet. The demo persona is not a person.
+export type Invitee = { email: string; via: "admin" | "env" | "admin page" | "open"; lastSignIn: string | null; account: boolean };
 
-// Invited addresses and whether each person has signed in yet (from the auth server, admin only).
 export async function invitees(db: SupabaseClient, adminEmail: string | undefined, fromEnv: string[], invited: string[]): Promise<Invitee[]> {
-  const signIns = new Map<string, string | null>();
+  const { data: demo } = await db.from("profiles").select("id").eq("is_demo", true).maybeSingle();
+  const accounts: { email: string; lastSignIn: string | null; createdAt: string }[] = [];
   for (let page = 1; page < 50; page++) {
     const { data } = await db.auth.admin.listUsers({ page, perPage: 200 });
-    for (const u of data?.users ?? []) if (u.email) signIns.set(u.email.toLowerCase(), u.last_sign_in_at ?? null);
+    for (const u of data?.users ?? []) if (u.email && u.id !== demo?.id) accounts.push({ email: u.email.toLowerCase(), lastSignIn: u.last_sign_in_at ?? null, createdAt: u.created_at });
     if (!data || data.users.length < 200) break;
   }
-  const rows: Invitee[] = [];
-  const add = (email: string, via: Invitee["via"]) => {
-    const e = email.toLowerCase();
-    if (!rows.some((r) => r.email === e)) rows.push({ email: e, via, lastSignIn: signIns.get(e) ?? null });
-  };
-  if (adminEmail) add(adminEmail, "admin");
-  fromEnv.forEach((e) => add(e, "env"));
-  invited.forEach((e) => add(e, "admin page"));
+  const admin = adminEmail?.toLowerCase();
+  const via = (e: string): Invitee["via"] => (e === admin ? "admin" : invited.includes(e) ? "admin page" : fromEnv.includes(e) ? "env" : "open");
+  const rows: Invitee[] = accounts
+    .sort((a, b) => (b.lastSignIn ?? "").localeCompare(a.lastSignIn ?? ""))
+    .map((a) => ({ email: a.email, via: via(a.email), lastSignIn: a.lastSignIn, account: true }));
+  for (const e of [...invited, ...fromEnv]) if (!rows.some((r) => r.email === e)) rows.push({ email: e, via: via(e), lastSignIn: null, account: false });
   return rows;
 }

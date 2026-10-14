@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { Criteria } from "@/lib/domain/criteria";
 import type { Insight, MarketInsights } from "@/lib/market/advice";
 import { marketPage } from "@/lib/market/view";
 import { CompaniesBlock, ContractsBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "./blocks";
@@ -20,14 +21,19 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
     );
   }
   const { today: m, trend, since, insights } = page;
+  // What "your market" covers: the role and the titles counted as the same job.
+  const { data: profile } = await db.from("profiles").select("criteria").eq("id", userId).single();
+  const variants = (Criteria.safeParse(profile?.criteria).data?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
   const demoCard = base ? ((await db.from("market_cards").select("id").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.id as string | undefined) : undefined;
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché</h1>
-          <p className="mt-2 text-[15px] text-muted">
-            {m.role} · {m.total.toLocaleString("fr-FR")} offres en ligne · {m.newThisWeek} cette semaine
+          <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché : {m.role}</h1>
+          <p className="mt-2 max-w-3xl text-[15px] text-muted">
+            Les offres de {m.role}
+            {variants.length > 0 ? ` et des intitulés équivalents (${variants.join(", ")})` : ""} en France, tous niveaux et contrats confondus :{" "}
+            <span className="font-semibold text-ink">{m.total.toLocaleString("fr-FR")} en ligne</span>, dont {m.newThisWeek} publiées cette semaine.
           </p>
         </div>
         {base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
