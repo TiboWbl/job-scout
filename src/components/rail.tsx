@@ -30,7 +30,7 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
   return (
     <aside className="sticky top-0 z-30 -mx-4 -mt-4 flex shrink-0 flex-col border-b border-line bg-rail px-4 py-2.5 md:top-4 md:mx-0 md:mt-0 md:h-[calc(100vh-2rem)] md:w-[220px] md:gap-1 md:rounded-3xl md:border md:px-3.5 md:py-5">
       <div className="flex items-center justify-between gap-3 md:block">
-        <Link href={home} className="font-display text-[24px] font-extrabold tracking-tight text-rail-text md:block md:px-2.5 md:pb-3.5 md:text-[26px]">
+        <Link href={home} className="font-display text-[24px] font-extrabold tracking-tight text-rail-text md:block md:px-2.5 md:pb-2 md:text-[26px]">
           Scout<span className="text-brand">.</span>
         </Link>
         <div className="flex items-center gap-1.5 md:hidden">
