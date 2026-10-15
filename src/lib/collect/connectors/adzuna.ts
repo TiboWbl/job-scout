@@ -54,6 +54,8 @@ function normalize(o: AdzunaOffer): NormalizedOffer {
 
 export async function fetchAdzuna(queries: SearchQuery[]): Promise<NormalizedOffer[]> {
   const out = new Map<string, NormalizedOffer>();
+  let failed = 0;
+  let lastError = "";
   for (const q of queries) {
     for (let page = 1; page <= MAX_PAGES; page++) {
       const url = new URL(`${SEARCH_URL}/${page}`);
@@ -71,11 +73,12 @@ export async function fetchAdzuna(queries: SearchQuery[]): Promise<NormalizedOff
         await new Promise((r) => setTimeout(r, wait));
         res = await fetch(url, { signal: AbortSignal.timeout(20_000) }).catch(() => null);
       }
-      if (!res) throw new Error("search unreachable");
-      if (!res.ok) {
-        // One company search failing must not cost the whole source.
-        if (q.company) break;
-        throw new Error(`search HTTP ${res.status}`);
+      // One search failing (Adzuna down for a while) must not cost the others: it is skipped, and the
+      // source only fails when no search answered at all.
+      if (!res || !res.ok) {
+        failed++;
+        lastError = res ? `search HTTP ${res.status}` : "search unreachable";
+        break;
       }
       const data = (await res.json()) as { results?: AdzunaOffer[] };
       const wanted = q.company ? companyKey(q.company) : null;
@@ -88,5 +91,6 @@ export async function fetchAdzuna(queries: SearchQuery[]): Promise<NormalizedOff
       if (q.company || (data.results?.length ?? 0) < 50) break;
     }
   }
+  if (out.size === 0 && failed > 0 && failed === queries.length) throw new Error(lastError);
   return [...out.values()];
 }

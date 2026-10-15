@@ -8,9 +8,13 @@ type Progress = { remaining: number; toRead?: number; note?: string };
 
 // Sorts what is left in successive calls (each fits a serverless time budget), refreshing as results
 // land. Interruptions are retried on their own: the person never has to reload. Started once per visit.
+// A few new offers (after a collection) are sorted in silence: a banner for them would be noise.
+const SHOWN_FROM = 30;
+
 export function useSorting(pending: number, enabled = true) {
   const router = useRouter();
-  const [progress, setProgress] = useState<Progress | null>(enabled && pending > 0 ? { remaining: pending } : null);
+  const [progress, setProgress] = useState<Progress | null>(enabled && pending >= SHOWN_FROM ? { remaining: pending } : null);
+  const shown = useRef(enabled && pending >= SHOWN_FROM);
   const initialPending = useRef(enabled ? pending : 0);
   useEffect(() => {
     if (initialPending.current <= 0) return;
@@ -30,9 +34,9 @@ export function useSorting(pending: number, enabled = true) {
           failures++;
           // The model is unreachable: say so and keep trying, never fall back to a rough guess.
           const delay = body?.retry ? 30_000 : Math.min(5_000 * failures, 30_000);
-          setProgress({ remaining, toRead, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
+          if (shown.current) setProgress({ remaining, toRead, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
           if (failures >= 10) {
-            setProgress({ remaining, toRead, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
+            if (shown.current) setProgress({ remaining, toRead, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
             return;
           }
           await wait(delay);
@@ -46,7 +50,7 @@ export function useSorting(pending: number, enabled = true) {
         // The first answer sets the clear-cut cases aside: what is left is what the model reads.
         toRead ??= remaining;
         idle = data.scoredNow === 0 ? idle + 1 : 0;
-        setProgress({ remaining, toRead });
+        if (shown.current) setProgress({ remaining, toRead });
         router.refresh();
         if (idle >= 3) break;
       }
@@ -80,9 +84,12 @@ export function SortingBanner({ progress, total, excluded = null }: { progress: 
             : "Scout écarte d'abord les offres hors de ta recherche…"}
         </p>
       </div>
-      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
-        <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${of ? Math.round((100 * done) / of) : 0}%` }} />
-      </div>
+      {/* The quick first step has no count worth a bar: it only appears for the reading. */}
+      {reading && (
+        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
+          <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${Math.round((100 * done) / of)}%` }} />
+        </div>
+      )}
       <p className="mt-2 text-muted">
         {progress.note ??
           (reading
