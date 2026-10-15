@@ -42,7 +42,7 @@ export default async function MarketCardPage({ params }: { params: Promise<{ id:
       <section className="mt-8 rounded-[22px] border border-line bg-surface p-5 md:p-7">
         <h2 className="font-display text-2xl font-bold">Les compétences citées</h2>
         <p className="mb-5 mt-1 text-sm text-muted">Part des offres qui citent chaque compétence. « Souvent un plus » : rangée parmi les bonus dans au moins 4 offres sur 10.</p>
-        <MarketSkills skills={m.skills} trend={{}} mine={0} personal={false} since={null} />
+        <MarketSkills skills={m.skills} trend={{}} mine={0} personal={false} since={null} small={m.total < 100} />
       </section>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <ExperienceBlock m={m} />

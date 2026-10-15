@@ -18,6 +18,18 @@ async function text(url: string): Promise<string | null> {
   return res?.ok ? res.text().catch(() => null) : null;
 }
 
+// "qualit&#xE9;" → "qualité": a title must read as written to be matched against the searches.
+const entities = (s: string) =>
+  s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
 // Job links of a listing page, with their visible text (usually the title).
 export function jobLinks(html: string, pageUrl: string): { url: string; label: string }[] {
   const base = new URL(pageUrl);
@@ -34,7 +46,7 @@ export function jobLinks(html: string, pageUrl: string): { url: string; label: s
     const company = /^\/companies\/[^/]+/.exec(base.pathname)?.[0];
     if (company && !url.pathname.startsWith(company)) continue;
     url.search = "";
-    const label = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const label = entities(m[2].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
     if (!out.has(url.href) || label.length > (out.get(url.href)?.length ?? 0)) out.set(url.href, label);
   }
   return [...out].map(([url, label]) => ({ url, label }));
@@ -66,11 +78,42 @@ async function fromSitemap(pageUrl: string): Promise<{ url: string; label: strin
   return (local.length ? local : urls).map((url) => ({ url, label: decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() ?? "").replace(/[-_]+/g, " ") }));
 }
 
+// A listing narrowed by an identifier ("…/france-jobs/3456/3017382/2": France on L'Oréal's site) often
+// shows its first offers only, its next pages forbidden to robots. The site map lists the same listing
+// narrowed further (by region, city, job family: "…/3017382-3012874/…"): read together, they cover it.
+async function narrowedListings(pageUrl: string): Promise<{ url: string; label: string }[]> {
+  const page = new URL(pageUrl);
+  const id = page.pathname.split("/").filter((p) => /^\d{6,}$/.test(p)).sort((a, b) => b.length - a.length)[0];
+  if (!id) return [];
+  const robots = (await text(`${page.origin}/robots.txt`)) ?? "";
+  const maps = [...robots.matchAll(/^sitemap:\s*(\S+)/gim)].map((m) => m[1]);
+  const prefix = page.pathname.split("/").slice(0, 2).join("/");
+  const pages = new Set<string>();
+  for (const map of [`${page.origin}${prefix}/sitemap.xml`, ...maps].slice(0, 3)) {
+    for (const [, loc] of (await text(map))?.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g) ?? []) {
+      const u = new URL(loc, page.origin);
+      if (u.href !== page.href && u.pathname.startsWith(prefix) && new RegExp(`/${id}(?:[-/]|$)`).test(u.pathname) && !JOB_PATH.test(u.pathname)) pages.add(u.href);
+    }
+    if (pages.size) break;
+  }
+  const out = new Map<string, string>();
+  const list = [...pages].slice(0, 80);
+  for (let i = 0; i < list.length; i += PARALLEL) {
+    const htmls = await Promise.all(list.slice(i, i + PARALLEL).map(async (u) => ({ u, html: await text(u) })));
+    for (const { u, html } of htmls) for (const l of html ? jobLinks(html, u) : []) if (!out.has(l.url)) out.set(l.url, l.label);
+  }
+  return [...out].map(([url, label]) => ({ url, label }));
+}
+
 export async function site(board: BoardRef, keep?: Keep, wanted?: Wanted): Promise<NormalizedOffer[]> {
   const listing = await text(board.token);
   if (listing === null) throw new Error("career page unreachable");
   let links = jobLinks(listing, board.token);
   if (links.length === 0) links = await fromSitemap(board.token);
+  else {
+    const seen = new Set(links.map((l) => l.url));
+    for (const l of await narrowedListings(board.token)) if (!seen.has(l.url)) links.push(l);
+  }
   // Titles visible on the list spare the requests no search could use.
   const toRead = links.filter((l) => !wanted || !l.label || l.label.length > 120 || wanted(l.label)).slice(0, MAX_JOBS);
   const out: NormalizedOffer[] = [];

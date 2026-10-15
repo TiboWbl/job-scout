@@ -7,6 +7,8 @@ import { getUser } from "@/lib/supabase/server";
 import { CollectButton } from "./collect-button";
 import { Columns, Rows } from "@/components/charts";
 import { Invitations } from "./invitations";
+import { Reliability } from "./reliability";
+import { checkStats, nextCheck, openReports } from "@/lib/admin/reliability";
 
 export const metadata = { title: "Admin" };
 
@@ -19,7 +21,7 @@ export default async function AdminPage() {
   const db = createAdminClient();
   const fromEnv = (process.env.INVITED_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
   // Everything at once: the slowest block sets the page time, not their sum.
-  const [runs, stats, people] = await Promise.all([
+  const [runs, stats, people, next, checks, reports] = await Promise.all([
     db.from("collection_runs").select("source, started_at, offers_seen, offers_new, offers_archived, errors, error_sample").order("started_at", { ascending: false }).limit(300),
     dashboardStats(db),
     db
@@ -27,6 +29,9 @@ export default async function AdminPage() {
       .select("email")
       .order("created_at", { ascending: false })
       .then(({ data }) => invitees(db, process.env.ADMIN_EMAIL, fromEnv, (data ?? []).map((i) => i.email as string))),
+    nextCheck(db, user!.id),
+    checkStats(db, user!.id),
+    openReports(db),
   ]);
 
   // Latest run per source, plus the previous one to spot a sudden drop.
@@ -90,6 +95,9 @@ export default async function AdminPage() {
           </div>
         </section>
       </div>
+
+      <h2 className="mt-10 font-display text-2xl font-bold">Fiabilité</h2>
+      <Reliability next={next} stats={checks} reports={reports} />
 
       <h2 className="mt-10 font-display text-2xl font-bold">Utilisateurs</h2>
       <Invitations people={people} openLimit={openSignupLimit()} />

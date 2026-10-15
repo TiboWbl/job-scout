@@ -7,6 +7,8 @@ import { CompaniesBlock, ContractsBlock, ExperienceBlock, RemoteBlock, SalaryBlo
 import { MarketSkills } from "./skills";
 import { ShareMarket } from "./share";
 
+// Below this, one offer moves a share by a point or more: counts are shown beside the shares.
+const SMALL_MARKET = 100;
 const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" });
 
 // The market of the role sought: what the offers really ask for, how it moves, what it means for the
@@ -36,13 +38,18 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
             {variants.length > 0 ? ` et des intitulés équivalents (${variants.join(", ")})` : ""} en France, tous niveaux et contrats confondus :{" "}
             <span className="font-semibold text-ink">{m.total.toLocaleString("fr-FR")} en ligne</span>, dont {m.newThisWeek} publiées cette semaine.
           </p>
+          {m.total < SMALL_MARKET && (
+            <p className="mt-2 max-w-3xl rounded-xl bg-pill-solid px-3.5 py-2.5 text-[14px]">
+              Un petit marché : chaque offre pèse {Math.max(1, Math.round(100 / Math.max(1, m.total)))} % ou plus. Les tendances fortes sont fiables, les petits écarts beaucoup moins : le nombre d&apos;offres est indiqué à côté de chaque part.
+            </p>
+          )}
         </div>
         {base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
       </div>
 
       {insights.coverage.of > 0 &&
         (cvKnown ? (
-          <CvAgainstMarket insights={insights} mine={m.mine} />
+          <CvAgainstMarket insights={insights} mine={m.mine} small={m.total < SMALL_MARKET} />
         ) : (
           <section className="mt-8 rounded-[22px] border border-line bg-surface p-5 md:p-7">
             <h2 className="font-display text-2xl font-bold">Ton CV face au marché</h2>
@@ -60,7 +67,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
         <p className="mb-5 mt-1 text-sm text-muted">
           La part des offres qui citent chaque compétence.{since ? ` Évolution depuis le ${day(since)}.` : ""}
         </p>
-        <MarketSkills skills={m.skills} trend={trend} mine={m.mine} personal since={since ? day(since) : null} />
+        <MarketSkills skills={m.skills} trend={trend} mine={m.mine} personal since={since ? day(since) : null} small={m.total < SMALL_MARKET} />
       </section>
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -79,11 +86,11 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
 
 // The CV against the market: how much of what is most asked it shows, then three short lists to act
 // on. Each line says the share of the role's offers, and how many of the person's own offers.
-function CvAgainstMarket({ insights, mine }: { insights: MarketInsights; mine: number }) {
+function CvAgainstMarket({ insights, mine, small }: { insights: MarketInsights; mine: number; small: boolean }) {
   const { coverage, add, show, plus } = insights;
   const columns = [
-    { title: `À ajouter, si c'est vrai pour toi · ${add.length}`, hint: "Écris-le tel quel, dans une mission.", items: add, tone: "bg-peach-soft text-peach-ink", note: (i: Insight) => `${i.share} % des offres${mine ? ` · ${i.mine} des tiennes` : ""}${i.plusShare >= 40 ? " · souvent un plus" : ""}` },
-    { title: `Déjà dans ton CV, à mettre en valeur · ${show.length}`, hint: "Montre-le dans une mission, avec un résultat.", items: show, tone: "bg-mint-soft text-mint-ink", note: (i: Insight) => `${i.share} % des offres` },
+    { title: `À ajouter, si c'est vrai pour toi · ${add.length}`, hint: "Écris-le tel quel, dans une mission.", items: add, tone: "bg-peach-soft text-peach-ink", note: (i: Insight) => `${i.share} % des offres${small ? ` (${i.count})` : ""}${mine ? ` · ${i.mine} des tiennes` : ""}${i.plusShare >= 40 ? " · souvent un plus" : ""}` },
+    { title: `Déjà dans ton CV, à mettre en valeur · ${show.length}`, hint: "Montre-le dans une mission, avec un résultat.", items: show, tone: "bg-mint-soft text-mint-ink", note: (i: Insight) => `${i.share} % des offres${small ? ` (${i.count})` : ""}` },
     { title: "Un plus, pas une condition", hint: "D'autres compétences, surtout demandées en bonus : leur absence ne doit pas t'arrêter.", items: plus, tone: "bg-violet-soft text-violet-ink", note: (i: Insight) => `« un plus » dans ${i.plusShare} % des cas` },
   ].filter((c) => c.items.length > 0);
   return (

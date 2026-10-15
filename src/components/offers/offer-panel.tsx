@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { OfferDecoder } from "./offer-decoder";
 import { ApplicationKit } from "./application-kit";
+import { ReportError } from "./report-error";
 import { CONTRACT_LABELS } from "@/lib/domain/criteria";
 import type { FeedItem } from "@/lib/domain/feed";
 import { REMOTE_LABELS } from "@/lib/domain/offer";
@@ -200,6 +201,7 @@ export function OfferPanel({ item, onClose, onSave, onNope, onApply, loadDescrip
             ),
           )}
         </div>
+        <ReportError key={offer.id} offerId={offer.id} demo={Boolean(loadDescription)} />
         </div>
       </div>
 

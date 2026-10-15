@@ -14,7 +14,7 @@ const KINDS: [MarketSkill["kind"], string][] = [
 
 // What the offers of the role ask for, one family at a time: the share of offers, how it moved, and
 // where the person stands (in the CV, or cited by their own offers).
-export function MarketSkills({ skills, trend, mine, personal, since }: { skills: MarketSkill[]; trend: Record<string, number>; mine: number; personal: boolean; since: string | null }) {
+export function MarketSkills({ skills, trend, mine, personal, since, small = false }: { skills: MarketSkill[]; trend: Record<string, number>; mine: number; personal: boolean; since: string | null; small?: boolean }) {
   const kinds = KINDS.filter(([k]) => skills.some((s) => s.kind === k));
   const [kind, setKind] = useState(kinds[0]?.[0] ?? "outil");
   const shown = skills.filter((s) => s.kind === kind).slice(0, 8);
@@ -55,7 +55,9 @@ export function MarketSkills({ skills, trend, mine, personal, since }: { skills:
               <span className="order-3 col-span-2 h-2 overflow-hidden rounded-full bg-pill-solid sm:order-2 sm:col-span-1">
                 <span className="block h-full rounded-full bg-brand" style={{ width: `${s.share}%` }} />
               </span>
-              <span className="order-2 text-right font-semibold tabular-nums sm:order-3">{s.share} %</span>
+              <span className="order-2 text-right font-semibold tabular-nums sm:order-3" title={`${s.count} offres`}>
+                {s.share} %{small && <span className="block text-[11.5px] font-normal text-muted">{s.count} offres</span>}
+              </span>
               <span className="order-4 hidden text-right text-[12.5px] tabular-nums sm:block">
                 {delta !== undefined && Math.abs(delta) >= 2 ? (
                   <span className={delta > 0 ? "text-mint-ink" : "text-peach-ink"} title={since ? `Depuis le ${since}` : undefined}>
