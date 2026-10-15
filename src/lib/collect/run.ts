@@ -250,7 +250,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
 
   for (let i = 0; i < keys.length; i += 100) {
     const slice = keys.slice(i, i + 100);
-    const { data: existing, error } = await db.from("offers").select("dedup_key, sources, urls, description, archived_at, repost_count, reposted_at").in("dedup_key", slice);
+    const { data: existing, error } = await db.from("offers").select("dedup_key, sources, urls, description, published_at, archived_at, repost_count, reposted_at").in("dedup_key", slice);
     if (error) throw error;
     const known = new Map((existing ?? []).map((e) => [e.dedup_key, e]));
 
@@ -263,8 +263,11 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
       // Prefer the company's own page for applying when one is known.
       const direct = urls.find((u) => /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio|digitalrecruiters|welcomekit/.test(u.source));
       const prevDesc: string = prev?.description ?? "";
-      // Gone for more than two days then back: a repost (a shorter gap is a page that failed to answer).
-      const reposted = Boolean(prev?.archived_at && Date.parse(now) - Date.parse(prev.archived_at) > 2 * 86_400_000);
+      // Gone for more than two days, then back with a later publication date: the employer posted it
+      // again. Without the new date, the gap may be a page or a list Scout could not read in full.
+      const reposted = Boolean(
+        prev?.archived_at && Date.parse(now) - Date.parse(prev.archived_at) > 2 * 86_400_000 && o.publishedAt && prev.published_at && Date.parse(o.publishedAt) - Date.parse(prev.published_at) > 2 * 86_400_000,
+      );
       return {
         dedup_key: key,
         company_id: companyIds.get(companyKey(o.company.name)),

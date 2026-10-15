@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { splitRequirements } from "@/lib/domain/requirements";
 import type { FeedOffer } from "@/lib/domain/feed";
 
@@ -9,34 +8,22 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
 // What a candidate cannot see on the posting itself: how long it has been online, whether it came
-// back, how long this company's offers usually stay up, and what it only wishes for. Only shown when
+// back, and what it only wishes for. No "how long this company's offers stay up": Scout's archive
+// dates also hold its own fixes and partial reads, and a few weeks of history cannot say it. Only shown when
 // there is something worth knowing.
 export function OfferDecoder({ offer, description }: { offer: FeedOffer; description: string | null }) {
-  const [medianDays, setMedianDays] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/offers/${offer.id}/decoder`)
-      .then((r) => r.json())
-      .then((d: { medianDays?: number | null }) => !cancelled && setMedianDays(d.medianDays ?? null))
-      .catch(() => null);
-    return () => {
-      cancelled = true;
-    };
-  }, [offer.id]);
-
   // eslint-disable-next-line react-hooks/purity -- the age is read when the panel opens
   const now = Date.now();
   const age = Math.floor((now - Date.parse(offer.published_at ?? offer.first_seen_at)) / DAY);
   const lines: { title: string; text: string }[] = [];
 
-  if (offer.repost_count && offer.reposted_at)
+  // Only with the posting's own new date: the employer published it again (see collect/run).
+  if (offer.repost_count && offer.reposted_at && offer.published_at && Math.abs(Date.parse(offer.published_at) - Date.parse(offer.reposted_at)) <= 3 * DAY)
     lines.push({ title: "Republiée", text: `Retirée puis remise en ligne le ${date(offer.reposted_at)} : le recrutement continue.` });
   if (age >= 90)
     lines.push({ title: "Publiée il y a plus de 3 mois", text: "Il peut s'agir d'une annonce permanente, ouverte en continu pour recevoir des candidatures. Vérifie auprès de l'entreprise qu'un poste est vraiment à pourvoir." });
   else if (age >= 30)
     lines.push({ title: `En ligne depuis ${age >= 60 ? "2 mois" : `${age} jours`}`, text: "Le recrutement dure, ou l'annonce n'a pas été retirée. Vérifie qu'elle est toujours ouverte avant d'y passer du temps." });
-  if (medianDays !== null && age < medianDays)
-    lines.push({ title: "Combien de temps elle reste en ligne", text: `Chez ${offer.company.name}, la moitié des offres disparaissent en moins de ${medianDays} jours. Celle-ci est en ligne depuis ${age} jour${age > 1 ? "s" : ""}.` });
 
   if (description && offer.skills?.length) {
     const { required, bonus } = splitRequirements(description);
