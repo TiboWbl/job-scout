@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ATS_LIST, type Ats } from "./connectors/ats";
 import { slugGuesses } from "./discover";
 import { jobLinks } from "./connectors/site";
-import { fromJsonLd } from "./jsonld";
+import { fromHtmlPage, fromJsonLd } from "./jsonld";
 import { companyKey } from "./normalize";
 import { collectBoard, keepInScope, scopeFromProfiles } from "./run";
 
@@ -87,7 +87,7 @@ export async function welcomeKitBoard(url: string): Promise<{ ats: Ats; token: s
 
 // Light checks, all in parallel: does this ATS have a non-empty board under this slug?
 // DigitalRecruiters boards are named by their careers domain: found from the site, never guessed.
-const BOARD_CHECKS: Partial<Record<Ats, (t: string) => [string, (body: string) => boolean]>> = {
+export const BOARD_CHECKS: Partial<Record<Ats, (t: string) => [string, (body: string) => boolean]>> = {
   greenhouse: (t) => [`https://boards-api.greenhouse.io/v1/boards/${t}/jobs`, (b) => /"jobs":\[\{/.test(b)],
   lever: (t) => [`https://api.lever.co/v0/postings/${t}?mode=json&limit=1`, (b) => b.trim().startsWith("[{")],
   ashby: (t) => [`https://api.ashbyhq.com/posting-api/job-board/${t}`, (b) => /"jobs":\[\{/.test(b)],
@@ -137,9 +137,12 @@ async function exploreSite(site: string): Promise<{ board: { ats: Ats; token: st
   // No known platform: the company's own site, readable when its job pages carry a JobPosting.
   for (const p of pages) {
     if (p !== home && !/career|carri|job|recrut|emploi|rejoindre|join|talent|offre/i.test(p.url)) continue;
+    // A few of its job pages, read as postings: the first may be an open application.
     const links = jobLinks(p.html, p.url);
-    const sample = links.length > 0 ? await page(links[0].url) : null;
-    if (sample && fromJsonLd(sample.html, sample.url)) return { board: { ats: "site", token: p.url }, platform: null, careersUrl: p.url };
+    for (const l of links.slice(0, 3)) {
+      const sample = await page(l.url);
+      if (sample && (fromJsonLd(sample.html, sample.url) ?? fromHtmlPage(sample.html, sample.url))) return { board: { ats: "site", token: p.url }, platform: null, careersUrl: p.url };
+    }
   }
   for (const p of pages) {
     const platform = PLATFORMS.find(([, re]) => re.test(`${p.url} ${p.html}`));

@@ -181,3 +181,18 @@ describe("offre fermée", async () => {
     expect(isClosedPage("Product Manager H/F : rejoins une équipe produit de 12 personnes")).toBe(false);
   });
 });
+
+describe("page d'offre sans JobPosting", async () => {
+  const { fromHtmlPage } = await import("@/lib/collect/jsonld");
+  const body = "<p>" + "Tu rejoins l'équipe logistique de notre entrepôt pour organiser les expéditions et suivre les stocks au quotidien. ".repeat(6) + "</p>";
+  it("lit le titre, le texte et le lieu d'une page d'offre ordinaire", () => {
+    const o = fromHtmlPage(`<html><head><title>Gestionnaire Logistique | Fictive</title></head><body><nav>Menu</nav><main><h1>Gestionnaire Logistique H/F</h1><p>CDD · Lyon</p>${body}</main><footer>Mentions</footer></body></html>`, "https://exemple.fr/jobs/gestionnaire-logistique");
+    expect(o?.title).toBe("Gestionnaire Logistique H/F");
+    expect(o?.contract).toBe("cdd");
+    expect(o?.places[0]).toMatchObject({ city: "Lyon" });
+  });
+  it("écarte une candidature spontanée et une page trop courte", () => {
+    expect(fromHtmlPage(`<main><h1>Rejoins-nous</h1><p>Candidature spontanée</p>${body}</main>`, "https://exemple.fr/jobs/spontanee")).toBeNull();
+    expect(fromHtmlPage(`<main><h1>Chef de projet</h1><p>Bientôt.</p></main>`, "https://exemple.fr/jobs/chef")).toBeNull();
+  });
+});

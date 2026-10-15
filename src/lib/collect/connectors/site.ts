@@ -1,5 +1,5 @@
 import type { NormalizedOffer } from "@/lib/domain/offer";
-import { fromJsonLd } from "../jsonld";
+import { fromHtmlPage, fromJsonLd } from "../jsonld";
 import type { BoardRef, Keep, Wanted } from "./ats-more";
 
 // A company's own career site, without a known ATS: its job pages carry the schema.org JobPosting
@@ -77,7 +77,8 @@ export async function site(board: BoardRef, keep?: Keep, wanted?: Wanted): Promi
   for (let i = 0; i < toRead.length; i += PARALLEL) {
     const pages = await Promise.all(toRead.slice(i, i + PARALLEL).map(async (l) => ({ url: l.url, html: await text(l.url) })));
     for (const p of pages) {
-      const offer = p.html ? fromJsonLd(p.html, p.url) : null;
+      // The structured JobPosting when the page has one, else the page itself read as a posting.
+      const offer = p.html ? (fromJsonLd(p.html, p.url) ?? fromHtmlPage(p.html, p.url)) : null;
       if (!offer || (keep && !keep(offer.places, offer.remote))) continue;
       out.push({ ...offer, sourceKey: `site:${board.token}`, company: { name: board.name, domain: board.domain ?? undefined, ats: "site", atsToken: board.token } });
     }

@@ -6,7 +6,7 @@ import { withoutEngineCopies } from "@/lib/domain/feed";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadFeed } from "@/lib/views/feed";
 
-type Company = { id: string; name: string; domain: string | null; brand: string | null; product: string | null; ats: string | null };
+type Company = { id: string; name: string; domain: string | null; brand: string | null; product: string | null; ats: string | null; careers_platform?: string | null };
 
 // Who recruits for you: your favourites first, with their offers for you, then the other companies
 // that have offers in your selection. A button opens their offers in Offres.
@@ -14,7 +14,7 @@ type Company = { id: string; name: string; domain: string | null; brand: string 
 export async function CompaniesView({ db, userId, base = "", demo = false }: { db: SupabaseClient; userId: string; base?: string; demo?: boolean }) {
   const [feed, favs] = await Promise.all([
     loadFeed(db, userId),
-    db.from("favorite_companies").select("company:companies(id, name, domain, brand, product, ats)").eq("user_id", userId),
+    db.from("favorite_companies").select("company:companies(id, name, domain, brand, product, ats, careers_platform)").eq("user_id", userId),
   ]);
   const selection = withoutEngineCopies(feed.items).filter((i) => i.level !== "ecartee" && !i.dismissed);
   const count = new Map<string, { total: number; coeur: number }>();
@@ -43,7 +43,7 @@ export async function CompaniesView({ db, userId, base = "", demo = false }: { d
             {favorite && <span className="text-[15px] leading-none text-[#f5a524]" aria-label="Entreprise favorite">★</span>}
           </span>
           <span className="block truncate text-[13px] text-muted">
-            {n ? `${n.total} offre${n.total > 1 ? "s" : ""} pour toi${n.coeur ? `, dont ${n.coeur} coup${n.coeur > 1 ? "s" : ""} de cœur` : ""}` : c.ats ? "Page carrière lue à chaque collecte" : "Page carrière introuvable : cherchée sur les moteurs d'emploi"}
+            {n ? `${n.total} offre${n.total > 1 ? "s" : ""} pour toi${n.coeur ? `, dont ${n.coeur} coup${n.coeur > 1 ? "s" : ""} de cœur` : ""}` : c.ats ? "Page carrière lue à chaque collecte" : c.careers_platform ? `Offres publiées sur ${c.careers_platform}, que Scout ne peut pas lire : cherchées sur les moteurs d'emploi` : "Page carrière introuvable : cherchée sur les moteurs d'emploi"}
             {c.product ? ` · ${c.product}` : ""}
           </span>
         </span>
