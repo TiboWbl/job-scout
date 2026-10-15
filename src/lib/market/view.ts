@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { marketInsights, type MarketInsights } from "./advice";
 import { loadMarketDataset, MARKET_METHOD, profileInputs, type MarketData } from "./compute";
 import { inCvCheck } from "@/lib/views/skills";
-import { refreshMarket, snapshots } from "./store";
+import { historyStart, refreshMarket, snapshots } from "./store";
 
 const DAY = 86_400_000;
 
@@ -22,13 +22,14 @@ export async function marketPage(db: SupabaseClient, userId: string): Promise<Ma
   // "In your CV" as of now: a CV analysed since the snapshot counts at once. Only the skills found word
   // for word in the CV itself: a summary written by the model can turn "Premiere Pro" into "montage",
   // and the page would then ask to add what the CV already says.
-  const { cvSkills } = await profileInputs(db, userId, { selection: false });
+  const { cvSkills, historyFrom } = await profileInputs(db, userId, { selection: false });
   const cvKnown = cvSkills.length > 0;
   const has = inCvCheck("", cvSkills);
   const today: MarketData = { ...latest, skills: latest.skills.map((s) => ({ ...s, inCv: cvKnown && has(s.key ?? "") })) };
   const t = Date.parse(kept[0].day);
   // Only pictures counted the same way: a change of method must never show as a change of the market.
-  const older = kept.filter((s) => Date.parse(s.day) <= t - 5 * DAY && s.data.role === today.role && s.data.method === today.method && today.method === MARKET_METHOD);
+  // Never before Scout collected these roles: the market would look like it grew.
+  const older = kept.filter((s) => s.day >= historyStart(historyFrom) && Date.parse(s.day) <= t - 5 * DAY && s.data.role === today.role && s.data.method === today.method && today.method === MARKET_METHOD);
   const ref = older.sort((a, b) => Math.abs(Date.parse(a.day) - (t - 7 * DAY)) - Math.abs(Date.parse(b.day) - (t - 7 * DAY)))[0];
   const trend: Record<string, number> = {};
   if (ref)

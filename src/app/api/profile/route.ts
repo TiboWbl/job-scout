@@ -46,6 +46,8 @@ export async function POST(request: Request) {
   const c = body.data.criteria;
   const before = current?.criteria ? Criteria.safeParse(current.criteria).data : null;
   const searched = (x: Criteria) => JSON.stringify([x.targetRoles, x.titleVariants, x.bridgeRoles, x.zone, x.contracts, x.outOfZone]);
+  // The role's market is collected from now on: its history starts here.
+  if (!before || JSON.stringify([before.targetRoles, before.titleVariants]) !== JSON.stringify([c.targetRoles, c.titleVariants])) update.roles_changed_at = new Date().toISOString();
   if (!before || searched(before) !== searched(c)) {
     if (await requestCollection()) update.collect_requested_at = new Date().toISOString();
   }

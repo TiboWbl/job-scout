@@ -231,7 +231,7 @@ export async function computeMarket(
 
 // What the person's profile brings to the computation: the role, the CV's skills, their selection.
 export async function profileInputs(db: SupabaseClient, profileId: string, { selection: withSelection = true } = {}) {
-  const { data: p } = await db.from("profiles").select("criteria, criteria_version, cv_summary, cv_skills").eq("id", profileId).single();
+  const { data: p } = await db.from("profiles").select("criteria, criteria_version, cv_summary, cv_skills, roles_changed_at, onboarded_at").eq("id", profileId).single();
   const summary = (p?.cv_summary ?? {}) as Record<string, unknown>;
   const cvText = ["skills", "roles", "highlights", "education", "languages"].flatMap((k) => (Array.isArray(summary[k]) ? (summary[k] as string[]) : [])).join(" · ");
   const selection: string[] = [];
@@ -247,5 +247,8 @@ export async function profileInputs(db: SupabaseClient, profileId: string, { sel
     selection.push(...(data ?? []).map((r) => r.offer_id as string));
     if (!data || data.length < 1000) break;
   }
-  return { criteria: p?.criteria, cvText, cvSkills: Array.isArray(p?.cv_skills) ? (p!.cv_skills as string[]) : [], selection };
+  // The first full day of collection for these roles (the person's own search brings their offers in).
+  const changed = (p?.roles_changed_at ?? p?.onboarded_at) as string | null;
+  const historyFrom = changed ? new Date(Date.parse(changed) + 86_400_000).toISOString().slice(0, 10) : null;
+  return { criteria: p?.criteria, historyFrom, cvText, cvSkills: Array.isArray(p?.cv_skills) ? (p!.cv_skills as string[]) : [], selection };
 }

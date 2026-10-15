@@ -8,6 +8,9 @@ export const MARKET_START = "2026-10-08";
 
 export type Snapshot = { day: string; data: MarketData };
 
+// The first day a picture of this person's market can be trusted.
+export const historyStart = (historyFrom: string | null) => (historyFrom && historyFrom > MARKET_START ? historyFrom : MARKET_START);
+
 export async function snapshots(db: SupabaseClient, profileId: string): Promise<Snapshot[]> {
   const { data } = await db.from("market_snapshots").select("day, data").eq("profile_id", profileId).order("day", { ascending: false }).limit(60);
   return (data ?? []) as Snapshot[];
@@ -24,12 +27,14 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
 
   const rows = [{ profile_id: profileId, day: today.day, data: today }];
 
-  // History once a week back to the start, for the days not kept yet or counted another way.
+  // History once a week back to the start (or to the day Scout started collecting these roles), for
+  // the days not kept yet or counted another way.
+  const from = historyStart(inputs.historyFrom);
   const days = new Set(known.filter((s) => s.data.method === MARKET_METHOD).map((s) => s.day));
   const back: number[] = [];
-  for (let t = Date.now() - 7 * DAY; new Date(t).toISOString().slice(0, 10) >= MARKET_START; t -= 7 * DAY) back.push(t);
+  for (let t = Date.now() - 7 * DAY; new Date(t).toISOString().slice(0, 10) >= from; t -= 7 * DAY) back.push(t);
   // The start itself, when the weekly steps miss it by more than three days.
-  const start = Date.parse(`${MARKET_START}T12:00:00Z`);
+  const start = Date.parse(`${from}T12:00:00Z`);
   if (Date.now() - start >= 5 * DAY && !back.some((t) => Math.abs(t - start) < 3 * DAY)) back.push(start);
   for (const t of back) {
     const day = new Date(t).toISOString().slice(0, 10);
