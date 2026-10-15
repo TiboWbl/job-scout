@@ -9,7 +9,7 @@ La spécification complète, source de vérité produit et technique, est dans [
 ## Ce que fait Scout
 
 - **Inscription en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables (métier, intitulés équivalents FR/EN, passerelles, zone, contrats, expérience). Connexion Google ou code par email. Le nom et les coordonnées sont retirés du CV avant tout envoi à l'IA.
-- **Collecte légale et large** : API et flux publics de 11 ATS (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor, Personio, DigitalRecruiters, Welcome Kit, Workday), sites carrière propres (fiche schema.org `JobPosting`, ou la page elle-même), moteurs Adzuna et Jooble. Les extraits des moteurs sont complétés par l'annonce entière, revérifiés tous les 3 jours (offres fermées archivées), et fusionnés avec la page de l'employeur quand c'est la même annonce.
+- **Collecte légale et large** : API et flux publics de 12 ATS (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor, Personio, Polymer, DigitalRecruiters, Welcome Kit, Workday), sites carrière propres (fiche schema.org `JobPosting`, ou la page elle-même, et les listes plus fines du plan du site quand la liste principale est coupée), moteurs Adzuna et Jooble. Les extraits des moteurs sont complétés par l'annonce entière, revérifiés tous les 3 jours (offres fermées archivées), et fusionnés avec la page de l'employeur quand c'est la même annonce.
 - **Tri fiable, en deux temps** :
   1. des **portes** déterministes : zone, contrat, expérience (années ou mots : « profil junior », « expérience significative »), intitulé proche du métier ; les formations ne sont pas des offres ;
   2. un **LLM** qui juge le poste réel en répondant à des questions factuelles ; le niveau (Coup de cœur, Solide, Tremplin, Écartée) en découle par une règle fixe. Une exclusion cite l'offre mot pour mot, les faits affichés (expérience, contrat, salaire) sont vérifiés dans le texte, et une raison qui invente le métier (« monteur vidéo » pour un monteur de vélos) est détectée.
@@ -26,6 +26,7 @@ Tout ce que Scout affiche doit pouvoir être vérifié dans les offres elles-mê
 - **Jamais d'information inventée** : chaque fait vient d'un détecteur déterministe ou d'une citation de l'offre vérifiée mot pour mot. Sans source, Scout ne dit rien.
 - **Un chiffre de marché est un comptage** : une même annonce compte une fois, seuls les textes complets comptent, les salaires sont bruts et sans gratification de stage, « dans ton CV » veut dire écrit mot pour mot dans le CV, et une évolution n'est montrée qu'entre deux photos comptées de la même façon.
 - **Les mêmes règles pour tous les métiers** : une suite de tests rejoue des profils fictifs (monteur vidéo, graphiste, product manager, développeur, infirmier, comptable, commercial) sur leurs pièges : homonymes, intitulés partiels, abréviations, formations, outils du CV. Chaque piège rencontré y est ajouté.
+- **Mesurée, pas supposée** : chacun peut signaler une information fausse dans une offre, et l'admin contrôle le tri au hasard, offre par offre, avec le taux d'accord. Un petit marché le dit, chiffres à l'appui.
 - **Si l'IA est indisponible**, Scout le dit et réessaie, jamais de résultat approximatif. Le mode simulé du LLM sert uniquement aux tests.
 
 ## Architecture

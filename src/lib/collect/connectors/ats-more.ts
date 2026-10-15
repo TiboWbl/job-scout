@@ -433,3 +433,43 @@ export async function workday(board: BoardRef, keep?: Keep, wanted?: Wanted): Pr
   }
   return out;
 }
+
+// Polymer (jobs.polymer.co, used by Getaround): a public JSON API, the list then each posting's text.
+type PolymerItem = { id: number; title: string; city: string | null; country: string | null; kind_pretty?: string | null; remoteness_pretty?: string | null; published_at?: string | null; job_post_url: string };
+
+export async function polymer(board: BoardRef, keep?: Keep, wanted?: Wanted): Promise<NormalizedOffer[]> {
+  const api = `https://api.polymer.co/v1/hire/organizations/${board.token}/jobs`;
+  const items: PolymerItem[] = [];
+  for (let page = 1; page <= 10; page++) {
+    const data = (await (await get(`${api}?page=${page}`)).json()) as { items?: PolymerItem[]; meta?: { next_page?: number | null } };
+    items.push(...(data.items ?? []));
+    if (!data.meta?.next_page) break;
+  }
+  const out: NormalizedOffer[] = [];
+  for (const item of items) {
+    const raw = [item.city, item.country].filter(Boolean).join(", ");
+    const loc = parseLocation(raw, item.title);
+    const remoteness = (item.remoteness_pretty ?? "").toLowerCase();
+    if (/no remote/.test(remoteness)) loc.remote = "onsite";
+    else if (/hybrid/.test(remoteness)) loc.remote = "hybrid";
+    else if (/remote/.test(remoteness)) loc.remote = "remote";
+    // Spontaneous applications are not offers.
+    if (/open application|candidature[s]? spontan/i.test(item.title)) continue;
+    if ((keep && !keep(loc.places, loc.remote)) || (wanted && !wanted(item.title))) continue;
+    const detail = (await (await get(`${api}/${item.id}`)).json()) as { description?: string | null; data?: { description?: string | null } };
+    const description = htmlToText(detail.description ?? detail.data?.description ?? "");
+    out.push({
+      ...base("polymer", board),
+      sourceUrl: item.job_post_url,
+      title: item.title.trim(),
+      locationRaw: raw || null,
+      ...loc,
+      contract: detectContract(item.title, /intern/i.test(item.kind_pretty ?? "") ? "internship" : null, description),
+      experienceMinYears: detectExperienceYears(description),
+      description,
+      applyUrl: item.job_post_url,
+      publishedAt: item.published_at ?? null,
+    });
+  }
+  return out;
+}

@@ -25,6 +25,8 @@ const PATTERNS: [Ats, RegExp][] = [
   // Workday: host and site, "acme.wd3.myworkdayjobs.com/fr-FR/AcmeCareers" → "acme.wd3.myworkdayjobs.com/AcmeCareers".
   ["workday", /([a-z0-9-]+\.wd\d+\.myworkdayjobs\.com)\/(?:[a-z]{2}-[A-Z]{2}\/)?([A-Za-z0-9_-]+)/],
   // Welcome Kit: the organisation reference in a job page or in the widget a career page embeds.
+  // Polymer: the organisation's slug carries an id ("getaround-bfe987b9-…").
+  ["polymer", /jobs\.polymer\.co\/([a-z0-9-]{8,})/i],
   ["welcomekit", /data-organization-reference="([A-Za-z0-9]+)"/],
   ["welcomekit", /WelcomeKitEmbed\(\s*['"]([A-Za-z0-9]+)['"]/],
 ];

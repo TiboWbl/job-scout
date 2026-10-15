@@ -97,6 +97,7 @@ describe("page carrière reconnue dans une page web", async () => {
   it("lit la référence Welcome Kit telle quelle (sensible à la casse)", () => {
     expect(atsFromText(`<div data-job-reference="ACME_x1" data-organization-reference="jJ6jlll"></div>`)).toEqual({ ats: "welcomekit", token: "jJ6jlll" });
     expect(atsFromText(`new WelcomeKitEmbed('AbzqbMR')`)).toEqual({ ats: "welcomekit", token: "AbzqbMR" });
+    expect(atsFromText(`<a href="https://jobs.polymer.co/acme-0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b/123">`)).toEqual({ ats: "polymer", token: "acme-0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b" });
   });
   it("garde les autres plateformes en minuscules", () => {
     expect(atsFromText("https://jobs.lever.co/Acme-Sport/123")).toEqual({ ats: "lever", token: "acme-sport" });
