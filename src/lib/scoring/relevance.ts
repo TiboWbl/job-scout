@@ -14,8 +14,13 @@ const SYNONYMS: [RegExp, string][] = [
   [/\buser interface\b/g, "ui"],
 ];
 
+// Set phrases naming another job than their words: a "Business Developer" sells, it does not code.
+// Read as one word, they never half-match a developer's search, and still match a salesperson's.
+const SET_PHRASES: [RegExp, string][] = [[/\b(business develop(?:er|ment)|developpeur (?:commercial|d.affaires))\b/g, "bizdev"]];
+
 function tokens(s: string): string[] {
   let text = s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  for (const [re, one] of SET_PHRASES) text = text.replace(re, one);
   for (const [re, add] of SYNONYMS) text = text.replace(re, (m) => `${m} ${add}`);
   return text
     .split(/[^a-z0-9+#]+/)
@@ -104,6 +109,23 @@ export function inventedRoleWords(why: string, title: string, description: strin
     for (const t of distinctive) if (!offer.has(t)) invented.add(t);
   }
   return [...invented];
+}
+
+// The role sought, named in full by the title, or in part with the rest written in the offer ("Chef de
+// projet" whose text says "digital" for "Chef de projet digital"). "Product Designer" is not a
+// "Motion Designer" when "motion" appears nowhere. Roles sought and their equivalent titles only.
+export function namesRole(title: string, description: string, criteria: Criteria): boolean {
+  const inTitle = new Set(tokens(title));
+  const text = new Set(tokens(`${title} ${description}`));
+  for (const p of [...criteria.targetRoles, ...criteria.titleVariants]) {
+    const all = tokens(core(p));
+    const distinctive = all.filter((t) => !GENERIC.has(t));
+    const words = distinctive.length > 0 ? distinctive : all;
+    if (words.length === 0) continue;
+    const share = words.filter((t) => inTitle.has(t)).length / words.length;
+    if (share >= 0.99 || (share >= 0.5 && words.every((t) => text.has(t)))) return true;
+  }
+  return false;
 }
 
 // A training course or a school programme is not a job offer ("Formation Monteur audiovisuel").

@@ -13,6 +13,7 @@ const Body = z.object({
   criteria: Criteria,
   searchText: z.string().max(6000).optional(),
   cvSummary: CvSummary.nullable().optional(),
+  cvSkills: z.array(z.string().max(80)).max(300).optional(),
   cvFilename: z.string().max(200).optional(),
 });
 
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
     updated_at: new Date().toISOString(),
   };
   if (body.data.searchText !== undefined) update.search_text = body.data.searchText;
+  if (body.data.cvSkills) update.cv_skills = body.data.cvSkills;
   if (body.data.cvSummary !== undefined) {
     update.cv_summary = body.data.cvSummary;
     update.cv_filename = body.data.cvFilename ?? null;

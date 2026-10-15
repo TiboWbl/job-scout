@@ -3,7 +3,7 @@ import type { Criteria } from "@/lib/domain/criteria";
 import { splitRequirements } from "@/lib/domain/requirements";
 import { isExcerptOnly } from "@/lib/collect/complete";
 import type { Skill } from "@/lib/scoring/judge";
-import { titleRelevance } from "@/lib/scoring/relevance";
+import { namesRole, titleRelevance } from "@/lib/scoring/relevance";
 import { skillDemand, skillText, spellings, type SkillStat } from "@/lib/views/skills";
 
 // The person's market: every offer whose title is the role sought (any level, any contract, that is the
@@ -123,14 +123,15 @@ export async function computeMarket(
   const relevance = new Map<string, number>();
   const isRole = (title: string) => {
     if (!relevance.has(title)) relevance.set(title, titleRelevance(title, roleOnly));
-    // The title names the role itself ("Motion Designer"), not just one of its words ("Product Designer").
-    return relevance.get(title)! >= 7.5;
+    return relevance.get(title)! >= 5;
   };
   const active = (r: Row) => Date.parse(r.first_seen_at) <= t && (!r.archived_at || Date.parse(r.archived_at) > t);
   const online = set.rows.filter((r) => active(r) && isRole(r.title)).slice(0, MAX_BASE);
   const texts = await set.description([...online.map((r) => r.id), ...selection]);
   // Only offers read in full count: an engine's 500-character excerpt would skew every figure.
-  const base = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }));
+  // The role itself: named in full by the title, or in part with the rest in the text ("Chef de projet"
+  // saying "digital"); one shared word alone ("Designer") is another job.
+  const base = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && namesRole(r.title, texts.get(r.id) ?? "", roleOnly));
   const read = base;
   const known = new Set(base.map((r) => r.id));
   const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
@@ -173,7 +174,8 @@ export async function computeMarket(
   const recent = new Map<string, number>();
   const before = new Map<string, number>();
   for (const r of set.rows) {
-    if (!isRole(r.title) || (ENGINE_ONLY(r) && !known.has(r.id))) continue;
+    // Offers of the base, or older ones whose title names the role in full.
+    if (!known.has(r.id) && (ENGINE_ONLY(r) || !isRole(r.title) || relevance.get(r.title)! < 7.5)) continue;
     const seen = postedAt(r);
     if (seen <= t && seen > t - 30 * DAY) recent.set(r.company_id, (recent.get(r.company_id) ?? 0) + 1);
     else if (seen <= t - 30 * DAY && seen > t - 60 * DAY) before.set(r.company_id, (before.get(r.company_id) ?? 0) + 1);

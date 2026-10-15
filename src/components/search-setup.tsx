@@ -63,6 +63,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
   const [cvName, setCvName] = useState<string | null>(null);
   const [criteria, setCriteria] = useState<Criteria | null>(initialCriteria);
   const [cvSummary, setCvSummary] = useState<CvSummary | null | undefined>(undefined);
+  const [cvSkills, setCvSkills] = useState<string[] | undefined>(undefined);
   const shownCv = cvSummary ?? initialCvSummary;
   const [busy, setBusy] = useState<"cv" | "interpret" | "save" | null>(null);
   const [dream, setDream] = useState("");
@@ -99,6 +100,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
     if (!res.ok) return setError(data?.error ?? "L'analyse n'a pas abouti, réessaie dans un instant.");
     setCriteria(data.criteria);
     if (data.cvSummary) setCvSummary(data.cvSummary);
+    if (Array.isArray(data.cvSkills)) setCvSkills(data.cvSkills);
   }
 
   async function save() {
@@ -108,7 +110,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
     const res = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ criteria, searchText: text, ...(cvSummary !== undefined ? { cvSummary, cvFilename: cvName ?? undefined } : {}) }),
+      body: JSON.stringify({ criteria, searchText: text, ...(cvSummary !== undefined ? { cvSummary, cvFilename: cvName ?? undefined } : {}), ...(cvSkills ? { cvSkills } : {}) }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {

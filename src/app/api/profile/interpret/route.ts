@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
+import { cvSkillsFrom, skillVocabulary } from "@/lib/views/skills";
 import { LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
 import { redactPersonalData } from "@/lib/privacy/redact";
 import { extractCvSummary, interpretSearch } from "@/lib/profile/interpret";
@@ -22,7 +23,10 @@ export async function POST(request: Request) {
   try {
     const cvSummary = body.data.cvText?.trim() ? await extractCvSummary(redactPersonalData(body.data.cvText, knownNames)) : null;
     const criteria = await interpretSearch(body.data.text, cvSummary);
-    return NextResponse.json({ criteria, cvSummary });
+    // The skills the CV really names, found word for word in its text (the summary may rephrase
+    // "Figma" as "design graphique"). Only the list is kept, never the CV.
+    const cvSkills = body.data.cvText?.trim() ? cvSkillsFrom(body.data.cvText, await skillVocabulary(auth.supabase)) : undefined;
+    return NextResponse.json({ criteria, cvSummary, cvSkills });
   } catch (error) {
     // Never an approximate answer: the person retries once the model is reachable again.
     // Logs carry the error kind only, never the text being analysed.

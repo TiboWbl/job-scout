@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Skill } from "@/lib/scoring/judge";
 
 // `key`: the skill whatever its spelling; `bonus`: offers that cite it only as a plus ("un plus", "idéalement").
@@ -153,4 +154,16 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
   }
   for (const kind of Object.keys(byKind) as Skill["kind"][]) byKind[kind] = byKind[kind].sort((a, b) => b.count - a.count).slice(0, perKind);
   return { read: texts.length, byKind };
+}
+
+// Every skill Scout has read in an offer (any role): the vocabulary a CV is matched against, word for
+// word, without asking the model to summarise it.
+export async function skillVocabulary(db: SupabaseClient): Promise<string[]> {
+  const names = new Set<string>();
+  for (let f = 0; ; f += 1000) {
+    const { data } = await db.from("offers").select("skills").not("skills", "is", null).range(f, f + 999);
+    for (const o of data ?? []) for (const sk of (o.skills as Skill[]) ?? []) names.add(sk.name);
+    if (!data || data.length < 1000) break;
+  }
+  return [...names];
 }
