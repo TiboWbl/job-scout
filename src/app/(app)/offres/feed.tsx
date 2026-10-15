@@ -75,7 +75,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   );
 }
 
-type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
+type Props = { sortHere?: boolean; items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
   // Public demo: everything works in the session, nothing is saved, no sorting is started.
   demo?: boolean;
   base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
@@ -85,7 +85,7 @@ type Props = { items: FeedItem[]; openness: number; pending: number; total: numb
   // "Ma recherche", opened over the page by "Modifier ma recherche".
   searchEditor?: React.ReactNode };
 
-export function Feed({ items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
+export function Feed({ sortHere = true, items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -123,7 +123,7 @@ export function Feed({ items: initial, openness, pending, total, excludedCount, 
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const progress = useSorting(pending, !demo);
+  const progress = useSorting(pending, !demo && sortHere);
 
   // Back on the tab after opening an offer: ask, once, whether the person applied.
   useEffect(() => {

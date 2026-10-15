@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api";
-import { isDispatchConfigured, requestCollection } from "@/lib/collect/dispatch";
+import { collectionUnderWay, isDispatchConfigured, requestCollection } from "@/lib/collect/dispatch";
 import { runCollection } from "@/lib/collect/run";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -12,6 +12,9 @@ export async function POST() {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
   if (isDispatchConfigured()) {
+    // One at a time: a second request would only queue another full run behind it.
+    const running = await collectionUnderWay();
+    if (running) return NextResponse.json({ already: running });
     const started = await requestCollection();
     return started ? NextResponse.json({ dispatched: true }) : NextResponse.json({ error: "GitHub n'a pas accepté la demande, réessaie dans un instant." }, { status: 502 });
   }

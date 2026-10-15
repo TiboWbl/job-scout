@@ -17,6 +17,12 @@ export function CollectButton() {
       setSummary(data?.error ?? "La collecte a échoué.");
       return;
     }
+    if (data.already) {
+      const at = new Date(data.already).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+      setSummary(`Une collecte est déjà en cours, lancée à ${at} : elle prend une quinzaine de minutes, tri compris. Inutile d'en relancer une.`);
+      setState("done");
+      return;
+    }
     if (data.dispatched) {
       setSummary("Collecte complète lancée sur GitHub : les offres et le tri seront à jour d'ici une quinzaine de minutes.");
       setState("done");
