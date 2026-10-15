@@ -123,7 +123,8 @@ export async function computeMarket(
   const relevance = new Map<string, number>();
   const isRole = (title: string) => {
     if (!relevance.has(title)) relevance.set(title, titleRelevance(title, roleOnly));
-    return relevance.get(title)! >= 5;
+    // The title names the role itself ("Motion Designer"), not just one of its words ("Product Designer").
+    return relevance.get(title)! >= 7.5;
   };
   const active = (r: Row) => Date.parse(r.first_seen_at) <= t && (!r.archived_at || Date.parse(r.archived_at) > t);
   const online = set.rows.filter((r) => active(r) && isRole(r.title)).slice(0, MAX_BASE);

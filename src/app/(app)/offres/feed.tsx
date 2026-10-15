@@ -429,7 +429,8 @@ const ASIDE_KINDS: [RegExp, string, string][] = [
   [/type de contrat|stage ou alternance/i, "Contrat", "bg-peach-soft text-peach-ink"],
   [/exp[ée]rience|trop senior/i, "Expérience", "bg-violet-soft text-violet-ink"],
   [/zone|lieu/i, "Lieu", "bg-sky-soft text-sky-ink"],
-  [/intitul[ée] ne correspond/i, "Métier éloigné", "bg-pill-solid text-ink"],
+  [/intitul[ée] ne correspond|ressemble à ton métier/i, "Métier éloigné", "bg-pill-solid text-ink"],
+  [/une formation, pas une offre/i, "Formation", "bg-pill-solid text-ink"],
   [/secteur|entreprises que tu [ée]vites/i, "Secteur", "bg-mint-soft text-mint-ink"],
 ];
 function asideKind(i: FeedItem): { label: string; tone: string; reason: string } {

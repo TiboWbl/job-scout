@@ -84,3 +84,27 @@ export function namesTargetRole(title: string, criteria: Criteria): boolean {
     return words.length >= 2 && t.includes(` ${words.join(" ")} `);
   });
 }
+
+// The model sometimes fills a gap by guessing: "Monteur.euse Cycle" (bikes) justified as "Monteur vidéo".
+// The words of the roles sought that its reason uses must be in the offer itself (title or text); the
+// ones it brings from the search alone are an invention.
+const plain = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9+#]+/).filter((t) => t.length >= 4 && !STOP.has(t));
+export function inventedRoleWords(why: string, title: string, description: string, criteria: Criteria): string[] {
+  const inTitle = new Set(plain(title));
+  const offer = new Set(plain(`${title} ${description}`));
+  const reason = ` ${plain(why).join(" ")} `;
+  const invented = new Set<string>();
+  // Only when the reason names a role sought in full ("Monteur vidéo") while the title names it in part
+  // ("Monteur") and the offer never writes the rest: a single common word ("contenu") proves nothing.
+  for (const p of [...criteria.targetRoles, ...criteria.titleVariants, ...criteria.bridgeRoles]) {
+    const words = plain(core(p));
+    const distinctive = words.filter((t) => !GENERIC.has(t));
+    if (words.length < 2 || !reason.includes(` ${words.join(" ")} `)) continue;
+    if (!distinctive.some((t) => inTitle.has(t))) continue;
+    for (const t of distinctive) if (!offer.has(t)) invented.add(t);
+  }
+  return [...invented];
+}
+
+// A training course or a school programme is not a job offer ("Formation Monteur audiovisuel").
+export const isTraining = (title: string) => /^\s*(formation|bootcamp|programme de formation|cursus)\b|\bformation (certifiante|qualifiante|diplomante|diplômante)\b/i.test(title);

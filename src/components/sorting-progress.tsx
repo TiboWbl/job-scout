@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-type Progress = { remaining: number; note?: string };
+// `toRead`: the offers the model reads, known once the quick gates have set the rest aside.
+type Progress = { remaining: number; toRead?: number; note?: string };
 
 // Sorts what is left in successive calls (each fits a serverless time budget), refreshing as results
 // land. Interruptions are retried on their own: the person never has to reload. Started once per visit.
@@ -18,6 +19,7 @@ export function useSorting(pending: number, enabled = true) {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     (async () => {
       let remaining = initialPending.current;
+      let toRead: number | undefined;
       let failures = 0;
       let idle = 0;
       for (let call = 0; call < 120 && !cancelled && remaining > 0; call++) {
@@ -28,9 +30,9 @@ export function useSorting(pending: number, enabled = true) {
           failures++;
           // The model is unreachable: say so and keep trying, never fall back to a rough guess.
           const delay = body?.retry ? 30_000 : Math.min(5_000 * failures, 30_000);
-          setProgress({ remaining, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
+          setProgress({ remaining, toRead, note: body?.retry ? `${body.error} Nouvel essai dans 30 secondes.` : "Petite coupure, Scout reprend dans un instant." });
           if (failures >= 10) {
-            setProgress({ remaining, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
+            setProgress({ remaining, toRead, note: "Le classement n'avance plus. Reviens un peu plus tard, il reprendra là où il s'est arrêté." });
             return;
           }
           await wait(delay);
@@ -41,8 +43,10 @@ export function useSorting(pending: number, enabled = true) {
         if (cancelled) return;
         // Progress only moves forward on screen, even when the estimate of what is left is revised.
         remaining = Math.min(remaining, data.remaining);
+        // The first answer sets the clear-cut cases aside: what is left is what the model reads.
+        toRead ??= remaining;
         idle = data.scoredNow === 0 ? idle + 1 : 0;
-        setProgress({ remaining });
+        setProgress({ remaining, toRead });
         router.refresh();
         if (idle >= 3) break;
       }
@@ -59,21 +63,31 @@ export function useSorting(pending: number, enabled = true) {
 // `excluded`: offers already set aside (place, contract, experience, role): said, so an empty selection
 // during the sort never looks like a bug.
 export function SortingBanner({ progress, total, excluded = null }: { progress: Progress; total: number; excluded?: number | null }) {
-  const done = Math.max(0, total - progress.remaining);
+  // Two steps: the quick gates over the whole stock, then the model on the offers close to the role.
+  // The count shown is the step under way, never 10 000 offers "read" one by one.
+  const reading = progress.toRead !== undefined && progress.toRead > 0;
+  const of = reading ? progress.toRead! : total;
+  const done = Math.max(0, of - progress.remaining);
+  // About 80 offers read a minute on the site.
+  const minutes = Math.max(1, Math.ceil(progress.remaining / 80));
   return (
     <div className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
       <div className="flex items-center gap-3">
         <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
         <p className="font-semibold">
-          Scout trie les offres pour toi : {done.toLocaleString("fr-FR")} / {total.toLocaleString("fr-FR")}
+          {reading
+            ? `Scout lit les ${of.toLocaleString("fr-FR")} offres proches de ton métier : ${done.toLocaleString("fr-FR")} lues, encore ${minutes} min environ`
+            : "Scout écarte d'abord les offres hors de ta recherche…"}
         </p>
       </div>
       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-brand/15">
-        <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${total ? Math.round((100 * done) / total) : 0}%` }} />
+        <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${of ? Math.round((100 * done) / of) : 0}%` }} />
       </div>
       <p className="mt-2 text-muted">
         {progress.note ??
-          `${excluded ? `${excluded.toLocaleString("fr-FR")} offres hors de ta recherche déjà écartées. ` : ""}Scout lit maintenant les plus proches de ton métier : ta sélection se remplit au fur et à mesure.`}
+          (reading
+            ? `${excluded ? `${excluded.toLocaleString("fr-FR")} offres hors de ta recherche sont déjà écartées. ` : ""}Les plus proches d'abord : ta sélection se remplit au fur et à mesure, tu peux déjà la parcourir.`
+            : "Lieu, contrat, expérience, métier : quelques secondes.")}
       </p>
     </div>
   );

@@ -36,7 +36,7 @@ Règles :
 
 export const CV_SYSTEM = `Tu lis un CV dont les données personnelles ont été retirées. Réponds uniquement avec un objet JSON :
 { "experienceYears": nombre ou null (expérience professionnelle cumulée, stages compris),
-  "roles": [postes occupés, avec le type de structure], "skills": [compétences clés, 5 à 12], "languages": [langues avec niveau],
+  "roles": [postes occupés, avec le type de structure], "skills": [compétences clés et outils ou logiciels, 5 à 15 ; les outils écrits tels quels dans le CV (ex. "Figma", "Premiere Pro", "After Effects", "SQL"), jamais reformulés en catégorie], "languages": [langues avec niveau],
   "education": [diplômes], "highlights": [3 à 5 réalisations concrètes, chiffrées si possible] }
 Chaque élément de liste est une simple chaîne de caractères, jamais un objet (ex. "Product Owner, startup sport connecté, 6 mois").
 N'invente rien.`;

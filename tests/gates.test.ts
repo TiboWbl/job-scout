@@ -282,3 +282,17 @@ describe("exigé ou souhaité", async () => {
     expect(r.required).not.toContain("Python");
   });
 });
+
+describe("métier inventé et formations", async () => {
+  const { inventedRoleWords, isTraining } = await import("@/lib/scoring/relevance");
+  const { Criteria } = await import("@/lib/domain/criteria");
+  const c = Criteria.parse({ targetRoles: ["Monteur vidéo"], titleVariants: ["Motion Designer"] });
+  it("une raison qui parle de vidéo pour un monteur de vélos est une invention", () => {
+    expect(inventedRoleWords("Monteur vidéo en CDD dans le sport.", "Monteur.euse Cycle (H/F)", "Tu montes et répares les vélos en atelier.", c)).toEqual(["video"]);
+    expect(inventedRoleWords("Montage vidéo de formats YouTube.", "Monteur (H/F)", "Tu réalises le montage vidéo de nos formats.", c)).toEqual([]);
+  });
+  it("une formation n'est pas une offre d'emploi, un chargé de formation si", () => {
+    expect(isTraining("Formation Monteur audiovisuel - Paris")).toBe(true);
+    expect(isTraining("Chargé de formation (H/F)")).toBe(false);
+  });
+});

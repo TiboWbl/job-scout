@@ -5,9 +5,10 @@ import type { Place, Remote } from "@/lib/domain/offer";
 import { chancesCap, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 
+export const INVENTED_REASON = "L'intitulé ressemble à ton métier, mais l'offre décrit un autre métier.";
 export const EXCERPT_REASON = "Annonce incomplète : Scout n'a pu en lire qu'un extrait, il ne juge pas une offre sans l'avoir lue en entier.";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
-import { titleRelevance } from "./relevance";
+import { inventedRoleWords, isTraining, titleRelevance } from "./relevance";
 import { judgeBatch, type Feedback, type JudgeInput, type Judgement } from "./judge";
 
 // Six offers per request: shorter answers, finished in time, none skipped by the model.
@@ -196,6 +197,12 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       candidates.splice(i, 1);
       continue;
     }
+    // A training course or school programme is not a job offer.
+    if (isTraining(c.offer.title)) {
+      regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: "Une formation, pas une offre d'emploi.", scored_by: "prefilter" });
+      candidates.splice(i, 1);
+      continue;
+    }
     c.gap = gate.experienceGap;
     descriptions.set(c.offer.id, f.description ?? "");
   }
@@ -229,7 +236,14 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       judgeBatch(inputs, criteria, cv, experienceYears, favoriteNames, feedback).then(async (results) => {
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
-          .map(({ offer, outOfZone, gap }) => scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id));
+          .map(({ offer, outOfZone, gap }) => {
+            const row = scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id);
+            // A reason built on a role word the offer never uses ("vidéo" for a bike mechanic) is an invention.
+            const why = typeof row.why === "string" ? row.why : "";
+            return row.level !== "ecartee" && inventedRoleWords(why, offer.title, descriptions.get(offer.id) ?? "", criteria).length > 0
+              ? { ...row, level: "ecartee", excluded_reason: INVENTED_REASON }
+              : row;
+          });
         if (rows.length > 0) {
           const { error: e } = await db.from("offer_scores").upsert(rows);
           if (e) throw e;
