@@ -112,18 +112,29 @@ export function inventedRoleWords(why: string, title: string, description: strin
 }
 
 // The role sought, named in full by the title, or in part with the rest written in the offer ("Chef de
-// projet" whose text says "digital" for "Chef de projet digital"). "Product Designer" is not a
-// "Motion Designer" when "motion" appears nowhere. Roles sought and their equivalent titles only.
+// projet" whose text says "digital" for "Chef de projet digital"). A part only counts when the title says
+// nothing else: "Product Designer" names another job than "Motion Designer", whatever its text says, and
+// so does "Chef de projet travaux". A role reduced to one distinctive word ("Spécialiste vidéo") is
+// named in full only: "Sales Engineer - Video Protection" is not one. Roles sought and equivalents only.
+const NEUTRAL = new Set([
+  ...GENERIC, "stage", "stagiaire", "alternance", "alternant", "alternante", "apprenti", "apprentie", "apprentissage", "internship",
+  "cdi", "cdd", "freelance", "interim", "mois", "months", "hf", "fh", "nb", "remote", "hybride", "hybrid", "teletravail",
+])
 export function namesRole(title: string, description: string, criteria: Criteria): boolean {
   const inTitle = new Set(tokens(title));
   const text = new Set(tokens(`${title} ${description}`));
+  // Title parts: "Monteur vidéo - Paris", "Stage 2 mois - Assistant création de contenu".
+  const parts = title.split(/\s[-–—|:]\s|[(,|]/).map((part) => tokens(part));
   for (const p of [...criteria.targetRoles, ...criteria.titleVariants]) {
     const all = tokens(core(p));
     const distinctive = all.filter((t) => !GENERIC.has(t));
     const words = distinctive.length > 0 ? distinctive : all;
     if (words.length === 0) continue;
     const share = words.filter((t) => inTitle.has(t)).length / words.length;
-    if (share >= 0.99 || (share >= 0.5 && words.every((t) => text.has(t)))) return true;
+    if (share >= 0.99 && (words.length >= 2 || all.every((t) => inTitle.has(t)))) return true;
+    if (share < 0.5 || share >= 0.99 || !words.every((t) => text.has(t))) continue;
+    const own = new Set(all);
+    if (parts.some((part) => part.some((t) => own.has(t)) && part.every((t) => own.has(t) || NEUTRAL.has(t) || /^\d+$/.test(t)))) return true;
   }
   return false;
 }

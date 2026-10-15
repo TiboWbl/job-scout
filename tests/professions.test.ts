@@ -22,6 +22,8 @@ const PROFILES: Profile[] = [
       { title: "Video Editor - Social Media", text: lorem("You edit short videos for our social accounts."), candidate: true, market: true },
       { title: "Monteur.euse Cycle (H/F)", text: lorem("Tu montes et répares les vélos de nos clients en atelier."), candidate: true, market: false },
       { title: "Product Designer", text: lorem("Tu conçois les parcours de notre application avec Figma."), candidate: true, market: false },
+      { title: "Senior Product Designer - Growth", text: lorem("Tu soignes les animations et le motion de l'app."), candidate: true, market: false },
+      { title: "Monteur vidéo - Alternance - Paris", text: lorem("Tu montes nos vidéos."), candidate: true, market: true },
       { title: "Comptable fournisseurs", text: lorem("Tu tiens la comptabilité fournisseurs."), candidate: false, market: false },
     ],
     invented: { title: "Monteur.euse Cycle (H/F)", text: "Tu montes et répares les vélos de nos clients en atelier.", why: "Poste de monteur vidéo en CDD dans le sport." },
@@ -43,6 +45,7 @@ const PROFILES: Profile[] = [
       { title: "Senior Product Manager", text: lorem("Tu pilotes la roadmap."), candidate: true, market: true },
       { title: "Chef de projet (H/F)", text: lorem("Tu pilotes nos projets digital et produit avec les équipes tech."), candidate: true, market: true },
       { title: "Chef de projet travaux (H/F)", text: lorem("Tu suis nos chantiers de construction et les corps de métier."), candidate: true, market: false },
+      { title: "Chef de projet digital - Stage 6 mois", text: lorem("Tu pilotes nos sites."), candidate: true, market: true },
       { title: "Product Engineer", text: lorem("Tu développes nos fonctionnalités en TypeScript."), candidate: true, market: false },
     ],
   },
@@ -68,6 +71,7 @@ const PROFILES: Profile[] = [
     job: "comptable",
     criteria: Criteria.parse({ targetRoles: ["Comptable"], titleVariants: ["Comptable général", "Accountant"] }),
     offers: [
+      { title: "Contrôleur de gestion - Comptable", text: lorem("Tu tiens les comptes."), candidate: true, market: true },
       { title: "Comptable fournisseurs (H/F)", text: lorem("Tu tiens la comptabilité fournisseurs."), candidate: true, market: true },
       { title: "Accountant - Paris", text: lorem("You handle month-end closing."), candidate: true, market: true },
       { title: "Contrôleur de gestion", text: lorem("Tu construis le budget."), candidate: false, market: false },
@@ -105,5 +109,15 @@ describe("formations, pour tous les métiers", () => {
   });
   it.each(["Chargé de formation (H/F)", "Responsable formation", "Développeur web"])("« %s » en est une", (title) => {
     expect(isTraining(title)).toBe(false);
+  });
+});
+
+describe("un seul mot distinctif ne suffit pas", () => {
+  const criteria = Criteria.parse({ targetRoles: ["Monteur vidéo"], titleVariants: ["Spécialiste vidéo"] });
+  it("« Sales Engineer - Video Protection » n'est pas un spécialiste vidéo", () => {
+    expect(namesRole("Sales Engineer - Video Protection", "Vidéo, vidéo.", criteria)).toBe(false);
+  });
+  it("« Spécialiste vidéo (H/F) » en est un", () => {
+    expect(namesRole("Spécialiste vidéo (H/F)", "", criteria)).toBe(true);
   });
 });
