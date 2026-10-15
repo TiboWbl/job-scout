@@ -76,23 +76,26 @@ export async function dashboardStats(db: SupabaseClient, now = Date.now()) {
   };
 }
 
-// Who uses Scout: every real account (how it got in, when it last signed in), then the invitations not
+// Who uses Scout: every real account (how it got in, when it last came), then the invitations not
 // used yet. The demo persona is not a person.
 export type Invitee = { email: string; via: "admin" | "env" | "admin page" | "open"; lastSignIn: string | null; account: boolean };
 
 export async function invitees(db: SupabaseClient, adminEmail: string | undefined, fromEnv: string[], invited: string[]): Promise<Invitee[]> {
   const { data: demo } = await db.from("profiles").select("id").eq("is_demo", true).maybeSingle();
-  const accounts: { email: string; lastSignIn: string | null; createdAt: string }[] = [];
+  const accounts: { email: string; lastSignIn: string | null; createdAt: string; id: string }[] = [];
   for (let page = 1; page < 50; page++) {
     const { data } = await db.auth.admin.listUsers({ page, perPage: 200 });
-    for (const u of data?.users ?? []) if (u.email && u.id !== demo?.id) accounts.push({ email: u.email.toLowerCase(), lastSignIn: u.last_sign_in_at ?? null, createdAt: u.created_at });
+    for (const u of data?.users ?? []) if (u.email && u.id !== demo?.id) accounts.push({ email: u.email.toLowerCase(), lastSignIn: u.last_sign_in_at ?? null, createdAt: u.created_at, id: u.id });
     if (!data || data.users.length < 200) break;
   }
+  // The last visit when known; the last sign-in otherwise (accounts not back since it was recorded).
+  const { data: seenRows } = await db.from("profiles").select("id, last_seen_at").not("last_seen_at", "is", null);
+  const lastSeen = new Map((seenRows ?? []).map((p) => [p.id as string, p.last_seen_at as string]));
   const admin = adminEmail?.toLowerCase();
   const via = (e: string): Invitee["via"] => (e === admin ? "admin" : invited.includes(e) ? "admin page" : fromEnv.includes(e) ? "env" : "open");
   const rows: Invitee[] = accounts
-    .sort((a, b) => (b.lastSignIn ?? "").localeCompare(a.lastSignIn ?? ""))
-    .map((a) => ({ email: a.email, via: via(a.email), lastSignIn: a.lastSignIn, account: true }));
+    .map((a) => ({ email: a.email, via: via(a.email), lastSignIn: lastSeen.get(a.id) ?? a.lastSignIn, account: true }))
+    .sort((a, b) => (b.lastSignIn ?? "").localeCompare(a.lastSignIn ?? ""));
   for (const e of [...invited, ...fromEnv]) if (!rows.some((r) => r.email === e)) rows.push({ email: e, via: via(e), lastSignIn: null, account: false });
   return rows;
 }

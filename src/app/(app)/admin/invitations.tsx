@@ -6,7 +6,7 @@ import type { Invitee } from "@/lib/admin/stats";
 import { useConfirm } from "@/components/confirm";
 
 const seen = (iso: string | null) =>
-  iso ? `Connecté·e le ${new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : "Pas encore connecté·e";
+  iso ? `Dernière visite le ${new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}` : "Pas encore venu·e";
 
 export function Invitations({ people, openLimit }: { people: Invitee[]; openLimit: number }) {
   const router = useRouter();
