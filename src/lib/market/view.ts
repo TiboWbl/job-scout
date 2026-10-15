@@ -11,10 +11,19 @@ export type MarketPage = { today: MarketData; since: string | null; trend: Recor
 
 // The twelve skills most asked in the person's market, most asked first: the same list Mon CV checks
 // the CV against, so the two pages never disagree. Empty when the market cannot be computed.
-export async function marketTop(db: SupabaseClient, userId: string): Promise<{ name: string; key: string }[]> {
+export async function marketTop(db: SupabaseClient, userId: string): Promise<{ name: string; key: string; share: number; kind: string }[]> {
+  return (await marketForCv(db, userId)).skills;
+}
+
+// What Mon CV needs from the market: its twelve skills (with their share of offers) and the role's
+// titles as the offers write them.
+export async function marketForCv(db: SupabaseClient, userId: string): Promise<{ skills: { name: string; key: string; share: number; kind: string }[]; titles: { title: string; count: number }[] }> {
   const page = await marketPage(db, userId).catch(() => null);
-  if (!page) return [];
-  return [...page.insights.show, ...page.insights.add].sort((a, b) => b.share - a.share).map((i) => ({ name: i.name, key: i.key }));
+  if (!page) return { skills: [], titles: [] };
+  return {
+    skills: [...page.insights.show, ...page.insights.add].sort((a, b) => b.share - a.share).map((i) => ({ name: i.name, key: i.key, share: i.share, kind: i.kind })),
+    titles: page.today.titles ?? [],
+  };
 }
 
 // The latest picture, compared with the one about a week before (or the oldest kept). The very first

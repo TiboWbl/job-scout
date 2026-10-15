@@ -4,7 +4,7 @@ import { badRequest, requireUser } from "@/lib/api";
 import { compareKeywords, scoreCv } from "@/lib/cv/ats";
 import { fold, KEYWORDS_SYSTEM, readAsRecruiter, strings, type Recruiter, type Suggestion } from "@/lib/cv/recruiter";
 import { cvSkillsFrom, inCvCheck } from "@/lib/views/skills";
-import { marketTop } from "@/lib/market/view";
+import { marketForCv } from "@/lib/market/view";
 import { Criteria } from "@/lib/domain/criteria";
 import { getLlm, LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
 import { redactPersonalData } from "@/lib/privacy/redact";
@@ -45,7 +45,8 @@ export async function POST(request: Request) {
     // The role's keywords are the twelve skills Mon marché counted in the offers, checked in the CV the
     // same way: the two pages give the same list and the same verdict. The model's guess is only a
     // fallback, when no market can be computed yet.
-    const top = await marketTop(supabase, user.id);
+    const market = await marketForCv(supabase, user.id);
+    const top = market.skills;
     const has = inCvCheck(text, []);
     let keywords = top.map((t) => t.name);
     const present = top.length ? top.filter((t) => has(t.key)).map((t) => t.name) : undefined;
@@ -55,7 +56,12 @@ export async function POST(request: Request) {
       keywords = strings(((await llm.json({ system: KEYWORDS_SYSTEM, user: `Métier visé : ${roles}`, tier: "fast" })) as { mots_cles?: unknown }).mots_cles).slice(0, 12);
       if (keywords.length) await supabase.from("profiles").update({ cv_keywords: { roles, keywords } }).eq("id", user.id);
     }
-    const result = scoreCv({ text, layout, filename, sizeBytes }, { expected: keywords, present });
+    // The role's titles as the offers write them; the person's own when no market is computed yet.
+    const titles = market.titles.length ? market.titles : [...criteria.targetRoles, ...criteria.titleVariants].slice(0, 3).map((title) => ({ title, count: 0 }));
+    const result = scoreCv(
+      { text, layout, filename, sizeBytes },
+      { expected: keywords, present, titles, languages: top.filter((t) => t.kind === "langue").map((t) => t.name), keys: Object.fromEntries(top.map((t) => [t.name, t.key])), shares: Object.fromEntries(top.map((t) => [t.name, t.share])) },
+    );
 
     const { data: offer } = offerId ? await supabase.from("offers").select("title, description, company:companies(name)").eq("id", offerId).single() : { data: null };
     const company = (offer?.company as unknown as { name: string } | null)?.name ?? "";

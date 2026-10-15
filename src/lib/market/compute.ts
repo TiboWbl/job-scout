@@ -32,6 +32,8 @@ export type MarketData = {
   remote: { remote: number; hybrid: number; onsite: number; unknown: number };
   // Absent from pictures taken before 14 October 2026.
   contracts?: Record<string, number>;
+  // The role's titles as the offers write them, most frequent first (absent before 16 October 2026).
+  titles?: { title: string; count: number }[];
   companies: MarketCompany[];
   // The person's own selection (offers Scout kept for them), to say where a skill would count.
   mine: number;
@@ -188,6 +190,17 @@ export async function computeMarket(
   const remote = { remote: 0, hybrid: 0, onsite: 0, unknown: 0 };
   for (const r of base) remote[(["remote", "hybrid", "onsite"].includes(r.remote) ? r.remote : "unknown") as keyof typeof remote]++;
 
+  // Which of the role's titles the offers use, and how often: the words to write at the top of a CV.
+  // Written in full ("Junior Product Manager" only when the title says "junior"); abbreviations
+  // ("PM") are not titles to write on a CV.
+  const words = (s: string) => ` ${fold(s).replace(/[^a-z0-9+#]+/g, " ").trim()} `;
+  const titles = [...new Set([...criteria.targetRoles, ...criteria.titleVariants])]
+    .filter((title) => title.trim().length > 4)
+    .map((title) => ({ title, count: base.filter((r) => words(r.title).includes(words(title))).length }))
+    .filter((t) => t.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
   const contracts: Record<string, number> = {};
   for (const r of base) if (r.contract && r.contract !== "unknown") contracts[r.contract] = (contracts[r.contract] ?? 0) + 1;
 
@@ -224,6 +237,7 @@ export async function computeMarket(
     },
     remote,
     contracts,
+    titles,
     companies: top.map(([id, n]) => ({ id, name: names.get(id)?.name ?? "", domain: names.get(id)?.domain ?? null, brand: names.get(id)?.brand ?? null, recent: n, before: before.get(id) ?? 0 })).filter((c) => c.name),
     mine: mineTexts.length,
   };

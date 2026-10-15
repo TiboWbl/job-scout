@@ -116,3 +116,36 @@ describe("Mon CV et Mon marché disent la même chose", () => {
     expect(result.keywords).toEqual(["Roadmap", "Vision produit", "Backlog"]);
   });
 });
+
+describe("conseils du CV tirés du marché", () => {
+  const layout = { pages: 1, columnRatio: 0, spacedTitles: 0 };
+  const find = async (cv: string) => {
+    const { scoreCv } = await import("@/lib/cv/ats");
+    const result = scoreCv(
+      { text: cv, layout, filename: "CV Alex Martin - Comptable.pdf", sizeBytes: 100_000 },
+      { expected: ["SAP", "Excel", "Consolidation", "Anglais"], present: ["SAP", "Excel", "Anglais"], languages: ["Anglais"], shares: { SAP: 40, Excel: 70, Consolidation: 25 }, titles: [{ title: "Comptable", count: 120 }, { title: "Comptable général", count: 30 }] },
+    );
+    return (label: string) => result.categories.flatMap((c) => c.checks).find((c) => c.label.startsWith(label))!;
+  };
+  const missions = "Expérience\nTenu la comptabilité fournisseurs de 3 filiales sous SAP, clôtures mensuelles en 5 jours\nCompétences\nExcel\nLangues\nAnglais";
+
+  it("l'intitulé du marché en tête du CV, avec les mots des offres", async () => {
+    expect((await find(`Alex Martin\nComptable\n${missions}`))("Intitulé visé").ok).toBe(true);
+    const missing = (await find(`Alex Martin\nGestionnaire\n${missions}`))("Intitulé visé");
+    expect(missing.ok).toBe(false);
+    expect(missing.fix).toContain("« Comptable » (120 offres)");
+  });
+  it("une compétence seulement listée est à montrer dans une mission", async () => {
+    const check = (await find(`Comptable\n${missions}`))("Compétences prouvées");
+    // Excel only in a list; English is shown by its level, never asked in a mission.
+    expect(check.fix).toContain("Citées seulement dans une liste : Excel.");
+    expect(check.points).toBe(2);
+  });
+  it("les absentes sont données avec leur part des offres", async () => {
+    expect((await find(missions))("Mots-clés").fix).toContain("Consolidation (25 % des offres)");
+  });
+  it("une langue sans niveau ne suffit pas", async () => {
+    expect((await find(missions))("Langues").ok).toBe(false);
+    expect((await find(missions.replace("Anglais", "Anglais : courant (C1)")))("Langues").ok).toBe(true);
+  });
+});

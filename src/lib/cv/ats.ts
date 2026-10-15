@@ -34,6 +34,8 @@ const SECTIONS: [string, RegExp][] = [
   ["Compétences", /\b(competences|skills|savoir[- ]faire|outils|hard skills|soft skills)\b/],
 ];
 const LANGUAGES = /\b(langues?|languages?)\b/;
+// A level a recruiter can read: CEFR, the usual words, or a test.
+const LANGUAGE_LEVEL = /\b(a1|a2|b1|b2|c1|c2|courant|bilingue|natif|native|maternelle|fluent|professionnel|intermediaire|intermediate|notions|scolaire|toeic|toefl|ielts|cambridge)\b/;
 
 // Read at the start of a mission line only: "crédit" or "créatif" inside a sentence is not an action.
 const ACTION_VERBS =
@@ -62,7 +64,10 @@ const WHY: [string, string][] = [
   ["Verbes d'action", "Le verbe montre ce que tu as fait toi-même."],
   ["Résultats chiffrés", "Un chiffre rend un résultat vérifiable et mémorable."],
   ["Phrases courtes", "Les recruteurs lisent en diagonale."],
-  ["Mots-clés du métier", "Les recruteurs cherchent avec les mots des offres."],
+  ["Mots-clés du métier", "Les recruteurs et les ATS cherchent avec les mots des offres : un synonyme ne remonte pas."],
+  ["Intitulé visé en tête", "C'est la première chose lue, en quelques secondes : elle dit tout de suite pour quel poste tu postules."],
+  ["Compétences prouvées", "Une compétence montrée dans une mission, avec un résultat, est crue ; une liste de mots ne prouve rien."],
+  ["Langues avec un niveau", "« Anglais » seul ne dit pas si tu peux mener une réunion : le niveau, si."],
 ];
 
 const GOOD: [string, string][] = [
@@ -78,10 +83,19 @@ const GOOD: [string, string][] = [
   ["Résultats chiffrés", "Tes résultats sont chiffrés."],
   ["Phrases courtes", "Des lignes courtes, faciles à survoler."],
   ["Mots-clés du métier", "Tu emploies les mots des offres."],
+  ["Intitulé visé en tête", "On sait d'un coup d'œil quel poste tu vises."],
+  ["Compétences prouvées", "Tes compétences sont montrées en situation."],
+  ["Langues avec un niveau", "Ton niveau de langue est clair."],
 ];
 
-// `present`: which expected keywords the CV holds, when decided by the caller (Mon marché's own check).
-export function scoreCv(input: CvInput, roleKeywords: { expected: string[]; present?: string[] }): AtsResult {
+// What the person's market says (Mon marché): `expected`, its most asked skills, most asked first;
+// `present`, those the CV holds (Mon marché's own check); `keys` and `shares` per skill name; `titles`,
+// the role's titles as the offers write them, most frequent first.
+export type RoleContext = { expected: string[]; present?: string[]; languages?: string[]; keys?: Record<string, string>; shares?: Record<string, number>; titles?: { title: string; count: number }[] };
+
+const phrase = (s: string) => ` ${fold(s).replace(/[^a-z0-9+#]+/g, " ").trim()} `;
+
+export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
   const text = input.text;
   const n = fold(text);
   const words = text.split(/\s+/).filter(Boolean).length;
@@ -109,7 +123,7 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[]; pres
   const lengthOk = words >= 250 && words <= 900;
   const structure: Check[] = [
     ...SECTIONS.map(([label]) => check(found.includes(label), `Section « ${label} » identifiable`, 4, `Ajoute un titre de section « ${label} » clair : les ATS rangent ton CV grâce à ces titres standard.`)),
-    check(LANGUAGES.test(n), "Section « Langues »", 2, "Ajoute une ligne « Langues » avec ton niveau (ex. Anglais : courant, C1)."),
+    check(LANGUAGES.test(n) && LANGUAGE_LEVEL.test(n), "Langues avec un niveau", 2, LANGUAGES.test(n) ? "Précise ton niveau pour chaque langue (Anglais : C1, courant ; ou un score TOEIC) : un recruteur ne devine pas." : "Ajoute une ligne « Langues » avec ton niveau (ex. Anglais : courant, C1)."),
     check(years.size >= 2, "Dates des expériences", 3, "Date chaque expérience (mois et année de début et de fin) : sans dates, l'ATS ne calcule pas ton expérience."),
     check(lengthOk, "Longueur adaptée", 3, words < 250 ? "CV très court : détaille tes missions et résultats pour chaque expérience." : "CV très long : resserre sur les expériences les plus proches du poste visé."),
   ];
@@ -122,7 +136,7 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[]; pres
   const longLines = lines.filter((l) => l.split(/\s+/).length > 35).length;
   const contenu: Check[] = [
     check(verbs >= 8, "Verbes d'action", 10, `Commence chaque mission par un verbe d'action (piloté, lancé, conçu, réduit…) : ${verbs} ligne${verbs > 1 ? "s" : ""} sur ${lines.length} commence${verbs > 1 ? "nt" : ""} ainsi, vise au moins 8.`, Math.min(10, Math.round((10 * verbs) / 8))),
-    check(numbers >= 4, "Résultats chiffrés", 10, `Chiffre tes résultats (+30 % d'adoption, 2 000 utilisateurs, −15 % de churn) : ${numbers} trouvé${numbers > 1 ? "s" : ""}, vise au moins 4.`, Math.min(10, Math.round((10 * numbers) / 4))),
+    check(numbers >= 4, "Résultats chiffrés", 10, `Chiffre tes résultats : combien, combien de fois, quel effet (+30 %, 2 000 personnes, 15 projets livrés, un budget de 50 k€, 3 jours gagnés). ${numbers} trouvé${numbers > 1 ? "s" : ""}, vise au moins 4.`, Math.min(10, Math.round((10 * numbers) / 4))),
     check(longLines <= 2, "Phrases courtes", 5, "Certaines lignes dépassent 35 mots : coupe-les en puces d'une ligne, une idée par puce.", longLines <= 2 ? 5 : longLines <= 5 ? 2 : 0),
   ];
 
@@ -130,9 +144,31 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[]; pres
   const expected = roleKeywords.expected.slice(0, 12);
   const present = roleKeywords.present ? expected.filter((k) => roleKeywords.present!.includes(k)) : expected.filter((k) => hasKeyword(n, k));
   const missing = expected.filter((k) => !present.includes(k));
-  const adequacy = expected.length ? Math.round((15 * present.length) / expected.length) : 0;
+  const shares = roleKeywords.shares ?? {};
+  const withShare = (k: string) => (shares[k] ? `${k} (${shares[k]} % des offres)` : k);
+  const titles = roleKeywords.titles ?? [];
+  // Without the market's titles, the keywords carry the whole of the 15 points.
+  const keywordMax = titles.length ? 9 : 12;
+  const adequacy = expected.length ? Math.round((keywordMax * present.length) / expected.length) : 0;
+  // The top of the CV: its first lines, where the title and the summary sit.
+  const head = phrase(text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 8).join(" "));
+  const titled = titles.find((t) => head.includes(phrase(t.title)));
+  const named = titles.slice(0, 3).map((t) => `« ${t.title} »${t.count > 1 ? ` (${t.count} offres)` : ""}`).join(", ");
+  // A skill proved in a mission: written in a sentence of at least 7 words, not only in a list.
+  const sentences = lines.filter((l) => l.split(/\s+/).length >= 7).map(phrase);
+  const keyOf = (k: string) => roleKeywords.keys?.[k] ?? fold(k);
+  // A language is shown by its level (checked above), not in a mission.
+  const toProve = present.filter((k) => !roleKeywords.languages?.includes(k));
+  const proved = toProve.filter((k) => sentences.some((s) => s.includes(phrase(keyOf(k))) || s.includes(phrase(k))));
+  const listed = toProve.filter((k) => !proved.includes(k));
   const adequation: Check[] = [
-    check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, 15, `Absents de ton CV : ${missing.join(", ")}. Ce sont les compétences les plus demandées dans ton marché : ajoute celles qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),
+    check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, keywordMax, `Absents de ton CV, du plus demandé au moins demandé : ${missing.map(withShare).join(", ")}. Ce sont les compétences les plus demandées dans ton marché : ajoute celles qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),
+    ...(titles.length
+      ? [
+          check(Boolean(titled), "Intitulé visé en tête du CV", 3, `Écris en haut de ton CV, sous ton nom, l'intitulé du poste visé tel que les offres l'écrivent : ${named}. Ajoute dessous une accroche de deux lignes (ton expérience, ce que tu sais faire).`),
+          check(toProve.length > 0 && listed.length === 0, "Compétences prouvées dans une mission", 3, toProve.length === 0 ? "Ajoute d'abord les compétences de ton marché que tu as vraiment, puis montre chacune dans une mission." : `Citées seulement dans une liste : ${listed.join(", ")}. Montre chacune dans une mission : ce que tu as fait avec, et le résultat.`, toProve.length ? Math.round((3 * proved.length) / toProve.length) : 0),
+        ]
+      : []),
   ];
 
   const why = (label: string) => WHY.find(([start]) => label.startsWith(start))?.[1];

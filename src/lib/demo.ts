@@ -138,7 +138,7 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
   const { scoreCv } = await import("@/lib/cv/ats");
   const { KEYWORDS_SYSTEM, readAsRecruiter, strings } = await import("@/lib/cv/recruiter");
   const { cvSkillsFrom, inCvCheck } = await import("@/lib/views/skills");
-  const { marketTop } = await import("@/lib/market/view");
+  const { marketForCv } = await import("@/lib/market/view");
   const { redactPersonalData } = await import("@/lib/privacy/redact");
   const { writeKit, writePrep } = await import("@/lib/prep");
   const llm = getLlm();
@@ -149,11 +149,12 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
   if (!count) {
     const roles = [...DEMO_CRITERIA.targetRoles, ...DEMO_CRITERIA.titleVariants.slice(0, 4)].join(", ");
     // The same twelve skills as the demo's Mon marché, as for anyone.
-    const top = await marketTop(db, userId);
+    const market = await marketForCv(db, userId);
+    const top = market.skills;
     const has = inCvCheck(DEMO_CV_TEXT, []);
     const keywords = top.length ? top.map((t) => t.name) : strings(((await llm.json({ system: KEYWORDS_SYSTEM, user: `Métier visé : ${roles}`, tier: "fast" })) as { mots_cles?: unknown }).mots_cles).slice(0, 12);
     const present = top.length ? top.filter((t) => has(t.key)).map((t) => t.name) : undefined;
-    const result = scoreCv({ text: DEMO_CV_TEXT, layout: { pages: 1, columnRatio: 0.05, spacedTitles: 0 }, filename: "CV Camille Exemple - Product Manager.pdf", sizeBytes: 180_000 }, { expected: keywords, present });
+    const result = scoreCv({ text: DEMO_CV_TEXT, layout: { pages: 1, columnRatio: 0.05, spacedTitles: 0 }, filename: "CV Camille Exemple - Product Manager.pdf", sizeBytes: 180_000 }, { expected: keywords, present, titles: market.titles, languages: top.filter((t) => t.kind === "langue").map((t) => t.name), keys: Object.fromEntries(top.map((t) => [t.name, t.key])), shares: Object.fromEntries(top.map((t) => [t.name, t.share])) });
     const { recruiter, suggestions } = await readAsRecruiter(llm, { text: DEMO_CV_TEXT, redacted: redactPersonalData(DEMO_CV_TEXT, ["Camille", "Exemple"]), roles, experienceYears: DEMO_CRITERIA.experienceYears, keywords, offer: null });
     await db.from("cv_analyses").insert({
       user_id: userId,
