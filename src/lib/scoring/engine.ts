@@ -5,9 +5,11 @@ import type { Place, Remote } from "@/lib/domain/offer";
 import { chancesCap, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 
+export const languageReason = (l: { language: string; quote: string }) => `L'offre demande de parler ${l.language} : « ${l.quote} ». Si tu le parles, ajoute-le à ta recherche.`;
 export const INVENTED_REASON = "L'intitulé ressemble à ton métier, mais l'offre décrit un autre métier.";
 export const EXCERPT_REASON = "Annonce incomplète : Scout n'a pu en lire qu'un extrait, il ne juge pas une offre sans l'avoir lue en entier.";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
+import { missingLanguage } from "@/lib/domain/languages";
 import { inventedRoleWords, isTraining, titleRelevance } from "./relevance";
 import { judgeBatch, type Feedback, type JudgeInput, type Judgement } from "./judge";
 
@@ -173,6 +175,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     const { data } = await db.from("offers").select("id, description, experience_min_years, experience_level, contract, archived_at, sources").in("id", toLoad.slice(i, i + 100));
     for (const d of data ?? []) fresh.set(d.id, d);
   }
+  const spoken = [...criteria.languages, ...(cv?.languages ?? [])];
   // Completed offers may now ask for more experience, or be gone: the gates are applied again.
   const regated: Record<string, unknown>[] = [];
   for (let i = candidates.length - 1; i >= 0; i--) {
@@ -200,6 +203,14 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     // A training course or school programme is not a job offer.
     if (isTraining(c.offer.title)) {
       regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: "Une formation, pas une offre d'emploi.", scored_by: "prefilter" });
+      candidates.splice(i, 1);
+      continue;
+    }
+    // A language the offer requires and the person does not speak (from their search or CV), with the
+    // offer's own sentence as proof. French and English are never set aside this way.
+    const language = missingLanguage(`${c.offer.title}\n${f.description ?? ""}`, spoken);
+    if (language) {
+      regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: languageReason(language), scored_by: "prefilter" });
       candidates.splice(i, 1);
       continue;
     }
@@ -348,7 +359,9 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
   const toJudge: { offer: LightOffer & { description: string | null }; outOfZone: boolean; gap: number }[] = [];
   for (const offer of (offers ?? []) as unknown as (LightOffer & { description: string | null })[]) {
     const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
-    if (gate.pass) toJudge.push({ offer, outOfZone: gate.outOfZone, gap: gate.experienceGap });
+    const language = gate.pass ? missingLanguage(`${offer.title}\n${offer.description ?? ""}`, [...criteria.languages, ...(cv?.languages ?? [])]) : null;
+    if (language) rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: languageReason(language), scored_by: "prefilter" });
+    else if (gate.pass) toJudge.push({ offer, outOfZone: gate.outOfZone, gap: gate.experienceGap });
     else rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
   }
   if (toJudge.length > 0) {

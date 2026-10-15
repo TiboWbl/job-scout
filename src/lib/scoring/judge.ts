@@ -23,6 +23,11 @@ export type JudgeInput = {
   titleMatch?: boolean;
 };
 
+// The company's activity is shown on all its offers: a sentence about one posting's country or market
+// ("croissance marché Cambodge", written from "Cambodia Content Specialist") would be false on the others.
+const PLACES = /\b(cambodge|turquie|thailande|indonesie|japon|chine|coree|inde|bresil|mexique|argentine|portugal|espagne|italie|allemagne|pays-bas|belgique|suisse|royaume-uni|angleterre|irlande|suede|norvege|danemark|finlande|pologne|grece|roumanie|ukraine|russie|maroc|algerie|tunisie|egypte|nigeria|kenya|afrique du sud|australie|canada|etats-unis|usa|vietnam|philippines|malaisie|singapour|emirats|arabie|qatar|israel|balkans|scandinavie|pays nordiques|nordics|golfe|amerique latine|asie|europe de l'est)\b|\bmarches? (?:de |du |des |d')?[a-z]+ (?:local|locaux)\b|\bmarche (?:turc|cambodgien|japonais|bresilien|indonesien|thai|allemand|espagnol|italien|britannique|americain|asiatique)\b/;
+export const isCompanyWide = (activity: string) => !PLACES.test(activity.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""));
+
 const foldAccents = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 // Titles announcing a junior-level role.
 const JUNIOR = /\b(junior|jr|associate|graduate|entry[- ]level|debutant|jeune diplome)\b/;
@@ -236,7 +241,7 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "experience_demandee" : l'expérience minimale demandée, lue partout dans l'offre (profil recherché, must-haves, requirements, qualifications…), en 5 mots maximum (ex. « 3 ans et plus », « Première expérience acceptée »), sinon null.
 - "citation_experience" : la phrase exacte de l'offre, recopiée mot pour mot, qui indique cette expérience (ex. « 3+ years in product management »), sinon null.
 - "contrat" : le type de contrat proposé par l'offre, "cdi", "cdd", "stage", "alternance" ou "freelance", sinon null ; "citation_contrat" : la phrase exacte de l'offre qui l'indique, sinon null.
-- "activite_entreprise" : ce que l'entreprise fait concrètement, d'après l'offre : son produit ou service et pour qui, en 20 mots maximum (ex. « Application de suivi de rééducation pour les kinésithérapeutes et leurs patients »). Jamais de slogan, de promesse ni de valeurs ; null si l'offre ne le dit pas.
+- "activite_entreprise" : ce que l'entreprise fait concrètement, d'après l'offre : son produit ou service et pour qui, en 20 mots maximum (ex. « Application de suivi de rééducation pour les kinésithérapeutes et leurs patients »). L'entreprise dans son ensemble, jamais ce poste : pas de pays, de ville, de marché, d'équipe ni de projet propre à l'offre (il s'affiche sur toutes ses offres). Jamais de slogan, de promesse ni de valeurs ; null si l'offre ne le dit pas.
 - "competences" : 3 à 6 compétences demandées par l'offre, chacune en 1 à 3 mots recopiés de l'offre, avec "type" : "outil" (logiciel, langage), "methode" (méthode, pratique, domaine de savoir-faire), "savoir_etre" (qualité humaine) ou "langue". Rien qui ne soit écrit dans l'offre.
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un : 0 à 2 éléments de 10 mots maximum.
@@ -394,7 +399,7 @@ export async function judgeBatch(
       experience_asked: experience.label,
       experience_years: experience.years,
       contract_found: verifiedContract(item.contrat, item.citation_contrat, input.description),
-      company_product: item.activite_entreprise && !input.excerpt ? plain(item.activite_entreprise).slice(0, 200) : null,
+      company_product: item.activite_entreprise && !input.excerpt && isCompanyWide(item.activite_entreprise) ? plain(item.activite_entreprise).slice(0, 200) : null,
       skills: input.excerpt ? null : checkedSkills(item.competences, input.description),
       seniority: input.excerpt ? null : seniority,
       score_interet: interet,
