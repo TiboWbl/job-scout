@@ -151,7 +151,9 @@ export async function collectBoard(db: SupabaseClient, board: Board & { id: stri
   const report: SourceReport = { source, seen: 0, created: 0, archived: 0 };
   try {
     const all = await fetchBoard(board, keep, wanted);
-    const offers = all.filter((o) => keep(o.places, o.remote));
+    // A board's offers belong to the company that owns the board, whatever name its feed shows
+    // (Yousign's Teamtailor feed is titled "Youtrust"): the favourite and its offers stay together.
+    const offers = all.filter((o) => keep(o.places, o.remote)).map((o) => ({ ...o, company: { ...o.company, name: board.name } }));
     report.seen = offers.length;
     report.created = await upsertOffers(db, offers);
     // The board lists every open position: what is no longer there has been filled or withdrawn.

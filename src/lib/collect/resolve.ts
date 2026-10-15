@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ATS_LIST, type Ats } from "./connectors/ats";
+import { ATS_LIST, fetchBoard, type Ats } from "./connectors/ats";
 import { slugGuesses } from "./discover";
 import { jobLinks } from "./connectors/site";
 import { fromHtmlPage, fromJsonLd } from "./jsonld";
@@ -172,7 +172,10 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry):
   let careersUrl: string | null = null;
   if (!board) {
     const [byName, bySite] = await Promise.all([probeName(entry.name ?? host!.split(".")[0]), site ? exploreSite(site) : null]);
-    board = bySite?.board ?? byName;
+    // A board guessed from the name alone may be a namesake ("psg" on Greenhouse is an Indian company):
+    // kept only if it lists at least one offer in France.
+    const guessed = byName && !bySite?.board ? await fetchBoard({ name, domain: null, ats: byName.ats, token: byName.token }).then((o) => (o.some((x) => x.places.some((p) => p.country === "FR") || (x.remote === "remote" && x.places.every((p) => !p.country))) ? byName : null), () => null) : byName;
+    board = bySite?.board ?? guessed;
     platform = board ? null : (bySite?.platform ?? null);
     careersUrl = bySite?.careersUrl ?? null;
   }
