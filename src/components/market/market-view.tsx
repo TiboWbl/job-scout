@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import { Criteria } from "@/lib/domain/criteria";
 import type { Insight, MarketInsights } from "@/lib/market/advice";
 import { marketPage } from "@/lib/market/view";
@@ -20,7 +21,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
       </div>
     );
   }
-  const { today: m, trend, since, insights } = page;
+  const { today: m, trend, since, insights, cvKnown } = page;
   // What "your market" covers: the role and the titles counted as the same job.
   const { data: profile } = await db.from("profiles").select("criteria").eq("id", userId).single();
   const variants = (Criteria.safeParse(profile?.criteria).data?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
@@ -39,7 +40,20 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
         {base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
       </div>
 
-      {insights.coverage.of > 0 && <CvAgainstMarket insights={insights} mine={m.mine} />}
+      {insights.coverage.of > 0 &&
+        (cvKnown ? (
+          <CvAgainstMarket insights={insights} mine={m.mine} />
+        ) : (
+          <section className="mt-8 rounded-[22px] border border-line bg-surface p-5 md:p-7">
+            <h2 className="font-display text-2xl font-bold">Ton CV face au marché</h2>
+            <p className="mt-1 max-w-2xl text-[15px] text-muted">
+              Pour savoir lesquelles des {insights.coverage.of} compétences les plus demandées ton CV cite déjà, analyse-le : Scout y relève chaque compétence mot pour mot.
+            </p>
+            <Link href={`${base}/cv`} className="btn-soft mt-4 inline-flex">
+              Analyser mon CV
+            </Link>
+          </section>
+        ))}
 
       <section className="mt-4 rounded-[22px] border border-line bg-surface p-5 md:p-7">
         <h2 className="font-display text-2xl font-bold">Ce que demandent les offres</h2>

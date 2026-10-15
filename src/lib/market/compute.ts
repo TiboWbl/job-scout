@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Criteria } from "@/lib/domain/criteria";
 import { splitRequirements } from "@/lib/domain/requirements";
 import { isExcerptOnly } from "@/lib/collect/complete";
+import { slug } from "@/lib/collect/normalize";
 import type { Skill } from "@/lib/scoring/judge";
 import { namesRole, titleRelevance } from "@/lib/scoring/relevance";
 import { skillDemand, skillText, spellings, type SkillStat } from "@/lib/views/skills";
@@ -12,12 +13,16 @@ import { skillDemand, skillText, spellings, type SkillStat } from "@/lib/views/s
 
 const DAY = 86_400_000;
 const MAX_BASE = 1500;
+// The way the figures are counted. Pictures counted another way are never compared with today's:
+// a change of method is not a change of the market.
+export const MARKET_METHOD = 2;
 
 export type Range = { low: number; median: number; high: number; n: number };
 export type MarketSkill = SkillStat & { mine: number };
 export type MarketCompany = { id: string; name: string; domain: string | null; brand: string | null; recent: number; before: number };
 export type MarketData = {
   day: string;
+  method?: number;
   role: string;
   total: number;
   newThisWeek: number;
@@ -93,11 +98,16 @@ const INTERMEDIARY = /collective\.?work|free-?work|malt\b|creme de la creme|free
 // When the offer went out: the posting's own date when it gives one, else the day Scout first saw it.
 const postedAt = (r: Row) => Date.parse(r.published_at ?? r.first_seen_at);
 
-const JUNIOR_TITLE = /\b(junior|jr|debutant|jeune diplome|graduate|entry[- ]level|stagiaire|alternan)/;
+// What the offer itself displays: "junior" in its title. Internships and work-study are not junior jobs.
+const JUNIOR_TITLE = /\b(junior|jr|debutant|debutante|jeune diplome|graduate|entry[- ]level)\b/;
+const STUDENT = /\b(stage|stagiaire|intern|internship|alternance|alternant|alternante|apprenti|apprentie|apprentice|apprentissage|work[- ]study)\b/;
+const isStudent = (r: Row) => r.contract === "stage" || r.contract === "alternance" || STUDENT.test(fold(r.title));
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // "45 à 55 k€ brut par an" → 50; "1 867 € à 2 134 € par mois" → 24. Thousands of euros a year.
 export function salaryMidpoint(text: string): number | null {
+  // The figures are gross a year: a net pay would read about 22 % too low.
+  if (/\bnet\b/.test(text)) return null;
   const monthly = /par mois/.test(text);
   const values = [...text.matchAll(/(\d{1,3}(?:[  ]\d{3})*|\d+)(?:,\d+)?/g)].map((m) => Number(m[1].replace(/[  ]/g, "")));
   if (values.length === 0) return null;
@@ -119,6 +129,7 @@ export async function computeMarket(
   { at = new Date(), cvText = "", cvSkills = [], selection = [] }: { at?: Date; cvText?: string; cvSkills?: string[]; selection?: string[] } = {},
 ): Promise<MarketData> {
   const t = at.getTime();
+  const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
   const roleOnly = { ...criteria, bridgeRoles: [] };
   const relevance = new Map<string, number>();
   const isRole = (title: string) => {
@@ -131,10 +142,18 @@ export async function computeMarket(
   // Only offers read in full count: an engine's 500-character excerpt would skew every figure.
   // The role itself: named in full by the title, or in part with the rest in the text ("Chef de projet"
   // saying "digital"); one shared word alone ("Designer") is another job.
-  const base = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && namesRole(r.title, texts.get(r.id) ?? "", roleOnly));
+  const named = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && namesRole(r.title, texts.get(r.id) ?? "", roleOnly));
+  // One posting, one count: the same text found twice (an engine's copy of the employer's page, the
+  // same job posted twice) would weigh double in every share. The employer's own page is kept.
+  const byText = new Map<string, Row>();
+  for (const r of [...named].sort((a, b) => Number(ENGINE_ONLY(a)) - Number(ENGINE_ONLY(b)))) {
+    const k = slug(texts.get(r.id) ?? "").slice(0, 3000);
+    if (!byText.has(k)) byText.set(k, r);
+  }
+  const base = named.filter((r) => byText.get(slug(texts.get(r.id) ?? "").slice(0, 3000)) === r);
   const read = base;
   const known = new Set(base.map((r) => r.id));
-  const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
+  const copies = new Set(named.filter((r) => !known.has(r.id)).map((r) => r.id));
 
   const descriptions = read.map((r) => texts.get(r.id) ?? "").filter((d) => d.length > 300);
   const withText = read.filter((r) => (texts.get(r.id) ?? "").length > 300);
@@ -148,7 +167,7 @@ export async function computeMarket(
     return { ...s, mine: mineTexts.filter((x) => forms.some((f) => x.includes(` ${f} `))).length };
   });
 
-  const junior = base.filter((r) => JUNIOR_TITLE.test(fold(r.title)) || r.experience_level === "junior");
+  const junior = base.filter((r) => JUNIOR_TITLE.test(fold(r.title)) && !isStudent(r));
   const bucket = (r: Row) => {
     const y = r.experience_min_years;
     if (y === null || y === undefined) return r.experience_level === "experienced" ? "Expérimenté, sans durée" : "Non précisée";
@@ -161,8 +180,10 @@ export async function computeMarket(
   const counts = new Map<string, number>();
   for (const r of base) counts.set(bucket(r), (counts.get(bucket(r)) ?? 0) + 1);
 
-  const pay = base.map((r) => ({ r, k: r.salary_text ? salaryMidpoint(r.salary_text) : null })).filter((x): x is { r: Row; k: number } => x.k !== null);
-  const isJunior = (r: Row) => (r.experience_min_years ?? 99) <= 1 || junior.includes(r);
+  // A job's pay only: an internship allowance or a work-study wage is not a junior salary.
+  const pay = base.filter((r) => !isStudent(r)).map((r) => ({ r, k: r.salary_text ? salaryMidpoint(r.salary_text) : null })).filter((x): x is { r: Row; k: number } => x.k !== null);
+  // Open to a beginner: at most a year asked, or no number and a junior title or wording.
+  const isJunior = (r: Row) => (r.experience_min_years !== null ? r.experience_min_years <= 1 : junior.includes(r) || r.experience_level === "junior");
 
   const remote = { remote: 0, hybrid: 0, onsite: 0, unknown: 0 };
   for (const r of base) remote[(["remote", "hybrid", "onsite"].includes(r.remote) ? r.remote : "unknown") as keyof typeof remote]++;
@@ -175,7 +196,7 @@ export async function computeMarket(
   const before = new Map<string, number>();
   for (const r of set.rows) {
     // Offers of the base, or older ones whose title names the role in full.
-    if (!known.has(r.id) && (ENGINE_ONLY(r) || !isRole(r.title) || relevance.get(r.title)! < 7.5)) continue;
+    if (copies.has(r.id) || (!known.has(r.id) && (ENGINE_ONLY(r) || !isRole(r.title) || relevance.get(r.title)! < 7.5))) continue;
     const seen = postedAt(r);
     if (seen <= t && seen > t - 30 * DAY) recent.set(r.company_id, (recent.get(r.company_id) ?? 0) + 1);
     else if (seen <= t - 30 * DAY && seen > t - 60 * DAY) before.set(r.company_id, (before.get(r.company_id) ?? 0) + 1);
@@ -186,6 +207,7 @@ export async function computeMarket(
 
   return {
     day: at.toISOString().slice(0, 10),
+    method: MARKET_METHOD,
     role: criteria.targetRoles[0] ?? "",
     total: base.length,
     newThisWeek: base.filter((r) => postedAt(r) > t - 7 * DAY && postedAt(r) <= t).length,

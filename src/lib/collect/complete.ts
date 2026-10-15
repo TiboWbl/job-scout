@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { detectContract, detectExperience, detectExperienceLevel, detectRemote, detectSalary } from "@/lib/domain/signals";
 import { fromUrl } from "./manual";
+import { slug } from "./normalize";
 
 // Offers from search engines (Adzuna, Jooble) carry a 500-character excerpt. Judging or showing an
 // excerpt as if it were the offer misleads: Scout reads the full posting behind the link once, and
@@ -94,6 +95,41 @@ export async function verifyEngineOffers(db: SupabaseClient, { limit = 1000, eve
     }),
   );
   return tally;
+}
+
+// The same posting found by an engine and on the employer's own page, under two spellings of the
+// company ("Mistral AI", "mistral.ai"), escapes the usual key: same title and same full text make it
+// one offer. The engine copy is archived, unless someone follows it in their applications.
+export const sameText = (a: string, b: string) => slug(a).slice(0, 3000) === slug(b).slice(0, 3000);
+
+async function activeRows(db: SupabaseClient, engines: boolean) {
+  const rows: { id: string; title: string; sources: string[] }[] = [];
+  for (let f = 0; ; f += 1000) {
+    const q = db.from("offers").select("id, title, sources").is("archived_at", null).order("id").range(f, f + 999);
+    const { data } = await (engines ? q.containedBy("sources", ENGINES) : q);
+    rows.push(...((data ?? []) as typeof rows));
+    if (!data || data.length < 1000) break;
+  }
+  return engines ? rows : rows.filter((r) => !r.sources.every((s) => ENGINES.includes(s)));
+}
+
+export async function mergeEngineCopies(db: SupabaseClient, { dryRun = false } = {}) {
+  const [copies, own] = await Promise.all([activeRows(db, true), activeRows(db, false)]);
+  const byTitle = new Map<string, string[]>();
+  for (const o of own) byTitle.set(slug(o.title), [...(byTitle.get(slug(o.title)) ?? []), o.id]);
+  const pairs = copies.flatMap((c) => (byTitle.get(slug(c.title)) ?? []).map((id) => [c.id, id] as const));
+  const texts = new Map<string, string>();
+  const ids = [...new Set(pairs.flat())];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data } = await db.from("offers").select("id, description").in("id", ids.slice(i, i + 100));
+    for (const o of data ?? []) texts.set(o.id as string, (o.description as string | null) ?? "");
+  }
+  const same = [...new Set(pairs.filter(([c, o]) => (texts.get(c) ?? "").length >= EXCERPT_LENGTH && sameText(texts.get(c)!, texts.get(o) ?? "")).map(([c]) => c))];
+  const { data: followed } = same.length ? await db.from("applications").select("offer_id").in("offer_id", same) : { data: [] };
+  const keep = new Set((followed ?? []).map((a) => a.offer_id as string));
+  const merged = same.filter((id) => !keep.has(id));
+  if (!dryRun && merged.length) await db.from("offers").update({ archived_at: new Date().toISOString() }).in("id", merged);
+  return merged.length;
 }
 
 // Needs the service role: offers are shared, users cannot write them.

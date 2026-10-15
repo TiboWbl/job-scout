@@ -8,7 +8,7 @@ import { detectExperience, detectExperienceLevel, detectRemote, detectSalary } f
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
-import { verifyEngineOffers } from "./complete";
+import { mergeEngineCopies, verifyEngineOffers } from "./complete";
 import { fillCovers, fillOfferImages } from "./cover";
 import { enrichCompanies, guessDomains } from "./enrich";
 import { companyKey, offerKey } from "./normalize";
@@ -80,6 +80,8 @@ export async function runCollection(db: SupabaseClient, { log = () => {}, budget
     // Search engines keep closed postings: their offers are checked again, closed ones archived.
     const checked = await verifyEngineOffers(db).catch(() => null);
     if (checked) log(`moteurs revérifiés : ${checked.gone} fermées, ${checked.full} complétées, ${checked.excerpt} extraits illisibles, ${checked.alive} toujours en ligne`);
+    const merged = await mergeEngineCopies(db).catch(() => null);
+    if (merged) log(`copies de moteurs fusionnées : ${merged}`);
     await archiveStaleEngineOffers(db);
     await purgeOldDescriptions(db);
   }

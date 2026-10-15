@@ -20,7 +20,8 @@ const insight = (s: MarketSkill): Insight => ({ name: skillLabel(s.name), share:
 export function marketInsights(m: MarketData): MarketInsights {
   // The skills that weigh in this market: tools and methods asked by at least 5 % of the offers,
   // and the languages asked by at least 15 %.
-  const hard = m.skills.filter((s) => ((s.kind === "outil" || s.kind === "methode") && s.share >= 5) || (s.kind === "langue" && s.share >= 15)).sort((a, b) => b.share - a.share);
+  // At least 3 offers each: on a small market, two offers would already make 5 %.
+  const hard = m.skills.filter((s) => s.count >= 3 && (((s.kind === "outil" || s.kind === "methode") && s.share >= 5) || (s.kind === "langue" && s.share >= 15))).sort((a, b) => b.share - a.share);
   const top = hard.slice(0, TOP);
   const mostlyPlus = (s: MarketSkill) => s.count >= 10 && plusShare(s) >= 40;
   return {

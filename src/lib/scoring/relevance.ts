@@ -124,12 +124,23 @@ export function namesRole(title: string, description: string, criteria: Criteria
   const inTitle = new Set(tokens(title));
   const text = new Set(tokens(`${title} ${description}`));
   // Title parts: "Monteur vidéo - Paris", "Stage 2 mois - Assistant création de contenu".
+  // An abbreviation ("PM", "PO") counts spelled out ("Product Owner") or written in capitals, never as a
+  // time of day ("22h PM").
+  const acronym = (a: string) => {
+    const word = new RegExp(`\\b${a}\\b`, "i");
+    if (inTitle.has(a.toLowerCase()) && !word.test(title)) return true;
+    return new RegExp(`\\b${a.toUpperCase()}\\b`).test(title.replace(/\b\d{1,2}\s?h\s?\d{0,2}\s+(AM|PM)\b/gi, " "));
+  };
   const parts = title.split(/\s[-–—|:]\s|[(,|]/).map((part) => tokens(part));
   for (const p of [...criteria.targetRoles, ...criteria.titleVariants]) {
     const all = tokens(core(p));
     const distinctive = all.filter((t) => !GENERIC.has(t));
     const words = distinctive.length > 0 ? distinctive : all;
     if (words.length === 0) continue;
+    if (/^[A-Z]{2,4}$/.test(core(p).trim())) {
+      if (acronym(core(p).trim())) return true;
+      continue;
+    }
     const share = words.filter((t) => inTitle.has(t)).length / words.length;
     if (share >= 0.99 && (words.length >= 2 || all.every((t) => inTitle.has(t)))) return true;
     if (share < 0.5 || share >= 0.99 || !words.every((t) => text.has(t))) continue;

@@ -121,3 +121,17 @@ describe("un seul mot distinctif ne suffit pas", () => {
     expect(namesRole("Spécialiste vidéo (H/F)", "", criteria)).toBe(true);
   });
 });
+
+describe("abréviations", () => {
+  const criteria = Criteria.parse({ targetRoles: ["Product Manager"], titleVariants: ["PM", "PO"] });
+  it.each([
+    ["PM Cloud/Infra - CDI", true],
+    ["Growth PM (H/F)", true],
+    ["Proxy PO / Business analyste", true],
+    ["Product Owner Confirmé (H/F)", true],
+    ["Hôte d'accueil (H/F) - CDI 22h PM - 75016", false],
+    ["Responsable de rayon 14h-21h pm", false],
+  ] as const)("« %s » : %s", (title, expected) => {
+    expect(namesRole(title, "", criteria)).toBe(expected);
+  });
+});

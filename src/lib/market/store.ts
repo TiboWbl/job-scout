@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria } from "@/lib/domain/criteria";
-import { computeMarket, profileInputs, type MarketData, type MarketDataset } from "./compute";
+import { computeMarket, MARKET_METHOD, profileInputs, type MarketData, type MarketDataset } from "./compute";
 
 const DAY = 86_400_000;
 // The first day every source was in place: before it, the market looked smaller than it was.
@@ -24,8 +24,8 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
 
   const rows = [{ profile_id: profileId, day: today.day, data: today }];
 
-  // History once a week back to the start, for the days not kept yet.
-  const days = new Set(known.map((s) => s.day));
+  // History once a week back to the start, for the days not kept yet or counted another way.
+  const days = new Set(known.filter((s) => s.data.method === MARKET_METHOD).map((s) => s.day));
   const back: number[] = [];
   for (let t = Date.now() - 7 * DAY; new Date(t).toISOString().slice(0, 10) >= MARKET_START; t -= 7 * DAY) back.push(t);
   // The start itself, when the weekly steps miss it by more than three days.

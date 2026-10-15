@@ -4,10 +4,11 @@ import { useState } from "react";
 import type { MarketSkill } from "@/lib/market/compute";
 import { skillLabel } from "@/lib/views/skills";
 
+// No soft skills: "autonomie" or "organisation" are written about the company as often as asked of
+// the candidate, a count of the word would not say what the offers ask.
 const KINDS: [MarketSkill["kind"], string][] = [
   ["outil", "Outils"],
   ["methode", "Méthodes"],
-  ["savoir_etre", "Savoir-être"],
   ["langue", "Langues"],
 ];
 
