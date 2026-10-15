@@ -3,11 +3,12 @@ import type { HistoryRow, OfferOption } from "@/app/(app)/cv/cv-check";
 import type { Place } from "@/lib/domain/offer";
 import { placeLabel } from "@/lib/format";
 import type { Skill } from "@/lib/scoring/judge";
+import { marketTop } from "@/lib/market/view";
 
 // What the CV page needs, for the app and the demo alike: the saved analyses and the offers to target.
-export async function loadCvPage(supabase: SupabaseClient, userId: string): Promise<{ history: HistoryRow[]; offers: OfferOption[] }> {
+export async function loadCvPage(supabase: SupabaseClient, userId: string): Promise<{ history: HistoryRow[]; offers: OfferOption[]; marketKeywords: string[] }> {
   const { data: profile } = await supabase.from("profiles").select("criteria_version, cv_summary, cv_skills").eq("id", userId).single();
-  const [history, applications, scored] = await Promise.all([
+  const [history, applications, scored, top] = await Promise.all([
     supabase.from("cv_analyses").select("id, created_at, filename, total, result, suggestions, comparison, recruiter").eq("user_id", userId).order("created_at", { ascending: false }).limit(12),
     supabase.from("applications").select("offer_id").eq("user_id", userId).not("offer_id", "is", null),
     supabase
@@ -18,6 +19,8 @@ export async function loadCvPage(supabase: SupabaseClient, userId: string): Prom
       .neq("level", "ecartee")
       .order("score_interet", { ascending: false })
       .limit(400),
+    // The twelve skills of Mon marché: an analysis made against another list says so.
+    marketTop(supabase, userId),
   ]);
   // Every offer of the selection can be compared; those in the tracking come first.
   const tracked = new Set((applications.data ?? []).map((a) => a.offer_id as string));
@@ -26,5 +29,5 @@ export async function loadCvPage(supabase: SupabaseClient, userId: string): Prom
     .filter((r) => r.offer && !r.offer.archived_at)
     .map((r) => ({ id: r.offer!.id, title: r.offer!.title, company: r.offer!.company?.name ?? "", place: placeLabel(r.offer!.places, r.offer!.location_raw), level: r.level, tracked: tracked.has(r.offer!.id) }))
     .sort((a, b) => Number(b.tracked) - Number(a.tracked));
-  return { history: (history.data ?? []) as HistoryRow[], offers: options };
+  return { history: (history.data ?? []) as HistoryRow[], offers: options, marketKeywords: top.map((t) => t.name) };
 }

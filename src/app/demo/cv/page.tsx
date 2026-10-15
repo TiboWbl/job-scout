@@ -7,6 +7,6 @@ export const metadata = { title: "Mon CV (démo)" };
 // The same page as in the app, on Camille's fictional CV: her saved analysis opens at once.
 export default async function DemoCvPage() {
   const { db, userId } = await demoContext();
-  const { history, offers } = await loadCvPage(db, userId);
-  return <CvCheck history={history} offers={offers} initialOfferId={null} demo />;
+  const { history, offers, marketKeywords } = await loadCvPage(db, userId);
+  return <CvCheck history={history} offers={offers} marketKeywords={marketKeywords} initialOfferId={null} demo />;
 }

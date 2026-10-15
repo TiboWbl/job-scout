@@ -5,7 +5,7 @@ import { skillLabel } from "@/lib/views/skills";
 // model): what the most asked skills are, which the CV shows, which to add if true, which are only
 // a plus. Every number is the one Scout counted.
 
-export type Insight = { name: string; share: number; count: number; mine: number; plusShare: number };
+export type Insight = { name: string; key: string; share: number; count: number; mine: number; plusShare: number };
 export type MarketInsights = {
   coverage: { have: number; of: number };
   add: Insight[];
@@ -15,7 +15,7 @@ export type MarketInsights = {
 
 const TOP = 12;
 const plusShare = (s: MarketSkill) => (s.count ? Math.round((100 * (s.bonus ?? 0)) / s.count) : 0);
-const insight = (s: MarketSkill): Insight => ({ name: skillLabel(s.name), share: s.share, count: s.count, mine: s.mine, plusShare: plusShare(s) });
+const insight = (s: MarketSkill): Insight => ({ name: skillLabel(s.name), key: s.key ?? "", share: s.share, count: s.count, mine: s.mine, plusShare: plusShare(s) });
 
 export function marketInsights(m: MarketData): MarketInsights {
   // The skills that weigh in this market: tools and methods asked by at least 5 % of the offers,

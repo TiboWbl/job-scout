@@ -7,6 +7,6 @@ export const metadata = { title: "Mon CV" };
 export default async function CvPage({ searchParams }: { searchParams: Promise<{ offre?: string }> }) {
   const { offre } = await searchParams;
   const { supabase, user } = await getUser();
-  const { history, offers } = await loadCvPage(supabase, user!.id);
-  return <CvCheck history={history} offers={offers} initialOfferId={offre ?? null} />;
+  const { history, offers, marketKeywords } = await loadCvPage(supabase, user!.id);
+  return <CvCheck history={history} offers={offers} marketKeywords={marketKeywords} initialOfferId={offre ?? null} />;
 }

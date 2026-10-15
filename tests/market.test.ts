@@ -96,3 +96,23 @@ describe("salaire annuel", () => {
     expect(salaryMidpoint(text)).toBe(expected);
   });
 });
+
+describe("Mon CV et Mon marché disent la même chose", () => {
+  it("la grille du CV reprend les compétences du marché et leur verdict", async () => {
+    const { scoreCv } = await import("@/lib/cv/ats");
+    const { inCvCheck } = await import("@/lib/views/skills");
+    const cv = "Expérience\nPiloté la roadmap produit et le backlog, en méthode agile.\nCompétences\nSQL";
+    const top = [
+      { name: "Roadmap", key: "roadmap" },
+      { name: "Vision produit", key: "vision produit" },
+      { name: "Backlog", key: "backlog" },
+    ];
+    const has = inCvCheck(cv, []);
+    const result = scoreCv({ text: cv, layout: { pages: 1, columnRatio: 0, spacedTitles: 0 }, filename: "cv.pdf", sizeBytes: 100_000 }, { expected: top.map((t) => t.name), present: top.filter((t) => has(t.key)).map((t) => t.name) });
+    const check = result.categories.flatMap((c) => c.checks).find((c) => c.label.startsWith("Mots-clés"))!;
+    // "vision" and "produit" are both in the CV, but not the phrase "vision produit": absent, as in Mon marché.
+    expect(check.label).toBe("Mots-clés du métier visé (2/3)");
+    expect(check.fix).toContain("Vision produit");
+    expect(result.keywords).toEqual(["Roadmap", "Vision produit", "Backlog"]);
+  });
+});

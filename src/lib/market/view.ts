@@ -9,6 +9,14 @@ const DAY = 86_400_000;
 // `cvKnown`: the CV's own words are known (found word for word in it), so it can be compared.
 export type MarketPage = { today: MarketData; since: string | null; trend: Record<string, number>; insights: MarketInsights; cvKnown: boolean };
 
+// The twelve skills most asked in the person's market, most asked first: the same list Mon CV checks
+// the CV against, so the two pages never disagree. Empty when the market cannot be computed.
+export async function marketTop(db: SupabaseClient, userId: string): Promise<{ name: string; key: string }[]> {
+  const page = await marketPage(db, userId).catch(() => null);
+  if (!page) return [];
+  return [...page.insights.show, ...page.insights.add].sort((a, b) => b.share - a.share).map((i) => ({ name: i.name, key: i.key }));
+}
+
 // The latest picture, compared with the one about a week before (or the oldest kept). The very first
 // visit computes it on the spot; the daily job keeps it fresh afterwards.
 export async function marketPage(db: SupabaseClient, userId: string): Promise<MarketPage | null> {

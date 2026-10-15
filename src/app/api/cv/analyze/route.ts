@@ -3,7 +3,8 @@ import { z } from "zod";
 import { badRequest, requireUser } from "@/lib/api";
 import { compareKeywords, scoreCv } from "@/lib/cv/ats";
 import { fold, KEYWORDS_SYSTEM, readAsRecruiter, strings, type Recruiter, type Suggestion } from "@/lib/cv/recruiter";
-import { cvSkillsFrom } from "@/lib/views/skills";
+import { cvSkillsFrom, inCvCheck } from "@/lib/views/skills";
+import { marketTop } from "@/lib/market/view";
 import { Criteria } from "@/lib/domain/criteria";
 import { getLlm, LLM_UNAVAILABLE_MESSAGE, LlmUnavailableError } from "@/lib/llm";
 import { redactPersonalData } from "@/lib/privacy/redact";
@@ -41,13 +42,20 @@ export async function POST(request: Request) {
   try {
     const llm = getLlm();
     const roles = [...criteria.targetRoles, ...criteria.titleVariants.slice(0, 4)].join(", ") || "le métier de la personne";
+    // The role's keywords are the twelve skills Mon marché counted in the offers, checked in the CV the
+    // same way: the two pages give the same list and the same verdict. The model's guess is only a
+    // fallback, when no market can be computed yet.
+    const top = await marketTop(supabase, user.id);
+    const has = inCvCheck(text, []);
+    let keywords = top.map((t) => t.name);
+    const present = top.length ? top.filter((t) => has(t.key)).map((t) => t.name) : undefined;
     const cached = profile?.cv_keywords as { roles?: string; keywords?: string[] } | null;
-    let keywords = cached?.roles === roles ? (cached.keywords ?? []) : [];
+    if (keywords.length === 0 && cached?.roles === roles) keywords = cached.keywords ?? [];
     if (keywords.length === 0) {
       keywords = strings(((await llm.json({ system: KEYWORDS_SYSTEM, user: `Métier visé : ${roles}`, tier: "fast" })) as { mots_cles?: unknown }).mots_cles).slice(0, 12);
       if (keywords.length) await supabase.from("profiles").update({ cv_keywords: { roles, keywords } }).eq("id", user.id);
     }
-    const result = scoreCv({ text, layout, filename, sizeBytes }, { expected: keywords });
+    const result = scoreCv({ text, layout, filename, sizeBytes }, { expected: keywords, present });
 
     const { data: offer } = offerId ? await supabase.from("offers").select("title, description, company:companies(name)").eq("id", offerId).single() : { data: null };
     const company = (offer?.company as unknown as { name: string } | null)?.name ?? "";
@@ -68,7 +76,7 @@ export async function POST(request: Request) {
     // Which skills asked by the person's offers this CV mentions: kept (the CV itself is not).
     const { data: asked } = await supabase.from("offer_scores").select("offer:offers(skills)").eq("user_id", user.id).eq("scored_by", "llm").limit(1500);
     const names = ((asked ?? []) as unknown as { offer: { skills: { name: string }[] | null } | null }[]).flatMap((r) => (r.offer?.skills ?? []).map((sk) => sk.name));
-    await supabase.from("profiles").update({ cv_skills: cvSkillsFrom(text, names) }).eq("id", user.id);
+    await supabase.from("profiles").update({ cv_skills: cvSkillsFrom(text, [...names, ...top.map((t) => t.name)]) }).eq("id", user.id);
 
     // Kept to be read again later: the grid, the fixes, the rewrites and the comparison, never the CV itself.
     const { data: saved } = await supabase

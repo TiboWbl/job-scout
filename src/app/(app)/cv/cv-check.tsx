@@ -23,7 +23,7 @@ const tone = (ratio: number) => (ratio >= 0.8 ? "bg-success" : ratio >= 0.5 ? "b
 const date = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
 // `demo`: the public demo, on Camille's fictional CV. Same page; analysing and deleting need an account.
-export function CvCheck({ history, offers, initialOfferId, demo = false }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demo?: boolean }) {
+export function CvCheck({ history, offers, initialOfferId, demo = false, marketKeywords = [] }: { history: HistoryRow[]; offers: OfferOption[]; initialOfferId: string | null; demo?: boolean; marketKeywords?: string[] }) {
   const base = demo ? "/demo" : "";
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -131,7 +131,7 @@ export function CvCheck({ history, offers, initialOfferId, demo = false }: { his
         </p>
       )}
 
-      {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} />}
+      {analysis && !busy && <Results analysis={analysis} pdfUrl={pdfUrl} marketKeywords={marketKeywords} />}
 
       <Link href={`${base}/marche`} className="mt-12 flex items-center justify-between gap-4 rounded-[22px] bg-violet-soft p-5 text-violet-ink transition-shadow hover:shadow-md md:p-6">
         <span>
@@ -180,14 +180,23 @@ export function CvCheck({ history, offers, initialOfferId, demo = false }: { his
   );
 }
 
-export function Results({ analysis, pdfUrl }: { analysis: Analysis; pdfUrl: string | null }) {
+export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: Analysis; pdfUrl: string | null; marketKeywords?: string[] }) {
   const { result, suggestions, comparison, recruiter, text } = analysis;
+  // The role's keywords are Mon marché's twelve skills: an analysis checked against another list says
+  // so, instead of disagreeing with Mon marché.
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((k) => b.some((x) => x.toLowerCase() === k.toLowerCase()));
+  const stale = marketKeywords.length > 0 && !same(result.keywords ?? [], marketKeywords);
   return (
     <div className="mt-8 space-y-6">
       <p className="text-sm text-muted">
         {analysis.filename || "Ton CV"}
         {analysis.createdAt ? ` · analysé le ${date(analysis.createdAt)}` : ""}
       </p>
+      {stale && (
+        <p className="rounded-2xl bg-peach-soft px-4 py-3 text-[14.5px] text-peach-ink">
+          <span className="font-semibold">Cette analyse ne compare pas ton CV aux compétences actuelles de ton marché.</span> Les mots-clés du métier sont désormais les 12 compétences les plus demandées dans « Mon marché ». Relance l&apos;analyse pour avoir la même liste sur les deux pages.
+        </p>
+      )}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_1fr]">
         <div className="rounded-[22px] bg-violet-soft p-6 text-violet-ink">
           <p className="font-display text-6xl font-extrabold tabular-nums">{result.total}</p>

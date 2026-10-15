@@ -16,7 +16,8 @@ export type CvInput = { text: string; layout: Layout; filename: string; sizeByte
 // point brings, so a good CV knows why it works.
 export type Check = { ok: boolean; label: string; points: number; max: number; fix?: string; why?: string; good?: string };
 export type Category = { key: "lisibilite" | "structure" | "contenu" | "adequation"; label: string; score: number; max: number; checks: Check[] };
-export type AtsResult = { total: number; categories: Category[] };
+// `keywords`: the role's keywords checked (absent from analyses made before 16 October 2026).
+export type AtsResult = { total: number; categories: Category[]; keywords?: string[] };
 
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -79,7 +80,8 @@ const GOOD: [string, string][] = [
   ["Mots-clés du métier", "Tu emploies les mots des offres."],
 ];
 
-export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): AtsResult {
+// `present`: which expected keywords the CV holds, when decided by the caller (Mon marché's own check).
+export function scoreCv(input: CvInput, roleKeywords: { expected: string[]; present?: string[] }): AtsResult {
   const text = input.text;
   const n = fold(text);
   const words = text.split(/\s+/).filter(Boolean).length;
@@ -124,13 +126,13 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
     check(longLines <= 2, "Phrases courtes", 5, "Certaines lignes dépassent 35 mots : coupe-les en puces d'une ligne, une idée par puce.", longLines <= 2 ? 5 : longLines <= 5 ? 2 : 0),
   ];
 
-  // Adéquation (15): keywords of the role sought, proposed by the model, checked here in the text.
+  // Adéquation (15): the skills most asked in the person's market (Mon marché), checked in the text.
   const expected = roleKeywords.expected.slice(0, 12);
-  const present = expected.filter((k) => hasKeyword(n, k));
+  const present = roleKeywords.present ? expected.filter((k) => roleKeywords.present!.includes(k)) : expected.filter((k) => hasKeyword(n, k));
   const missing = expected.filter((k) => !present.includes(k));
   const adequacy = expected.length ? Math.round((15 * present.length) / expected.length) : 0;
   const adequation: Check[] = [
-    check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, 15, `Absents de ton CV : ${missing.join(", ")}. Ajoute ceux qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),
+    check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, 15, `Absents de ton CV : ${missing.join(", ")}. Ce sont les compétences les plus demandées dans ton marché : ajoute celles qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),
   ];
 
   const why = (label: string) => WHY.find(([start]) => label.startsWith(start))?.[1];
@@ -146,7 +148,7 @@ export function scoreCv(input: CvInput, roleKeywords: { expected: string[] }): A
     { key: "contenu", label: "Contenu", max: 25, checks: contenu, score: 0 },
     { key: "adequation", label: "Adéquation au métier", max: 15, checks: adequation, score: 0 },
   ].map((c) => ({ ...c, score: c.checks.reduce((s, k) => s + k.points, 0) })) as Category[];
-  return { total: categories.reduce((s, c) => s + c.score, 0), categories };
+  return { total: categories.reduce((s, c) => s + c.score, 0), categories, keywords: expected };
 }
 
 // A keyword is in the CV when each of its words is, as a whole word ("API" is not in "rapide"); a slash

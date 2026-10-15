@@ -137,7 +137,8 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
   const { getLlm } = await import("@/lib/llm");
   const { scoreCv } = await import("@/lib/cv/ats");
   const { KEYWORDS_SYSTEM, readAsRecruiter, strings } = await import("@/lib/cv/recruiter");
-  const { cvSkillsFrom } = await import("@/lib/views/skills");
+  const { cvSkillsFrom, inCvCheck } = await import("@/lib/views/skills");
+  const { marketTop } = await import("@/lib/market/view");
   const { redactPersonalData } = await import("@/lib/privacy/redact");
   const { writeKit, writePrep } = await import("@/lib/prep");
   const llm = getLlm();
@@ -147,8 +148,12 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
   const { count } = await db.from("cv_analyses").select("id", { count: "exact", head: true }).eq("user_id", userId);
   if (!count) {
     const roles = [...DEMO_CRITERIA.targetRoles, ...DEMO_CRITERIA.titleVariants.slice(0, 4)].join(", ");
-    const keywords = strings(((await llm.json({ system: KEYWORDS_SYSTEM, user: `Métier visé : ${roles}`, tier: "fast" })) as { mots_cles?: unknown }).mots_cles).slice(0, 12);
-    const result = scoreCv({ text: DEMO_CV_TEXT, layout: { pages: 1, columnRatio: 0.05, spacedTitles: 0 }, filename: "CV Camille Exemple - Product Manager.pdf", sizeBytes: 180_000 }, { expected: keywords });
+    // The same twelve skills as the demo's Mon marché, as for anyone.
+    const top = await marketTop(db, userId);
+    const has = inCvCheck(DEMO_CV_TEXT, []);
+    const keywords = top.length ? top.map((t) => t.name) : strings(((await llm.json({ system: KEYWORDS_SYSTEM, user: `Métier visé : ${roles}`, tier: "fast" })) as { mots_cles?: unknown }).mots_cles).slice(0, 12);
+    const present = top.length ? top.filter((t) => has(t.key)).map((t) => t.name) : undefined;
+    const result = scoreCv({ text: DEMO_CV_TEXT, layout: { pages: 1, columnRatio: 0.05, spacedTitles: 0 }, filename: "CV Camille Exemple - Product Manager.pdf", sizeBytes: 180_000 }, { expected: keywords, present });
     const { recruiter, suggestions } = await readAsRecruiter(llm, { text: DEMO_CV_TEXT, redacted: redactPersonalData(DEMO_CV_TEXT, ["Camille", "Exemple"]), roles, experienceYears: DEMO_CRITERIA.experienceYears, keywords, offer: null });
     await db.from("cv_analyses").insert({
       user_id: userId,
@@ -162,7 +167,7 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
     });
     const { data: asked } = await db.from("offer_scores").select("offer:offers(skills)").eq("user_id", userId).eq("scored_by", "llm").limit(1500);
     const names = ((asked ?? []) as unknown as { offer: { skills: { name: string }[] | null } | null }[]).flatMap((r) => (r.offer?.skills ?? []).map((s) => s.name));
-    await db.from("profiles").update({ cv_skills: cvSkillsFrom(DEMO_CV_TEXT, names) }).eq("id", userId);
+    await db.from("profiles").update({ cv_skills: cvSkillsFrom(DEMO_CV_TEXT, [...names, ...top.map((t) => t.name)]) }).eq("id", userId);
     done.push("analyse de CV");
   }
 
